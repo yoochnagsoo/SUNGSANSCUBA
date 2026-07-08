@@ -8,6 +8,7 @@ import Reviews from "@/components/home/Reviews";
 import ReservationCTA from "@/components/home/ReservationCTA";
 import InstagramSection from "@/components/home/InstagramSection";
 import QuickReservationBar from "@/components/home/QuickReservationBar";
+import FAQ from "@/components/home/FAQ";
 
 export default function Home() {
   return (
@@ -21,6 +22,7 @@ export default function Home() {
        <Gallery />
        <Reviews />
        <InstagramSection />
+       <FAQ />
        <ReservationCTA />
     </main>
   );
