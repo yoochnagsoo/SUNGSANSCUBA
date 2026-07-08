@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Camera, Globe, Mail, MapPin, Phone } from "lucide-react";
 
 export default function Footer() {
@@ -6,15 +7,17 @@ export default function Footer() {
       <div className="mx-auto max-w-7xl px-6 py-20">
         <div className="grid gap-12 lg:grid-cols-4">
           <div className="lg:col-span-2">
-            <div className="text-3xl font-black tracking-[0.18em]">
-              SUNGSAN
-            </div>
-            <div className="mt-1 text-3xl font-black tracking-[0.22em]">
-              SCUBA
-            </div>
-            <p className="mt-2 text-xs tracking-[0.45em] text-slate-400">
-              DIVE CENTER
-            </p>
+            <Link href="/" aria-label="Sungsan Scuba 메인으로 이동">
+              <div className="text-3xl font-black tracking-[0.18em]">
+                SUNGSAN
+              </div>
+              <div className="mt-1 text-3xl font-black tracking-[0.22em]">
+                SCUBA
+              </div>
+              <p className="mt-2 text-xs tracking-[0.45em] text-slate-400">
+                DIVE CENTER
+              </p>
+            </Link>
 
             <p className="mt-8 max-w-xl leading-8 text-slate-300">
               제주 성산의 아름다운 바다에서 체험다이빙, PADI 교육,
@@ -23,18 +26,22 @@ export default function Footer() {
 
             <div className="mt-8 flex gap-3">
               <a
-                href="#"
+                href="https://www.instagram.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram"
                 className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 transition hover:bg-sky-500"
               >
                 <Camera size={20} />
               </a>
 
-              <a
-                href="#"
+              <Link
+                href="/"
+                aria-label="Sungsan Scuba website"
                 className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 transition hover:bg-sky-500"
               >
-                <Globe  size={20} />
-              </a>
+                <Globe size={20} />
+              </Link>
             </div>
           </div>
 
@@ -47,15 +54,21 @@ export default function Footer() {
                 제주특별자치도 서귀포시 성산읍
               </p>
 
-              <p className="flex gap-3">
+              <a
+                href="tel:010-0000-0000"
+                className="flex gap-3 transition hover:text-sky-400"
+              >
                 <Phone className="shrink-0 text-sky-400" size={20} />
                 010-0000-0000
-              </p>
+              </a>
 
-              <p className="flex gap-3">
+              <a
+                href="mailto:info@sungsanscuba.com"
+                className="flex gap-3 transition hover:text-sky-400"
+              >
                 <Mail className="shrink-0 text-sky-400" size={20} />
                 info@sungsanscuba.com
-              </p>
+              </a>
             </div>
           </div>
 
@@ -63,21 +76,26 @@ export default function Footer() {
             <h3 className="mb-6 text-lg font-black">MENU</h3>
 
             <div className="grid gap-3 text-slate-300">
-              <a href="/about" className="hover:text-sky-400">
+              <Link href="/about" className="transition hover:text-sky-400">
                 센터소개
-              </a>
-              <a href="/destinations" className="hover:text-sky-400">
-                다이빙 포인트
-              </a>
-              <a href="/courses" className="hover:text-sky-400">
+              </Link>
+
+              
+
+              <Link href="/padi" className="transition hover:text-sky-400">
                 PADI 교육
-              </a>
-              <a href="/gallery" className="hover:text-sky-400">
+              </Link>
+
+              <Link href="/gallery" className="transition hover:text-sky-400">
                 갤러리
-              </a>
-              <a href="/reservation" className="hover:text-sky-400">
+              </Link>
+
+              <Link
+                href="/reservation"
+                className="transition hover:text-sky-400"
+              >
                 예약하기
-              </a>
+              </Link>
             </div>
           </div>
         </div>
