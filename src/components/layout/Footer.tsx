@@ -1,4 +1,4 @@
-import { Facebook, Instagram, Mail, MapPin, Phone } from "lucide-react";
+import { Camera, Globe, Mail, MapPin, Phone } from "lucide-react";
 
 export default function Footer() {
   return (
@@ -26,14 +26,14 @@ export default function Footer() {
                 href="#"
                 className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 transition hover:bg-sky-500"
               >
-                <Instagram size={20} />
+                <Camera size={20} />
               </a>
 
               <a
                 href="#"
                 className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 transition hover:bg-sky-500"
               >
-                <Facebook size={20} />
+                <Globe  size={20} />
               </a>
             </div>
           </div>
