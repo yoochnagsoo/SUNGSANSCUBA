@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import {
@@ -11,6 +11,14 @@ import {
 } from "@/lib/programs";
 
 export default function ReservationPage() {
+  return (
+    <Suspense fallback={<ReservationPageLoading />}>
+      <ReservationPageContent />
+    </Suspense>
+  );
+}
+
+function ReservationPageContent() {
   const searchParams = useSearchParams();
 
   const [name, setName] = useState("");
@@ -29,12 +37,24 @@ export default function ReservationPage() {
 
   useEffect(() => {
     const programParam = searchParams.get("program");
+    const dateParam = searchParams.get("reservationDate");
+    const peopleParam = searchParams.get("people");
 
-    if (!programParam) {
-      return;
+    if (programParam) {
+      setProgram(normalizeProgramValue(programParam));
     }
 
-    setProgram(normalizeProgramValue(programParam));
+    if (dateParam) {
+      setReservationDate(dateParam);
+    }
+
+    if (peopleParam) {
+      const parsedPeople = Number(peopleParam);
+
+      if (!Number.isNaN(parsedPeople) && parsedPeople >= 1) {
+        setPeople(parsedPeople);
+      }
+    }
   }, [searchParams]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -49,6 +69,7 @@ export default function ReservationPage() {
       const trimmedPhone = phone.trim();
       const trimmedEmail = email.trim();
       const trimmedReservationDate = reservationDate.trim();
+      const trimmedMessage = message.trim();
 
       if (!trimmedName) {
         throw new Error("이름을 입력해주세요.");
@@ -82,7 +103,7 @@ export default function ReservationPage() {
           program,
           reservationDate: trimmedReservationDate,
           people,
-          message,
+          message: trimmedMessage,
         }),
       });
 
@@ -167,7 +188,10 @@ export default function ReservationPage() {
 
             <div className="mt-9 grid gap-3 sm:grid-cols-3">
               <HeroBadge title="소규모 케어" description="강사 배정 기준 운영" />
-              <HeroBadge title="성산 바다" description="제주 동쪽 다이빙 포인트" />
+              <HeroBadge
+                title="성산 바다"
+                description="제주 동쪽 다이빙 포인트"
+              />
               <HeroBadge title="확정 안내" description="이메일로 일정 발송" />
             </div>
           </div>
@@ -483,6 +507,19 @@ export default function ReservationPage() {
           </aside>
         </div>
       </section>
+    </main>
+  );
+}
+
+function ReservationPageLoading() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#061827] text-white">
+      <div className="rounded-3xl border border-white/10 bg-white/10 px-6 py-5 text-center shadow-2xl shadow-black/30 backdrop-blur-xl">
+        <p className="text-sm font-black uppercase tracking-[0.3em] text-cyan-200">
+          SUNG SAN SCUBA
+        </p>
+        <p className="mt-3 text-lg font-bold">예약 페이지를 불러오는 중...</p>
+      </div>
     </main>
   );
 }
