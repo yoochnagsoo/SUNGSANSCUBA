@@ -138,7 +138,7 @@ export default function DiscoverScubaPage() {
 
           <div className="relative h-[560px] overflow-hidden rounded-[40px] shadow-2xl">
             <Image
-              src="/images/about/about-01.jpg"
+              src="/images/about/briefing.jpg"
               alt="체험다이빙 브리핑"
               fill
               className="object-cover"
@@ -175,6 +175,135 @@ export default function DiscoverScubaPage() {
           </div>
         </div>
       </section>
+
+      <section className="bg-white py-28">
+  <div className="mx-auto max-w-7xl px-6">
+    <div className="mb-14 text-center">
+      <p className="mb-4 text-sm font-bold uppercase tracking-[0.45em] text-sky-500">
+        Price & Package
+      </p>
+
+      <h2 className="text-4xl font-black text-slate-950 md:text-6xl">
+        체험다이빙 패키지
+      </h2>
+
+      <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-500">
+        처음 다이빙을 시작하는 분들을 위해 장비, 교육, 강사 동행을 포함한
+        패키지로 진행됩니다.
+      </p>
+    </div>
+
+    <div className="grid gap-8 lg:grid-cols-3">
+      <div className="rounded-[36px] border border-slate-200 bg-white p-8 shadow-xl">
+        <p className="text-sm font-bold uppercase tracking-[0.25em] text-sky-500">
+          Premium
+        </p>
+
+        <h3 className="mt-4 text-3xl font-black text-slate-950">
+          체험다이빙 
+        </h3>
+
+        <p className="mt-4 leading-8 text-slate-500">
+          기본 브리핑과 장비 착용 후 강사와 함께 안전하게 바닷속을 경험합니다.
+        </p>
+
+        <div className="mt-8">
+          <span className="text-5xl font-black text-slate-950">₩99,000</span>
+          <span className="ml-2 text-slate-500">/ 1인</span>
+        </div>
+
+        <ul className="mt-8 space-y-4 text-slate-600">
+          <li>✓ 강사 1 : 체험객 2(최대)</li>
+          <li>✓ 장비 대여 포함</li>
+          <li>✓ 연인 또는 소아동반시</li>
+          <li>✓ 안전 브리핑 포함</li>
+          <li>✓ 전문 강사 동행</li>
+          <li>✓ 약 1~2시간 소요</li>
+          <li>✓ 샤워 시설 이용</li>
+        </ul>
+
+        <a
+          href="/reservation"
+          className="mt-10 inline-flex w-full justify-center rounded-full bg-sky-500 px-8 py-4 font-black text-white transition hover:bg-slate-950"
+        >
+          예약하기
+        </a>
+      </div>
+
+      <div className="relative rounded-[36px] border-2 border-sky-400 bg-slate-950 p-8 text-white shadow-2xl">
+        <div className="absolute right-8 top-8 rounded-full bg-sky-400 px-4 py-2 text-xs font-black text-slate-950">
+          추천
+        </div>
+
+        <p className="text-sm font-bold uppercase tracking-[0.25em] text-sky-300">
+          Basic
+        </p>
+
+        <h3 className="mt-4 text-3xl font-black">
+          체험다이빙 
+        </h3>
+
+        <p className="mt-4 leading-8 text-slate-300">
+          기본 브리핑과 장비 착용 후 강사와 함께 안전하게 바닷속을 경험합니다.
+        </p>
+
+        <div className="mt-8">
+          <span className="text-5xl font-black">₩69,000</span>
+          <span className="ml-2 text-slate-400">/ 1인</span>
+        </div>
+
+        <ul className="mt-8 space-y-4 text-slate-300">
+          <li>✓ 강사 1 : 체험객 4(최대)</li>
+          <li>✓ 장비 대여 포함</li>
+          <li>✓ 안전 브리핑 포함</li>
+          <li>✓ 전문 강사 동행</li>
+          <li>✓ 약 1~2시간 소요</li>
+          <li>✓ 샤워 시설 이용</li>
+        </ul>
+
+        <a
+          href="/reservation"
+          className="mt-10 inline-flex w-full justify-center rounded-full bg-sky-400 px-8 py-4 font-black text-slate-950 transition hover:bg-white"
+        >
+          추천 패키지 예약
+        </a>
+      </div>
+
+      <div className="rounded-[36px] border border-slate-200 bg-white p-8 shadow-xl">
+        <p className="text-sm font-bold uppercase tracking-[0.25em] text-sky-500">
+          Group
+        </p>
+
+        <h3 className="mt-4 text-3xl font-black text-slate-950">
+          단체 체험다이빙
+        </h3>
+
+        <p className="mt-4 leading-8 text-slate-500">
+          가족, 커플, 동호회, 기업 워크샵 등 단체 예약에 적합한 프로그램입니다.
+        </p>
+
+        <div className="mt-8">
+          <span className="text-5xl font-black text-slate-950">문의</span>
+          <span className="ml-2 text-slate-500">/ 단체</span>
+        </div>
+
+        <ul className="mt-8 space-y-4 text-slate-600">
+          <li>✓ 일정 맞춤 상담</li>
+          <li>✓ 단체 인원 조율</li>
+          <li>✓ 사진 촬영 옵션</li>
+          <li>✓ 프로그램 커스텀 가능</li>
+        </ul>
+
+        <a
+          href="/contact"
+          className="mt-10 inline-flex w-full justify-center rounded-full border border-slate-300 px-8 py-4 font-black text-slate-950 transition hover:bg-slate-950 hover:text-white"
+        >
+          단체 문의하기
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
 
       <section className="bg-slate-950 py-28 text-white">
         <div className="mx-auto grid max-w-7xl gap-16 px-6 lg:grid-cols-2">
