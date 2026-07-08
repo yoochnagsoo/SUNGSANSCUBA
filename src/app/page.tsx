@@ -9,6 +9,7 @@ import ReservationCTA from "@/components/home/ReservationCTA";
 import InstagramSection from "@/components/home/InstagramSection";
 import QuickReservationBar from "@/components/home/QuickReservationBar";
 import FAQ from "@/components/home/FAQ";
+import Footer from "@/components/layout/Footer";
 
 export default function Home() {
   return (
@@ -24,6 +25,7 @@ export default function Home() {
        <InstagramSection />
        <FAQ />
        <ReservationCTA />
+       <Footer />
     </main>
   );
 }
