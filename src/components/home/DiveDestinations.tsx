@@ -63,7 +63,7 @@ const destinations = [
   {
     name: "인공어초",
     en: "Munseom",
-    image: "/images/destinations/munseom.jpg",
+    image: "/images/destinations/munseom2.jpg",
     level: "Intermediate ~ Advanced",
     temperature: "18~28℃",
     visibility: "10~30m",

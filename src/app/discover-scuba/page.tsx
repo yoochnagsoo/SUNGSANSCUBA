@@ -305,6 +305,54 @@ export default function DiscoverScubaPage() {
   </div>
 </section>
 
+<section className="bg-slate-50 py-28">
+  <div className="mx-auto max-w-4xl px-6">
+    <div className="mb-14 text-center">
+      <p className="mb-4 text-sm font-bold uppercase tracking-[0.45em] text-sky-500">
+        FAQ
+      </p>
+
+      <h2 className="text-4xl font-black text-slate-950 md:text-6xl">
+        체험다이빙 자주 묻는 질문
+      </h2>
+    </div>
+
+    <div className="space-y-4">
+      {[
+        {
+          q: "수영을 못해도 가능한가요?",
+          a: "네, 가능합니다. 강사가 전 과정 동행하며 얕은 수심에서 천천히 적응한 뒤 진행합니다.",
+        },
+        {
+          q: "나이 제한이 있나요?",
+          a: "일반적으로 만 10세 이상부터 가능합니다. 미성년자는 보호자 동의가 필요합니다.",
+        },
+        {
+          q: "준비물은 무엇인가요?",
+          a: "수영복, 수건, 개인 세면도구 정도만 준비하시면 됩니다. 기본 장비는 센터에서 제공합니다.",
+        },
+        {
+          q: "날씨가 안 좋으면 어떻게 되나요?",
+          a: "안전을 최우선으로 판단하며, 기상 악화 시 일정 변경 또는 환불 규정에 따라 안내드립니다.",
+        },
+      ].map((faq) => (
+        <div
+          key={faq.q}
+          className="rounded-[28px] bg-white p-8 shadow-lg"
+        >
+          <h3 className="text-xl font-black text-slate-950">
+            {faq.q}
+          </h3>
+
+          <p className="mt-4 leading-8 text-slate-600">
+            {faq.a}
+          </p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
       <section className="bg-slate-950 py-28 text-white">
         <div className="mx-auto grid max-w-7xl gap-16 px-6 lg:grid-cols-2">
           <div>

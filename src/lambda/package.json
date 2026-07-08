@@ -1,0 +1,16 @@
+{
+  "name": "sungsan-scuba-api",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.731.1",
+    "@aws-sdk/lib-dynamodb": "^3.731.1"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.147",
+    "typescript": "^5.7.3"
+  }
+}
