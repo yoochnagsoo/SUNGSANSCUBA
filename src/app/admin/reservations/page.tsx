@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
+type StatusFilter = "ALL" | ReservationStatus;
 
 type Reservation = {
   id: string;
@@ -28,6 +29,14 @@ type ReservationsResponse = {
 };
 
 const statusLabels: Record<ReservationStatus, string> = {
+  PENDING: "대기",
+  CONFIRMED: "확정",
+  CANCELLED: "취소",
+  COMPLETED: "완료",
+};
+
+const statusFilterLabels: Record<StatusFilter, string> = {
+  ALL: "전체",
   PENDING: "대기",
   CONFIRMED: "확정",
   CANCELLED: "취소",
@@ -62,8 +71,24 @@ function getReservationDate(reservation: Reservation) {
   return reservation.reservationDate || reservation.date || "-";
 }
 
+function getDateSortValue(value?: string) {
+  if (!value || value === "-") {
+    return 0;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return 0;
+  }
+
+  return date.getTime();
+}
+
 export default function AdminReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [keyword, setKeyword] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -96,6 +121,57 @@ export default function AdminReservationsPage() {
     loadReservations();
   }, []);
 
+  const statusCounts = useMemo(() => {
+    return reservations.reduce<Record<StatusFilter, number>>(
+      (acc, reservation) => {
+        acc.ALL += 1;
+        acc[reservation.status] += 1;
+        return acc;
+      },
+      {
+        ALL: 0,
+        PENDING: 0,
+        CONFIRMED: 0,
+        CANCELLED: 0,
+        COMPLETED: 0,
+      }
+    );
+  }, [reservations]);
+
+  const filteredReservations = useMemo(() => {
+    const normalizedKeyword = keyword.trim().toLowerCase();
+
+    return reservations
+      .filter((reservation) => {
+        if (statusFilter !== "ALL" && reservation.status !== statusFilter) {
+          return false;
+        }
+
+        if (!normalizedKeyword) {
+          return true;
+        }
+
+        return (
+          reservation.name.toLowerCase().includes(normalizedKeyword) ||
+          reservation.phone.toLowerCase().includes(normalizedKeyword) ||
+          reservation.email.toLowerCase().includes(normalizedKeyword) ||
+          reservation.program.toLowerCase().includes(normalizedKeyword) ||
+          getReservationDate(reservation).toLowerCase().includes(normalizedKeyword)
+        );
+      })
+      .sort((a, b) => {
+        const dateCompare =
+          getDateSortValue(getReservationDate(a)) -
+          getDateSortValue(getReservationDate(b));
+
+        if (dateCompare !== 0) {
+          return dateCompare;
+        }
+
+        return b.createdAt.localeCompare(a.createdAt);
+      });
+  }, [reservations, statusFilter, keyword]);
+
   return (
     <main className="p-6 sm:p-8">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -125,21 +201,63 @@ export default function AdminReservationsPage() {
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 px-5 py-4">
-          <h2 className="text-base font-bold text-slate-900">
-            예약 목록{" "}
-            <span className="text-sm font-medium text-slate-500">
-              ({reservations.length}건)
-            </span>
-          </h2>
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">
+                예약 목록{" "}
+                <span className="text-sm font-medium text-slate-500">
+                  ({filteredReservations.length}건)
+                </span>
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                예약일자 빠른 순으로 정렬됩니다.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    "ALL",
+                    "PENDING",
+                    "CONFIRMED",
+                    "CANCELLED",
+                    "COMPLETED",
+                  ] as StatusFilter[]
+                ).map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => setStatusFilter(status)}
+                    className={`rounded-full px-3 py-2 text-xs font-bold ring-1 transition ${
+                      statusFilter === status
+                        ? "bg-slate-900 text-white ring-slate-900"
+                        : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    {statusFilterLabels[status]} {statusCounts[status]}
+                  </button>
+                ))}
+              </div>
+
+              <input
+                type="search"
+                value={keyword}
+                onChange={(event) => setKeyword(event.target.value)}
+                placeholder="이름, 연락처, 이메일, 프로그램 검색"
+                className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 lg:w-80"
+              />
+            </div>
+          </div>
         </div>
 
         {isLoading ? (
           <div className="p-8 text-sm text-slate-500">
             예약 목록을 불러오는 중입니다.
           </div>
-        ) : reservations.length === 0 ? (
+        ) : filteredReservations.length === 0 ? (
           <div className="p-8 text-sm text-slate-500">
-            아직 접수된 예약이 없습니다.
+            조건에 맞는 예약이 없습니다.
           </div>
         ) : (
           <>
@@ -172,7 +290,7 @@ export default function AdminReservationsPage() {
                 </thead>
 
                 <tbody className="divide-y divide-slate-100 bg-white">
-                  {reservations.map((reservation) => (
+                  {filteredReservations.map((reservation) => (
                     <tr key={reservation.id} className="hover:bg-slate-50">
                       <td className="px-5 py-4">
                         <div className="font-semibold text-slate-900">
@@ -227,7 +345,7 @@ export default function AdminReservationsPage() {
             </div>
 
             <div className="divide-y divide-slate-100 md:hidden">
-              {reservations.map((reservation) => (
+              {filteredReservations.map((reservation) => (
                 <Link
                   key={reservation.id}
                   href={`/admin/reservations/${reservation.id}`}
