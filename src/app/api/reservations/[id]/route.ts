@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getReservationRepository } from "@/lib/reservations/reservationRepository";
 import { sendEmail } from "@/lib/email/sesEmailService";
-import { customerReservationConfirmedEmail } from "@/lib/email/reservationEmailTemplates";
+import {
+  customerReservationCancelledEmail,
+  customerReservationConfirmedEmail,
+} from "@/lib/email/reservationEmailTemplates";
 import type { ReservationStatus } from "@/lib/reservations/types";
 
 type RouteContext = {
@@ -92,13 +95,23 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const adminMemo =
       body.adminMemo === undefined ? undefined : String(body.adminMemo);
 
+    const experienceTime =
+      body.experienceTime === undefined
+        ? undefined
+        : String(body.experienceTime).trim();
+
     const shouldSendConfirmedEmail =
       currentReservation.status !== "CONFIRMED" &&
       nextStatus === "CONFIRMED";
 
+    const shouldSendCancelledEmail =
+      currentReservation.status !== "CANCELLED" &&
+      nextStatus === "CANCELLED";
+
     const updatedReservation = await repository.update(id, {
       status: nextStatus ?? currentReservation.status,
       adminMemo,
+      experienceTime,
     });
 
     if (!updatedReservation) {
@@ -124,6 +137,24 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       } catch (emailError) {
         console.error(
           "[PATCH /api/reservations/[id]] confirmed email error:",
+          emailError
+        );
+      }
+    }
+
+    if (shouldSendCancelledEmail) {
+      try {
+        const cancelledEmail =
+          customerReservationCancelledEmail(updatedReservation);
+
+        await sendEmail({
+          to: updatedReservation.email,
+          subject: cancelledEmail.subject,
+          html: cancelledEmail.html,
+        });
+      } catch (emailError) {
+        console.error(
+          "[PATCH /api/reservations/[id]] cancelled email error:",
           emailError
         );
       }

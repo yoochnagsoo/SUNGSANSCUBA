@@ -1,14 +1,67 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getReservationRepository } from "@/lib/reservations/reservationRepository";
 import { sendEmail } from "@/lib/email/sesEmailService";
 import {
   adminReservationReceivedEmail,
   customerReservationReceivedEmail,
 } from "@/lib/email/reservationEmailTemplates";
+import type { ReservationStatus } from "@/lib/reservations/types";
 
-export async function GET() {
+const allowedStatuses: ReservationStatus[] = [
+  "PENDING",
+  "CONFIRMED",
+  "CANCELLED",
+  "COMPLETED",
+];
+
+function isReservationStatus(value: string): value is ReservationStatus {
+  return allowedStatuses.includes(value as ReservationStatus);
+}
+
+function parseLimit(value: string | null) {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+
+  return Math.min(Math.max(Math.floor(parsed), 1), 100);
+}
+
+export async function GET(request: NextRequest) {
   try {
     const repository = getReservationRepository();
+    const searchParams = request.nextUrl.searchParams;
+
+    const limit = parseLimit(searchParams.get("limit"));
+    const cursor = searchParams.get("cursor") ?? undefined;
+    const keyword = searchParams.get("keyword") ?? undefined;
+    const rawStatus = searchParams.get("status") ?? "ALL";
+
+    const status =
+      rawStatus === "ALL" || isReservationStatus(rawStatus)
+        ? rawStatus
+        : "ALL";
+
+    if (limit) {
+      const result = await repository.findPaginated({
+        limit,
+        cursor,
+        status,
+        keyword,
+      });
+
+      return NextResponse.json({
+        ok: true,
+        reservations: result.reservations,
+        nextCursor: result.nextCursor ?? null,
+      });
+    }
+
     const reservations = await repository.findAll();
 
     return NextResponse.json({
@@ -40,6 +93,8 @@ export async function POST(request: Request) {
     const reservationDate = String(
       body.reservationDate ?? body.date ?? ""
     ).trim();
+
+    const experienceTime = String(body.experienceTime ?? "").trim();
 
     const peopleValue = body.people ?? body.participants ?? body.persons ?? 1;
     const people = Number(peopleValue);
@@ -87,6 +142,7 @@ export async function POST(request: Request) {
       program,
       reservationDate,
       date: reservationDate,
+      experienceTime,
       people,
       message,
       status: "PENDING",

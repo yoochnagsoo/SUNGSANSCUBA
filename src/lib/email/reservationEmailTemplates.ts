@@ -38,7 +38,7 @@ function baseLayout(title: string, body: string) {
 
           <div style="border-top:1px solid #e2e8f0;background:#f8fafc;padding:20px 32px;font-size:12px;line-height:1.6;color:#64748b;">
             <div>본 메일은 SUNG SAN SCUBA 예약 시스템에서 자동 발송되었습니다.</div>
-            <div>예약 변경이나 취소가 필요하시면 매장으로 연락해주세요.</div>
+            <div>예약 변경이나 문의가 필요하시면 매장으로 연락해주세요.</div>
           </div>
         </div>
       </div>
@@ -90,6 +90,23 @@ function customerMessageBlock(reservation: Reservation) {
       </div>
       <div style="white-space:pre-wrap;border:1px solid #e2e8f0;background:#f8fafc;border-radius:14px;padding:16px;font-size:14px;line-height:1.7;color:#334155;">
         ${escapeHtml(reservation.message)}
+      </div>
+    </div>
+  `;
+}
+
+function adminMemoBlock(reservation: Reservation) {
+  if (!reservation.adminMemo?.trim()) {
+    return "";
+  }
+
+  return `
+    <div style="margin-top:22px;">
+      <div style="margin-bottom:8px;font-size:13px;font-weight:700;color:#334155;">
+        관리자 안내
+      </div>
+      <div style="white-space:pre-wrap;border:1px solid #e2e8f0;background:#f8fafc;border-radius:14px;padding:16px;font-size:14px;line-height:1.7;color:#334155;">
+        ${escapeHtml(reservation.adminMemo)}
       </div>
     </div>
   `;
@@ -160,11 +177,42 @@ export function customerReservationConfirmedEmail(
         </p>
 
         ${reservationInfoTable(reservation)}
+        ${adminMemoBlock(reservation)}
 
         <div style="margin-top:24px;border-radius:14px;background:#ecfeff;border:1px solid #a5f3fc;padding:18px;font-size:14px;line-height:1.8;color:#155e75;">
           <strong>안내사항</strong><br />
           예약일 당일 기상 및 해양 상황에 따라 일정이 조정될 수 있습니다.<br />
           방문 전 준비물과 집결 시간은 별도로 안내드리겠습니다.
+        </div>
+      `
+    ),
+  };
+}
+
+export function customerReservationCancelledEmail(
+  reservation: Reservation
+): EmailTemplate {
+  return {
+    subject: "[SUNG SAN SCUBA] 예약이 취소되었습니다.",
+    html: baseLayout(
+      "예약이 취소되었습니다.",
+      `
+        <p style="margin:0;font-size:15px;line-height:1.8;color:#334155;">
+          안녕하세요, ${escapeHtml(reservation.name)}님.<br />
+          요청하신 SUNG SAN SCUBA 예약이 취소 처리되었습니다.
+        </p>
+
+        <p style="margin:16px 0 0;font-size:15px;line-height:1.8;color:#334155;">
+          아래 예약 내용을 확인해주세요.
+        </p>
+
+        ${reservationInfoTable(reservation)}
+        ${adminMemoBlock(reservation)}
+
+        <div style="margin-top:24px;border-radius:14px;background:#fff7ed;border:1px solid #fed7aa;padding:18px;font-size:14px;line-height:1.8;color:#9a3412;">
+          <strong>취소 안내</strong><br />
+          예약 취소와 관련하여 문의가 있으시면 매장으로 연락해주세요.<br />
+          다시 예약을 원하시면 홈페이지 예약 신청을 이용해주시면 됩니다.
         </div>
       `
     ),

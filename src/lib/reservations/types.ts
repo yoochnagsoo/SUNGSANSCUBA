@@ -15,6 +15,8 @@ export type Reservation = {
   reservationDate: string;
   date: string;
 
+  experienceTime?: string;
+
   people: number;
   message?: string;
 
@@ -34,6 +36,8 @@ export type ReservationInput = {
   reservationDate?: string;
   date?: string;
 
+  experienceTime?: string;
+
   people: number;
   message?: string;
 
@@ -41,5 +45,17 @@ export type ReservationInput = {
 };
 
 export type ReservationUpdateInput = Partial<
-  Pick<Reservation, "status" | "adminMemo">
+  Pick<Reservation, "status" | "adminMemo" | "experienceTime">
 >;
+
+export type ReservationListOptions = {
+  limit?: number;
+  cursor?: string;
+  status?: ReservationStatus | "ALL";
+  keyword?: string;
+};
+
+export type ReservationListResult = {
+  reservations: Reservation[];
+  nextCursor?: string;
+};
