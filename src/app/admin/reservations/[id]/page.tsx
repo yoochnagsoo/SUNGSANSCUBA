@@ -1,11 +1,20 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { PROGRAM_OPTIONS, normalizeProgramValue } from "@/lib/programs";
 
 type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
+
+type PaymentMethod =
+  | "CASH"
+  | "CARD"
+  | "TRANSFER"
+  | "NAVER_PAY"
+  | "KAKAO_PAY"
+  | "ETC";
 
 type Reservation = {
   id: string;
@@ -20,6 +29,10 @@ type Reservation = {
   status: ReservationStatus;
   adminMemo?: string;
   experienceTime?: string;
+  paymentAmount?: number;
+  paymentMethod?: PaymentMethod;
+  paymentMemo?: string;
+  completedAt?: string;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -58,6 +71,24 @@ const STATUS_OPTIONS: ReservationStatus[] = [
   "CONFIRMED",
   "CANCELLED",
   "COMPLETED",
+];
+
+const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  CASH: "현금",
+  CARD: "카드",
+  TRANSFER: "계좌이체",
+  NAVER_PAY: "네이버페이",
+  KAKAO_PAY: "카카오페이",
+  ETC: "기타",
+};
+
+const PAYMENT_METHOD_OPTIONS: PaymentMethod[] = [
+  "CASH",
+  "CARD",
+  "TRANSFER",
+  "NAVER_PAY",
+  "KAKAO_PAY",
+  "ETC",
 ];
 
 const EXPERIENCE_TIME_OPTIONS = [
@@ -101,6 +132,10 @@ export default function AdminReservationDetailPage() {
   const [adminMemo, setAdminMemo] = useState("");
   const [experienceTime, setExperienceTime] = useState("");
 
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
+  const [paymentMemo, setPaymentMemo] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resending, setResending] = useState(false);
@@ -131,6 +166,18 @@ export default function AdminReservationDetailPage() {
 
     if (Number.isNaN(date.getTime())) {
       return reservation.updatedAt;
+    }
+
+    return date.toLocaleString("ko-KR");
+  }, [reservation]);
+
+  const completedAtText = useMemo(() => {
+    if (!reservation?.completedAt) return "-";
+
+    const date = new Date(reservation.completedAt);
+
+    if (Number.isNaN(date.getTime())) {
+      return reservation.completedAt;
     }
 
     return date.toLocaleString("ko-KR");
@@ -204,6 +251,12 @@ export default function AdminReservationDetailPage() {
     setStatus(item.status || "PENDING");
     setAdminMemo(item.adminMemo || "");
     setExperienceTime(item.experienceTime || "");
+
+    setPaymentAmount(
+      typeof item.paymentAmount === "number" ? String(item.paymentAmount) : "",
+    );
+    setPaymentMethod(item.paymentMethod || "");
+    setPaymentMemo(item.paymentMemo || "");
   }
 
   function showEmailResult(data: {
@@ -237,6 +290,31 @@ export default function AdminReservationDetailPage() {
       setEmailMessage("");
       setEmailMessageType("");
 
+      const trimmedPaymentAmount = paymentAmount.trim();
+      const hasPaymentAmount = trimmedPaymentAmount !== "";
+      const nextPaymentAmount = hasPaymentAmount
+        ? Number(trimmedPaymentAmount)
+        : undefined;
+
+      if (
+        hasPaymentAmount &&
+        (typeof nextPaymentAmount !== "number" ||
+          Number.isNaN(nextPaymentAmount) ||
+          nextPaymentAmount < 0)
+      ) {
+        throw new Error("결제금액을 올바르게 입력해주세요.");
+      }
+
+      if (status === "COMPLETED") {
+        if (!hasPaymentAmount) {
+          throw new Error("완료 처리 시 결제금액을 입력해주세요.");
+        }
+
+        if (!paymentMethod) {
+          throw new Error("완료 처리 시 결제방법을 선택해주세요.");
+        }
+      }
+
       const res = await fetch(`/api/reservations/${reservationId}`, {
         method: "PATCH",
         headers: {
@@ -252,6 +330,14 @@ export default function AdminReservationDetailPage() {
           status,
           adminMemo,
           experienceTime: experienceTime || "",
+
+          paymentAmount: nextPaymentAmount,
+          paymentMethod: paymentMethod || undefined,
+          paymentMemo,
+          completedAt:
+            status === "COMPLETED"
+              ? reservation?.completedAt || new Date().toISOString()
+              : undefined,
         }),
       });
 
@@ -529,6 +615,97 @@ export default function AdminReservationDetailPage() {
               </p>
             </div>
 
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
+              <div>
+                <p className="text-base font-bold text-emerald-950">
+                  결제 정보
+                </p>
+                <p className="mt-1 text-xs leading-5 text-emerald-700">
+                  완료 처리 시 결제금액과 결제방법이 필수입니다.
+                </p>
+              </div>
+
+              <div className="mt-4 space-y-4">
+                <div>
+                  <label className="text-sm font-semibold text-slate-600">
+                    결제금액
+                    {status === "COMPLETED" ? (
+                      <span className="ml-1 text-red-500">*</span>
+                    ) : null}
+                  </label>
+
+                  <input
+                    type="number"
+                    min={0}
+                    value={paymentAmount}
+                    onChange={(event) => setPaymentAmount(event.target.value)}
+                    placeholder="예: 80000"
+                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold text-slate-600">
+                    결제방법
+                    {status === "COMPLETED" ? (
+                      <span className="ml-1 text-red-500">*</span>
+                    ) : null}
+                  </label>
+
+                  <select
+                    value={paymentMethod}
+                    onChange={(event) =>
+                      setPaymentMethod(event.target.value as PaymentMethod | "")
+                    }
+                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                  >
+                    <option value="">결제방법 선택</option>
+
+                    {PAYMENT_METHOD_OPTIONS.map((item) => (
+                      <option key={item} value={item}>
+                        {PAYMENT_METHOD_LABEL[item]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold text-slate-600">
+                    결제 메모
+                  </label>
+
+                  <textarea
+                    value={paymentMemo}
+                    onChange={(event) => setPaymentMemo(event.target.value)}
+                    rows={4}
+                    placeholder="예: 현장 카드 결제 / 예약금 차감 / 할인 적용 등"
+                    className="mt-2 w-full resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                  />
+                </div>
+
+                {reservation.status === "COMPLETED" ? (
+                  <div className="rounded-xl bg-white p-3 text-xs leading-5 text-emerald-800">
+                    <p className="font-bold text-emerald-950">
+                      저장된 완료 정보
+                    </p>
+                    <p className="mt-1">완료일시: {completedAtText}</p>
+                    <p>
+                      결제금액:{" "}
+                      {reservation.paymentAmount?.toLocaleString("ko-KR") ||
+                        "0"}
+                      원
+                    </p>
+                    <p>
+                      결제방법:{" "}
+                      {reservation.paymentMethod
+                        ? PAYMENT_METHOD_LABEL[reservation.paymentMethod]
+                        : "-"}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
             <div>
               <label className="text-sm font-semibold text-slate-600">
                 관리자 메모
@@ -549,6 +726,7 @@ export default function AdminReservationDetailPage() {
               <p>예약확정 변경 시: 확정 안내 메일</p>
               <p>취소 변경 시: 취소 안내 메일</p>
               <p>같은 상태로 다시 저장 시: 중복 발송 안 함</p>
+              <p>완료 변경 시: 결제 정보 저장</p>
             </div>
 
             <button
@@ -588,7 +766,7 @@ function FormField({
 }: {
   label: string;
   required?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div>

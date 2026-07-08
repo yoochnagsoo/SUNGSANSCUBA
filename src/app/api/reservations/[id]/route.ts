@@ -8,6 +8,14 @@ import {
 
 type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
 
+type PaymentMethod =
+  | "CASH"
+  | "CARD"
+  | "TRANSFER"
+  | "NAVER_PAY"
+  | "KAKAO_PAY"
+  | "ETC";
+
 type Reservation = {
   id: string;
   name: string;
@@ -20,6 +28,10 @@ type Reservation = {
   status: ReservationStatus;
   adminMemo?: string;
   experienceTime?: string;
+  paymentAmount?: number;
+  paymentMethod?: PaymentMethod;
+  paymentMemo?: string;
+  completedAt?: string;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -34,6 +46,10 @@ type ReservationPatchBody = {
   status?: ReservationStatus;
   adminMemo?: string;
   experienceTime?: string;
+  paymentAmount?: number;
+  paymentMethod?: PaymentMethod;
+  paymentMemo?: string;
+  completedAt?: string;
 };
 
 type ReservationRepositoryLike = {
@@ -52,8 +68,22 @@ const VALID_STATUSES: ReservationStatus[] = [
   "COMPLETED",
 ];
 
+const VALID_PAYMENT_METHODS: PaymentMethod[] = [
+  "CASH",
+  "CARD",
+  "TRANSFER",
+  "NAVER_PAY",
+  "KAKAO_PAY",
+  "ETC",
+];
+
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isValidIsoDateTime(value: string) {
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime());
 }
 
 async function getReservationById(id: string) {
@@ -246,6 +276,101 @@ export async function PATCH(
 
     if (typeof body.experienceTime === "string") {
       updateInput.experienceTime = body.experienceTime;
+    }
+
+    if (typeof body.paymentAmount !== "undefined") {
+      const paymentAmount = Number(body.paymentAmount);
+
+      if (!Number.isFinite(paymentAmount) || paymentAmount < 0) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "결제금액을 올바르게 입력해주세요.",
+          },
+          { status: 400 },
+        );
+      }
+
+      updateInput.paymentAmount = paymentAmount;
+    }
+
+    if (typeof body.paymentMethod !== "undefined") {
+      if (!body.paymentMethod) {
+        updateInput.paymentMethod = undefined;
+      } else if (!VALID_PAYMENT_METHODS.includes(body.paymentMethod)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "올바른 결제방법이 아닙니다.",
+          },
+          { status: 400 },
+        );
+      } else {
+        updateInput.paymentMethod = body.paymentMethod;
+      }
+    }
+
+    if (typeof body.paymentMemo === "string") {
+      updateInput.paymentMemo = body.paymentMemo;
+    }
+
+    if (typeof body.completedAt === "string") {
+      const completedAt = body.completedAt.trim();
+
+      if (completedAt && !isValidIsoDateTime(completedAt)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "완료일시 형식이 올바르지 않습니다.",
+          },
+          { status: 400 },
+        );
+      }
+
+      updateInput.completedAt = completedAt || undefined;
+    }
+
+    const nextStatus = updateInput.status || previousReservation.status;
+
+    if (nextStatus === "COMPLETED") {
+      const nextPaymentAmount =
+        typeof updateInput.paymentAmount === "number"
+          ? updateInput.paymentAmount
+          : previousReservation.paymentAmount;
+
+      const nextPaymentMethod =
+        updateInput.paymentMethod || previousReservation.paymentMethod;
+
+      if (typeof nextPaymentAmount !== "number") {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "완료 처리 시 결제금액을 입력해주세요.",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (!nextPaymentMethod) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "완료 처리 시 결제방법을 선택해주세요.",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (!updateInput.completedAt && !previousReservation.completedAt) {
+        updateInput.completedAt = new Date().toISOString();
+      }
+    }
+
+    if (nextStatus !== "COMPLETED") {
+      delete updateInput.paymentAmount;
+      delete updateInput.paymentMethod;
+      delete updateInput.paymentMemo;
+      delete updateInput.completedAt;
     }
 
     const updatedReservation = await (

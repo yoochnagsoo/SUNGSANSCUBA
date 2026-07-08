@@ -4,10 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CalendarDays,
-  LayoutDashboard,
-  Users,
   ClipboardList,
+  LayoutDashboard,
   Settings,
+  TrendingUp,
+  Users,
 } from "lucide-react";
 
 const menuItems = [
@@ -32,6 +33,11 @@ const menuItems = [
     icon: Users,
   },
   {
+    name: "매출 관리",
+    href: "/admin/sales",
+    icon: TrendingUp,
+  },
+  {
     name: "설정",
     href: "/admin/settings",
     icon: Settings,
@@ -48,9 +54,7 @@ export default function AdminSidebar() {
           <p className="text-sm font-semibold text-cyan-600">
             SUNGSAN SCUBA
           </p>
-          <h1 className="text-lg font-bold text-slate-900">
-            Admin
-          </h1>
+          <h1 className="text-lg font-bold text-slate-900">Admin</h1>
         </div>
       </div>
 

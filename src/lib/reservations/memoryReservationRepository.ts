@@ -38,7 +38,7 @@ function sortReservations(items: Reservation[]) {
 
 function filterReservations(
   items: Reservation[],
-  options: ReservationListOptions
+  options: ReservationListOptions,
 ) {
   const keyword = options.keyword?.trim().toLowerCase();
 
@@ -62,6 +62,12 @@ function filterReservations(
       reservation.program.toLowerCase().includes(keyword) ||
       getReservationDate(reservation).toLowerCase().includes(keyword) ||
       String(reservation.experienceTime ?? "")
+        .toLowerCase()
+        .includes(keyword) ||
+      String(reservation.paymentMethod ?? "")
+        .toLowerCase()
+        .includes(keyword) ||
+      String(reservation.paymentMemo ?? "")
         .toLowerCase()
         .includes(keyword)
     );
@@ -90,7 +96,15 @@ export const memoryReservationRepository = {
       message: input.message ?? "",
 
       status: input.status ?? "PENDING",
-      adminMemo: "",
+      adminMemo: input.adminMemo ?? "",
+
+      paymentAmount:
+        input.status === "COMPLETED" ? input.paymentAmount : undefined,
+      paymentMethod:
+        input.status === "COMPLETED" ? input.paymentMethod : undefined,
+      paymentMemo: input.status === "COMPLETED" ? input.paymentMemo ?? "" : "",
+      completedAt:
+        input.status === "COMPLETED" ? input.completedAt : undefined,
 
       createdAt: now,
       updatedAt: now,
@@ -106,7 +120,7 @@ export const memoryReservationRepository = {
   },
 
   async findPaginated(
-    options: ReservationListOptions
+    options: ReservationListOptions,
   ): Promise<ReservationListResult> {
     const limit = normalizeLimit(options.limit);
     const startIndex = Number(options.cursor ?? 0);
@@ -127,21 +141,31 @@ export const memoryReservationRepository = {
 
   async update(
     id: string,
-    input: ReservationUpdateInput
+    input: ReservationUpdateInput,
   ): Promise<Reservation | null> {
     const index = reservations.findIndex(
-      (reservation) => reservation.id === id
+      (reservation) => reservation.id === id,
     );
 
     if (index === -1) {
       return null;
     }
 
+    const current = reservations[index];
+    const nextStatus = input.status ?? current.status;
+
     const updated: Reservation = {
-      ...reservations[index],
+      ...current,
       ...input,
       updatedAt: new Date().toISOString(),
     };
+
+    if (nextStatus !== "COMPLETED") {
+      delete updated.paymentAmount;
+      delete updated.paymentMethod;
+      delete updated.paymentMemo;
+      delete updated.completedAt;
+    }
 
     reservations[index] = updated;
 
@@ -150,7 +174,7 @@ export const memoryReservationRepository = {
 
   async delete(id: string): Promise<boolean> {
     const index = reservations.findIndex(
-      (reservation) => reservation.id === id
+      (reservation) => reservation.id === id,
     );
 
     if (index === -1) {

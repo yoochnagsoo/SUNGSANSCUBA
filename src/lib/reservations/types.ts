@@ -4,6 +4,14 @@ export type ReservationStatus =
   | "CANCELLED"
   | "COMPLETED";
 
+export type PaymentMethod =
+  | "CASH"
+  | "CARD"
+  | "TRANSFER"
+  | "NAVER_PAY"
+  | "KAKAO_PAY"
+  | "ETC";
+
 export type Reservation = {
   id: string;
 
@@ -22,6 +30,11 @@ export type Reservation = {
 
   status: ReservationStatus;
   adminMemo: string;
+
+  paymentAmount?: number;
+  paymentMethod?: PaymentMethod;
+  paymentMemo?: string;
+  completedAt?: string;
 
   createdAt: string;
   updatedAt: string;
@@ -43,6 +56,11 @@ export type ReservationInput = {
 
   status?: ReservationStatus;
   adminMemo?: string;
+
+  paymentAmount?: number;
+  paymentMethod?: PaymentMethod;
+  paymentMemo?: string;
+  completedAt?: string;
 };
 
 export type ReservationUpdateInput = {
@@ -61,6 +79,11 @@ export type ReservationUpdateInput = {
 
   status?: ReservationStatus;
   adminMemo?: string;
+
+  paymentAmount?: number;
+  paymentMethod?: PaymentMethod;
+  paymentMemo?: string;
+  completedAt?: string;
 };
 
 export type ReservationListOptions = {

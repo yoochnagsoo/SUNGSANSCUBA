@@ -85,7 +85,7 @@ function buildFilter(options: ReservationListOptions) {
 
   if (keyword) {
     expressions.push(
-      "(contains(#name, :keyword) OR contains(#email, :keyword) OR contains(#phone, :keyword) OR contains(#program, :keyword) OR contains(#reservationDate, :keyword) OR contains(#date, :keyword) OR contains(#experienceTime, :keyword))",
+      "(contains(#name, :keyword) OR contains(#email, :keyword) OR contains(#phone, :keyword) OR contains(#program, :keyword) OR contains(#reservationDate, :keyword) OR contains(#date, :keyword) OR contains(#experienceTime, :keyword) OR contains(#paymentMethod, :keyword) OR contains(#paymentMemo, :keyword))",
     );
 
     expressionAttributeNames["#name"] = "name";
@@ -95,6 +95,8 @@ function buildFilter(options: ReservationListOptions) {
     expressionAttributeNames["#reservationDate"] = "reservationDate";
     expressionAttributeNames["#date"] = "date";
     expressionAttributeNames["#experienceTime"] = "experienceTime";
+    expressionAttributeNames["#paymentMethod"] = "paymentMethod";
+    expressionAttributeNames["#paymentMemo"] = "paymentMemo";
     expressionAttributeValues[":keyword"] = keyword;
   }
 
@@ -119,6 +121,7 @@ export const dynamoReservationRepository = {
   async create(input: ReservationInput): Promise<Reservation> {
     const now = new Date().toISOString();
     const reservationDate = String(input.reservationDate ?? input.date ?? "");
+    const status = input.status ?? "PENDING";
 
     const reservation: Reservation = {
       id: createId(),
@@ -136,17 +139,26 @@ export const dynamoReservationRepository = {
       people: input.people,
       message: input.message ?? "",
 
-      status: input.status ?? "PENDING",
-      adminMemo: "",
+      status,
+      adminMemo: input.adminMemo ?? "",
+
+      paymentAmount: status === "COMPLETED" ? input.paymentAmount : undefined,
+      paymentMethod: status === "COMPLETED" ? input.paymentMethod : undefined,
+      paymentMemo: status === "COMPLETED" ? input.paymentMemo ?? "" : "",
+      completedAt: status === "COMPLETED" ? input.completedAt : undefined,
 
       createdAt: now,
       updatedAt: now,
     };
 
+    const item = removeUndefinedValues(
+      reservation as unknown as Record<string, unknown>,
+    );
+
     await dynamoDb.send(
       new PutCommand({
         TableName: getTableName(),
-        Item: reservation,
+        Item: item,
       }),
     );
 
@@ -218,7 +230,13 @@ export const dynamoReservationRepository = {
     const updatedAt = new Date().toISOString();
 
     const nextReservationDate =
-      input.reservationDate ?? input.date ?? current.reservationDate ?? current.date ?? "";
+      input.reservationDate ??
+      input.date ??
+      current.reservationDate ??
+      current.date ??
+      "";
+
+    const nextStatus = input.status ?? current.status;
 
     const updateValues = removeUndefinedValues({
       name: input.name,
@@ -235,21 +253,62 @@ export const dynamoReservationRepository = {
           : current.people,
 
       message: input.message,
-      status: input.status ?? current.status,
+      status: nextStatus,
       adminMemo: input.adminMemo ?? current.adminMemo ?? "",
       experienceTime: input.experienceTime ?? current.experienceTime ?? "",
       updatedAt,
     });
 
+    if (nextStatus === "COMPLETED") {
+      Object.assign(
+        updateValues,
+        removeUndefinedValues({
+          paymentAmount:
+            typeof input.paymentAmount !== "undefined"
+              ? Number(input.paymentAmount)
+              : current.paymentAmount,
+          paymentMethod: input.paymentMethod ?? current.paymentMethod,
+          paymentMemo: input.paymentMemo ?? current.paymentMemo ?? "",
+          completedAt: input.completedAt ?? current.completedAt,
+        }),
+      );
+    }
+
     const expressionAttributeNames: Record<string, string> = {};
     const expressionAttributeValues: Record<string, unknown> = {};
-    const updateExpressionParts: string[] = [];
+    const setExpressionParts: string[] = [];
+    const removeExpressionParts: string[] = [];
 
     for (const [key, value] of Object.entries(updateValues)) {
       expressionAttributeNames[`#${key}`] = key;
       expressionAttributeValues[`:${key}`] = value;
-      updateExpressionParts.push(`#${key} = :${key}`);
+      setExpressionParts.push(`#${key} = :${key}`);
     }
+
+    if (nextStatus !== "COMPLETED") {
+      const removeKeys = [
+        "paymentAmount",
+        "paymentMethod",
+        "paymentMemo",
+        "completedAt",
+      ];
+
+      for (const key of removeKeys) {
+        expressionAttributeNames[`#${key}`] = key;
+        removeExpressionParts.push(`#${key}`);
+      }
+    }
+
+    const updateExpression = [
+      setExpressionParts.length > 0
+        ? `SET ${setExpressionParts.join(", ")}`
+        : "",
+      removeExpressionParts.length > 0
+        ? `REMOVE ${removeExpressionParts.join(", ")}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
 
     const result = await dynamoDb.send(
       new UpdateCommand({
@@ -257,7 +316,7 @@ export const dynamoReservationRepository = {
         Key: {
           id,
         },
-        UpdateExpression: `SET ${updateExpressionParts.join(", ")}`,
+        UpdateExpression: updateExpression,
         ExpressionAttributeNames: expressionAttributeNames,
         ExpressionAttributeValues: expressionAttributeValues,
         ReturnValues: "ALL_NEW",
