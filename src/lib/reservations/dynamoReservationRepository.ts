@@ -85,7 +85,7 @@ function buildFilter(options: ReservationListOptions) {
 
   if (keyword) {
     expressions.push(
-      "(contains(#name, :keyword) OR contains(#email, :keyword) OR contains(#phone, :keyword) OR contains(#program, :keyword) OR contains(#reservationDate, :keyword) OR contains(#date, :keyword) OR contains(#experienceTime, :keyword))"
+      "(contains(#name, :keyword) OR contains(#email, :keyword) OR contains(#phone, :keyword) OR contains(#program, :keyword) OR contains(#reservationDate, :keyword) OR contains(#date, :keyword) OR contains(#experienceTime, :keyword))",
     );
 
     expressionAttributeNames["#name"] = "name";
@@ -107,6 +107,12 @@ function buildFilter(options: ReservationListOptions) {
     ExpressionAttributeNames: expressionAttributeNames,
     ExpressionAttributeValues: expressionAttributeValues,
   };
+}
+
+function removeUndefinedValues(input: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(input).filter(([, value]) => typeof value !== "undefined"),
+  );
 }
 
 export const dynamoReservationRepository = {
@@ -141,7 +147,7 @@ export const dynamoReservationRepository = {
       new PutCommand({
         TableName: getTableName(),
         Item: reservation,
-      })
+      }),
     );
 
     return reservation;
@@ -151,7 +157,7 @@ export const dynamoReservationRepository = {
     const result = await dynamoDb.send(
       new ScanCommand({
         TableName: getTableName(),
-      })
+      }),
     );
 
     const reservations = (result.Items ?? []) as Reservation[];
@@ -160,7 +166,7 @@ export const dynamoReservationRepository = {
   },
 
   async findPaginated(
-    options: ReservationListOptions
+    options: ReservationListOptions,
   ): Promise<ReservationListResult> {
     const limit = normalizeLimit(options.limit);
     const filter = buildFilter(options);
@@ -171,7 +177,7 @@ export const dynamoReservationRepository = {
         Limit: limit,
         ExclusiveStartKey: decodeCursor(options.cursor),
         ...filter,
-      })
+      }),
     );
 
     const reservations = sortReservations((result.Items ?? []) as Reservation[]);
@@ -189,7 +195,7 @@ export const dynamoReservationRepository = {
         Key: {
           id,
         },
-      })
+      }),
     );
 
     if (!result.Item) {
@@ -201,7 +207,7 @@ export const dynamoReservationRepository = {
 
   async update(
     id: string,
-    input: ReservationUpdateInput
+    input: ReservationUpdateInput,
   ): Promise<Reservation | null> {
     const current = await this.findById(id);
 
@@ -211,26 +217,51 @@ export const dynamoReservationRepository = {
 
     const updatedAt = new Date().toISOString();
 
+    const nextReservationDate =
+      input.reservationDate ?? input.date ?? current.reservationDate ?? current.date ?? "";
+
+    const updateValues = removeUndefinedValues({
+      name: input.name,
+      email: input.email,
+      phone: input.phone,
+      program: input.program,
+
+      reservationDate: nextReservationDate,
+      date: nextReservationDate,
+
+      people:
+        typeof input.people !== "undefined"
+          ? Number(input.people)
+          : current.people,
+
+      message: input.message,
+      status: input.status ?? current.status,
+      adminMemo: input.adminMemo ?? current.adminMemo ?? "",
+      experienceTime: input.experienceTime ?? current.experienceTime ?? "",
+      updatedAt,
+    });
+
+    const expressionAttributeNames: Record<string, string> = {};
+    const expressionAttributeValues: Record<string, unknown> = {};
+    const updateExpressionParts: string[] = [];
+
+    for (const [key, value] of Object.entries(updateValues)) {
+      expressionAttributeNames[`#${key}`] = key;
+      expressionAttributeValues[`:${key}`] = value;
+      updateExpressionParts.push(`#${key} = :${key}`);
+    }
+
     const result = await dynamoDb.send(
       new UpdateCommand({
         TableName: getTableName(),
         Key: {
           id,
         },
-        UpdateExpression:
-          "SET #status = :status, adminMemo = :adminMemo, experienceTime = :experienceTime, updatedAt = :updatedAt",
-        ExpressionAttributeNames: {
-          "#status": "status",
-        },
-        ExpressionAttributeValues: {
-          ":status": input.status ?? current.status,
-          ":adminMemo": input.adminMemo ?? current.adminMemo ?? "",
-          ":experienceTime":
-            input.experienceTime ?? current.experienceTime ?? "",
-          ":updatedAt": updatedAt,
-        },
+        UpdateExpression: `SET ${updateExpressionParts.join(", ")}`,
+        ExpressionAttributeNames: expressionAttributeNames,
+        ExpressionAttributeValues: expressionAttributeValues,
         ReturnValues: "ALL_NEW",
-      })
+      }),
     );
 
     if (!result.Attributes) {
@@ -247,7 +278,7 @@ export const dynamoReservationRepository = {
         Key: {
           id,
         },
-      })
+      }),
     );
 
     return true;

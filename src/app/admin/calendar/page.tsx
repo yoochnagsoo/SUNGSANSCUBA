@@ -1,353 +1,365 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
 
 type Reservation = {
   id: string;
   name: string;
-  email: string;
   phone: string;
   program: string;
-  reservationDate?: string;
-  date?: string;
-  experienceTime?: string;
+  reservationDate: string;
   people: number;
   message?: string;
   status: ReservationStatus;
   adminMemo?: string;
-  createdAt: string;
-  updatedAt: string;
+  experienceTime?: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
-type ReservationsResponse = {
-  ok: boolean;
-  reservations?: Reservation[];
-  message?: string;
-};
-
-const statusLabels: Record<ReservationStatus, string> = {
-  PENDING: "대기",
-  CONFIRMED: "확정",
+const STATUS_LABEL: Record<ReservationStatus, string> = {
+  PENDING: "접수대기",
+  CONFIRMED: "예약확정",
   CANCELLED: "취소",
   COMPLETED: "완료",
 };
 
-const statusDescriptions: Record<ReservationStatus, string> = {
-  PENDING: "예약 요청 접수 후 확인 전",
-  CONFIRMED: "예약 확정 완료",
-  CANCELLED: "예약 취소",
-  COMPLETED: "이용 완료",
+const STATUS_STYLE: Record<ReservationStatus, string> = {
+  PENDING: "border-amber-200 bg-amber-50 text-amber-800",
+  CONFIRMED: "border-blue-200 bg-blue-50 text-blue-800",
+  CANCELLED: "border-rose-200 bg-rose-50 text-rose-800",
+  COMPLETED: "border-emerald-200 bg-emerald-50 text-emerald-800",
 };
 
-const statusClassNames: Record<ReservationStatus, string> = {
-  PENDING: "bg-amber-50 text-amber-700 ring-amber-200",
-  CONFIRMED: "bg-cyan-50 text-cyan-700 ring-cyan-200",
-  CANCELLED: "bg-red-50 text-red-700 ring-red-200",
-  COMPLETED: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-};
+const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 
-const statusDotClassNames: Record<ReservationStatus, string> = {
-  PENDING: "bg-amber-500",
-  CONFIRMED: "bg-cyan-500",
-  CANCELLED: "bg-red-500",
-  COMPLETED: "bg-emerald-500",
-};
-
-function getReservationDate(reservation: Reservation) {
-  return reservation.reservationDate || reservation.date || "";
-}
-
-function getReservationTime(reservation: Reservation) {
-  return reservation.experienceTime?.trim() || "";
-}
-
-function getMonthKey(date: Date) {
+function toDateKey(date: Date) {
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-
-  return `${year}-${month}`;
-}
-
-function getDaysInMonth(currentMonth: Date) {
-  const year = currentMonth.getFullYear();
-  const month = currentMonth.getMonth();
-
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const days: Date[] = [];
-
-  for (let i = 0; i < firstDay.getDay(); i += 1) {
-    days.push(new Date(year, month, i - firstDay.getDay() + 1));
-  }
-
-  for (let day = 1; day <= lastDay.getDate(); day += 1) {
-    days.push(new Date(year, month, day));
-  }
-
-  while (days.length % 7 !== 0) {
-    const last = days[days.length - 1];
-    days.push(new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1));
-  }
-
-  return days;
-}
-
-function formatDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
 
   return `${year}-${month}-${day}`;
 }
 
+function getTimeValue(time?: string) {
+  if (!time) return 999999;
+
+  const [hourText, minuteText] = time.split(":");
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+
+  if (Number.isNaN(hour) || Number.isNaN(minute)) {
+    return 999999;
+  }
+
+  return hour * 60 + minute;
+}
+
 function sortReservationsByTime(reservations: Reservation[]) {
   return [...reservations].sort((a, b) => {
-    const aTime = getReservationTime(a) || "99:99";
-    const bTime = getReservationTime(b) || "99:99";
+    const timeA = getTimeValue(a.experienceTime);
+    const timeB = getTimeValue(b.experienceTime);
 
-    const timeCompare = aTime.localeCompare(bTime);
-
-    if (timeCompare !== 0) {
-      return timeCompare;
+    if (timeA !== timeB) {
+      return timeA - timeB;
     }
 
-    return a.createdAt.localeCompare(b.createdAt);
+    const createdA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const createdB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+
+    return createdA - createdB;
   });
 }
 
 export default function AdminCalendarPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [currentMonth, setCurrentMonth] = useState(() => new Date());
-  const [isLoading, setIsLoading] = useState(true);
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
-  async function loadReservations() {
-    try {
-      setIsLoading(true);
-      setErrorMessage("");
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
 
-      const response = await fetch("/api/reservations", {
-        method: "GET",
-        cache: "no-store",
+  const calendarDays = useMemo(() => {
+    const firstDate = new Date(year, month, 1);
+    const lastDate = new Date(year, month + 1, 0);
+
+    const firstDay = firstDate.getDay();
+    const lastDay = lastDate.getDate();
+
+    const days: Array<{
+      date: Date;
+      dateKey: string;
+      isCurrentMonth: boolean;
+      isToday: boolean;
+    }> = [];
+
+    const todayKey = toDateKey(new Date());
+
+    for (let i = firstDay - 1; i >= 0; i -= 1) {
+      const date = new Date(year, month, -i);
+      const dateKey = toDateKey(date);
+
+      days.push({
+        date,
+        dateKey,
+        isCurrentMonth: false,
+        isToday: dateKey === todayKey,
       });
-
-      const data = (await response.json()) as ReservationsResponse;
-
-      if (!response.ok || !data.ok) {
-        throw new Error(data.message ?? "예약 목록을 불러오지 못했습니다.");
-      }
-
-      setReservations(data.reservations ?? []);
-    } catch (error) {
-      console.error("[AdminCalendarPage] loadReservations error:", error);
-      setErrorMessage("캘린더 데이터를 불러오지 못했습니다.");
-    } finally {
-      setIsLoading(false);
     }
-  }
 
-  useEffect(() => {
-    loadReservations();
-  }, []);
+    for (let day = 1; day <= lastDay; day += 1) {
+      const date = new Date(year, month, day);
+      const dateKey = toDateKey(date);
 
-  const monthDays = useMemo(() => getDaysInMonth(currentMonth), [currentMonth]);
+      days.push({
+        date,
+        dateKey,
+        isCurrentMonth: true,
+        isToday: dateKey === todayKey,
+      });
+    }
+
+    while (days.length % 7 !== 0) {
+      const last = days[days.length - 1].date;
+      const date = new Date(last);
+      date.setDate(last.getDate() + 1);
+
+      const dateKey = toDateKey(date);
+
+      days.push({
+        date,
+        dateKey,
+        isCurrentMonth: false,
+        isToday: dateKey === todayKey,
+      });
+    }
+
+    return days;
+  }, [year, month]);
 
   const reservationsByDate = useMemo(() => {
-    return reservations.reduce<Record<string, Reservation[]>>((acc, reservation) => {
-      const key = getReservationDate(reservation);
+    const map = new Map<string, Reservation[]>();
 
-      if (!key) {
-        return acc;
+    for (const reservation of reservations) {
+      const dateKey = reservation.reservationDate;
+
+      if (!map.has(dateKey)) {
+        map.set(dateKey, []);
       }
 
-      if (!acc[key]) {
-        acc[key] = [];
-      }
+      map.get(dateKey)?.push(reservation);
+    }
 
-      acc[key].push(reservation);
+    for (const [dateKey, items] of map.entries()) {
+      map.set(dateKey, sortReservationsByTime(items));
+    }
 
-      return acc;
-    }, {});
+    return map;
   }, [reservations]);
 
-  const currentMonthLabel = new Intl.DateTimeFormat("ko-KR", {
-    year: "numeric",
-    month: "long",
-  }).format(currentMonth);
+  useEffect(() => {
+    async function fetchReservations() {
+      try {
+        setLoading(true);
+        setErrorMessage("");
 
-  function moveMonth(amount: number) {
-    setCurrentMonth(
-      (prev) => new Date(prev.getFullYear(), prev.getMonth() + amount, 1)
-    );
+        const res = await fetch("/api/reservations", {
+          cache: "no-store",
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          throw new Error(data.message || "예약 목록을 불러오지 못했습니다.");
+        }
+
+        setReservations(data.reservations || []);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "예약 목록을 불러오지 못했습니다.";
+
+        setErrorMessage(message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchReservations();
+  }, []);
+
+  function goPrevMonth() {
+    setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  }
+
+  function goNextMonth() {
+    setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  }
+
+  function goToday() {
+    setCurrentDate(new Date());
   }
 
   return (
-    <main className="p-6 sm:p-8">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-semibold text-cyan-600">Calendar</p>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">예약 캘린더</h1>
+          <p className="text-sm font-medium text-slate-500">관리자</p>
+          <h1 className="mt-1 text-2xl font-bold text-slate-900">
+            예약 캘린더
+          </h1>
           <p className="mt-2 text-sm text-slate-500">
-            날짜별 예약 현황과 체험시간을 확인합니다.
+            날짜별 예약을 체험시간 순서로 확인합니다.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={loadReservations}
-          disabled={isLoading}
-          className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isLoading ? "새로고침 중..." : "새로고침"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={goPrevMonth}
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            이전달
+          </button>
+
+          <button
+            type="button"
+            onClick={goToday}
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            오늘
+          </button>
+
+          <button
+            type="button"
+            onClick={goNextMonth}
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            다음달
+          </button>
+        </div>
       </div>
 
-      {errorMessage && (
-        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-          {errorMessage}
-        </div>
-      )}
-
-      <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="text-sm font-bold text-slate-900">상태 색상 안내</h2>
-          <p className="text-xs text-slate-500">캘린더 예약 라벨 색상 기준</p>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {(["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"] as ReservationStatus[]).map(
-            (status) => (
-              <div
-                key={status}
-                className={`rounded-xl px-4 py-3 ring-1 ${statusClassNames[status]}`}
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`h-2.5 w-2.5 rounded-full ${statusDotClassNames[status]}`}
-                  />
-                  <span className="text-sm font-bold">{statusLabels[status]}</span>
-                </div>
-                <p className="mt-1 text-xs font-medium opacity-80">
-                  {statusDescriptions[status]}
-                </p>
-              </div>
-            )
-          )}
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-          <button
-            type="button"
-            onClick={() => moveMonth(-1)}
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            이전
-          </button>
-
-          <h2 className="text-lg font-bold text-slate-900">
-            {currentMonthLabel}
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-xl font-bold text-slate-900">
+            {year}년 {month + 1}월
           </h2>
 
-          <button
-            type="button"
-            onClick={() => moveMonth(1)}
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            다음
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(STATUS_LABEL).map(([status, label]) => (
+              <div
+                key={status}
+                className={`rounded-full border px-3 py-1 text-xs font-bold ${
+                  STATUS_STYLE[status as ReservationStatus]
+                }`}
+              >
+                {label}
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center text-xs font-bold text-slate-500">
-          {["일", "월", "화", "수", "목", "금", "토"].map((day) => (
-            <div key={day} className="px-2 py-3">
-              {day}
-            </div>
-          ))}
-        </div>
+        {errorMessage ? (
+          <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {errorMessage}
+          </div>
+        ) : null}
 
-        {isLoading ? (
-          <div className="p-8 text-sm text-slate-500">
-            캘린더 데이터를 불러오는 중입니다.
+        {loading ? (
+          <div className="mt-5 rounded-2xl bg-slate-50 p-6 text-sm text-slate-500">
+            예약 캘린더를 불러오는 중입니다.
           </div>
         ) : (
-          <div className="grid grid-cols-7">
-            {monthDays.map((day) => {
-              const dateKey = formatDateKey(day);
-              const dayReservations = sortReservationsByTime(
-                reservationsByDate[dateKey] ?? []
-              );
-              const isCurrentMonth = getMonthKey(day) === getMonthKey(currentMonth);
-
-              return (
-                <div
-                  key={dateKey}
-                  className={`min-h-44 border-b border-r border-slate-100 p-2 ${
-                    isCurrentMonth ? "bg-white" : "bg-slate-50"
-                  }`}
-                >
+          <div className="mt-5 overflow-x-auto">
+            <div className="min-w-[980px]">
+              <div className="grid grid-cols-7 border-y border-slate-200 bg-slate-50">
+                {DAY_NAMES.map((dayName, index) => (
                   <div
-                    className={`text-xs font-bold ${
-                      isCurrentMonth ? "text-slate-900" : "text-slate-400"
+                    key={dayName}
+                    className={`px-3 py-3 text-center text-sm font-bold ${
+                      index === 0
+                        ? "text-rose-500"
+                        : index === 6
+                          ? "text-blue-500"
+                          : "text-slate-600"
                     }`}
                   >
-                    {day.getDate()}
+                    {dayName}
                   </div>
+                ))}
+              </div>
 
-                  <div className="mt-2 space-y-1.5">
-                    {dayReservations.slice(0, 4).map((reservation) => {
-                      const time = getReservationTime(reservation);
+              <div className="grid grid-cols-7 border-l border-slate-200">
+                {calendarDays.map((day) => {
+                  const dayReservations =
+                    reservationsByDate.get(day.dateKey) || [];
 
-                      return (
-                        <Link
-                          key={reservation.id}
-                          href={`/admin/reservations/${reservation.id}`}
-                          title={`${time || "시간 미정"} · ${
-                            statusLabels[reservation.status]
-                          } · ${reservation.name} · ${reservation.people}명 · ${
-                            reservation.program
-                          }`}
-                          className={`block rounded-lg px-2 py-1.5 text-xs font-semibold leading-4 ring-1 ${
-                            statusClassNames[reservation.status]
+                  return (
+                    <div
+                      key={day.dateKey}
+                      className={`min-h-40 border-b border-r border-slate-200 p-2 ${
+                        day.isCurrentMonth ? "bg-white" : "bg-slate-50"
+                      }`}
+                    >
+                      <div className="mb-2 flex items-center justify-between">
+                        <span
+                          className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold ${
+                            day.isToday
+                              ? "bg-blue-600 text-white"
+                              : day.isCurrentMonth
+                                ? "text-slate-800"
+                                : "text-slate-400"
                           }`}
                         >
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                                statusDotClassNames[reservation.status]
-                              }`}
-                            />
-                            <span className="shrink-0 font-black">
-                              {time || "미정"}
-                            </span>
-                            <span className="truncate">
-                              {reservation.name}
-                            </span>
-                          </div>
-                          <div className="mt-0.5 truncate opacity-80">
-                            {statusLabels[reservation.status]} ·{" "}
-                            {reservation.people}명 · {reservation.program}
-                          </div>
-                        </Link>
-                      );
-                    })}
+                          {day.date.getDate()}
+                        </span>
 
-                    {dayReservations.length > 4 && (
-                      <div className="text-xs font-semibold text-slate-400">
-                        +{dayReservations.length - 4}건
+                        {dayReservations.length > 0 ? (
+                          <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-500">
+                            {dayReservations.length}건
+                          </span>
+                        ) : null}
                       </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+
+                      <div className="space-y-1.5">
+                        {dayReservations.map((reservation) => (
+                          <Link
+                            key={reservation.id}
+                            href={`/admin/reservations/${reservation.id}`}
+                            className={`block rounded-xl border px-2 py-2 text-xs font-semibold leading-5 transition hover:scale-[1.01] hover:shadow-sm ${
+                              STATUS_STYLE[reservation.status]
+                            }`}
+                          >
+                            <div className="flex items-center gap-1">
+                              <span className="shrink-0 font-black">
+                                {reservation.experienceTime || "미정"}
+                              </span>
+                              <span className="truncate">
+                                {reservation.name}
+                              </span>
+                            </div>
+
+                            <div className="mt-0.5 truncate opacity-80">
+                              {reservation.people}명 ·{" "}
+                              {STATUS_LABEL[reservation.status]}
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
       </section>
-    </main>
+    </div>
   );
 }

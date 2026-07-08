@@ -1,89 +1,78 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
 
 type Reservation = {
   id: string;
   name: string;
-  email: string;
   phone: string;
   program: string;
-  reservationDate?: string;
-  date?: string;
-  people: number | string;
+  reservationDate: string;
+  people: number;
   message?: string;
   status: ReservationStatus;
   adminMemo?: string;
-  createdAt: string;
-  updatedAt: string;
+  experienceTime?: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
-type ReservationsResponse = {
-  ok: boolean;
-  reservations?: Reservation[];
-  message?: string;
-};
-
-type Customer = {
+type CustomerGroup = {
   key: string;
   name: string;
-  email: string;
   phone: string;
-  reservationCount: number;
+  normalizedPhone: string;
+  reservations: Reservation[];
+  totalReservations: number;
   totalPeople: number;
   latestReservation?: Reservation;
-  reservations: Reservation[];
+  latestReservationDate: string;
+  latestCreatedAt?: string;
 };
 
-const statusLabels: Record<ReservationStatus, string> = {
-  PENDING: "대기",
-  CONFIRMED: "확정",
+const STATUS_LABEL: Record<ReservationStatus, string> = {
+  PENDING: "접수대기",
+  CONFIRMED: "예약확정",
   CANCELLED: "취소",
   COMPLETED: "완료",
 };
 
-const statusClassNames: Record<ReservationStatus, string> = {
+const STATUS_STYLE: Record<ReservationStatus, string> = {
   PENDING: "bg-amber-50 text-amber-700 ring-amber-200",
-  CONFIRMED: "bg-cyan-50 text-cyan-700 ring-cyan-200",
-  CANCELLED: "bg-red-50 text-red-700 ring-red-200",
+  CONFIRMED: "bg-blue-50 text-blue-700 ring-blue-200",
+  CANCELLED: "bg-rose-50 text-rose-700 ring-rose-200",
   COMPLETED: "bg-emerald-50 text-emerald-700 ring-emerald-200",
 };
 
-function normalizeText(value?: string) {
-  return String(value ?? "").trim();
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+
+function normalizeName(name: string) {
+  return name.trim().replace(/\s+/g, " ");
 }
 
-function normalizeName(value?: string) {
-  return normalizeText(value).replaceAll(" ", "").toLowerCase();
+function normalizePhone(phone: string) {
+  return phone.replace(/[^0-9]/g, "");
 }
 
-function normalizePhone(value?: string) {
-  return normalizeText(value).replaceAll("-", "").replaceAll(" ", "");
-}
+function getDateTimeValue(value?: string) {
+  if (!value) return 0;
 
-function getReservationDate(reservation: Reservation) {
-  return reservation.reservationDate || reservation.date || "-";
-}
+  const time = new Date(value).getTime();
 
-function getPeople(value: Reservation["people"]) {
-  const people = Number(value);
-
-  if (!Number.isFinite(people) || people < 0) {
+  if (Number.isNaN(time)) {
     return 0;
   }
 
-  return people;
+  return time;
 }
 
-function getCreatedTime(reservation?: Reservation) {
-  if (!reservation?.createdAt) {
-    return 0;
-  }
+function getReservationDateValue(value?: string) {
+  if (!value) return 0;
 
-  const time = new Date(reservation.createdAt).getTime();
+  const time = new Date(`${value}T00:00:00`).getTime();
 
   if (Number.isNaN(time)) {
     return 0;
@@ -93,9 +82,7 @@ function getCreatedTime(reservation?: Reservation) {
 }
 
 function formatDateTime(value?: string) {
-  if (!value) {
-    return "-";
-  }
+  if (!value) return "-";
 
   const date = new Date(value);
 
@@ -103,307 +90,482 @@ function formatDateTime(value?: string) {
     return value;
   }
 
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return date.toLocaleString("ko-KR");
 }
 
-function makeCustomerKey(reservation: Reservation) {
-  const name = normalizeName(reservation.name);
-  const phone = normalizePhone(reservation.phone);
+function sortReservationsLatestFirst(a: Reservation, b: Reservation) {
+  const dateDiff =
+    getReservationDateValue(b.reservationDate) -
+    getReservationDateValue(a.reservationDate);
 
-  if (!name || !phone) {
-    return "";
+  if (dateDiff !== 0) {
+    return dateDiff;
   }
 
-  return `name-phone:${name}:${phone}`;
+  return getDateTimeValue(b.createdAt) - getDateTimeValue(a.createdAt);
 }
 
 export default function AdminCustomersPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [keyword, setKeyword] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-
-  async function loadReservations() {
-    try {
-      setIsLoading(true);
-      setErrorMessage("");
-
-      const response = await fetch("/api/reservations", {
-        method: "GET",
-        cache: "no-store",
-      });
-
-      const data = (await response.json()) as ReservationsResponse;
-
-      if (!response.ok || !data.ok) {
-        throw new Error(data.message ?? "고객 목록을 불러오지 못했습니다.");
-      }
-
-      setReservations(data.reservations ?? []);
-    } catch (error) {
-      console.error("[AdminCustomersPage] loadReservations error:", error);
-      setErrorMessage("고객 목록을 불러오지 못했습니다.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
+  const [keyword, setKeyword] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   useEffect(() => {
-    loadReservations();
-  }, []);
+    async function fetchReservations() {
+      try {
+        setLoading(true);
+        setErrorMessage("");
 
-  const customers = useMemo(() => {
-    const map = new Map<string, Customer>();
-
-    reservations.forEach((reservation) => {
-      const key = makeCustomerKey(reservation);
-
-      if (!key) {
-        return;
-      }
-
-      const existing = map.get(key);
-      const people = getPeople(reservation.people);
-
-      if (!existing) {
-        map.set(key, {
-          key,
-          name: normalizeText(reservation.name),
-          email: normalizeText(reservation.email),
-          phone: normalizeText(reservation.phone),
-          reservationCount: 1,
-          totalPeople: people,
-          latestReservation: reservation,
-          reservations: [reservation],
+        const res = await fetch("/api/reservations", {
+          cache: "no-store",
         });
 
-        return;
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          throw new Error(data.message || "고객 목록을 불러오지 못했습니다.");
+        }
+
+        setReservations(data.reservations || []);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "고객 목록을 불러오지 못했습니다.";
+
+        setErrorMessage(message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchReservations();
+  }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [keyword, pageSize]);
+
+  const customerGroups = useMemo(() => {
+    const map = new Map<string, CustomerGroup>();
+
+    for (const reservation of reservations) {
+      const name = normalizeName(reservation.name);
+      const normalizedPhone = normalizePhone(reservation.phone);
+
+      const key = `${name}__${normalizedPhone}`;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          name,
+          phone: reservation.phone,
+          normalizedPhone,
+          reservations: [],
+          totalReservations: 0,
+          totalPeople: 0,
+          latestReservationDate: "-",
+        });
       }
 
-      const latestReservation =
-        getCreatedTime(reservation) > getCreatedTime(existing.latestReservation)
-          ? reservation
-          : existing.latestReservation;
+      const group = map.get(key);
 
-      map.set(key, {
-        ...existing,
-        email: existing.email || normalizeText(reservation.email),
-        reservationCount: existing.reservationCount + 1,
-        totalPeople: existing.totalPeople + people,
-        latestReservation,
-        reservations: [...existing.reservations, reservation],
+      if (!group) continue;
+
+      group.reservations.push(reservation);
+      group.totalReservations += 1;
+      group.totalPeople += Number(reservation.people || 0);
+    }
+
+    return Array.from(map.values())
+      .map((group) => {
+        const sortedReservations = [...group.reservations].sort(
+          sortReservationsLatestFirst,
+        );
+
+        const latestReservation = sortedReservations[0];
+
+        return {
+          ...group,
+          reservations: sortedReservations,
+          latestReservation,
+          latestReservationDate: latestReservation?.reservationDate || "-",
+          latestCreatedAt: latestReservation?.createdAt,
+        };
+      })
+      .sort((a, b) => {
+        const latestReservationDateDiff =
+          getReservationDateValue(b.latestReservationDate) -
+          getReservationDateValue(a.latestReservationDate);
+
+        if (latestReservationDateDiff !== 0) {
+          return latestReservationDateDiff;
+        }
+
+        return getDateTimeValue(b.latestCreatedAt) - getDateTimeValue(a.latestCreatedAt);
       });
-    });
-
-    return Array.from(map.values()).sort((a, b) => {
-      return getCreatedTime(b.latestReservation) - getCreatedTime(a.latestReservation);
-    });
   }, [reservations]);
 
   const filteredCustomers = useMemo(() => {
-    const normalizedKeyword = keyword.trim().toLowerCase();
-    const normalizedPhoneKeyword = normalizePhone(keyword);
+    const trimmedKeyword = keyword.trim().toLowerCase();
+    const normalizedKeywordPhone = normalizePhone(trimmedKeyword);
 
-    if (!normalizedKeyword) {
-      return customers;
+    if (!trimmedKeyword) {
+      return customerGroups;
     }
 
-    return customers.filter((customer) => {
-      const latest = customer.latestReservation;
+    return customerGroups.filter((customer) => {
+      const name = customer.name.toLowerCase();
+      const phone = customer.phone.toLowerCase();
 
       return (
-        customer.name.toLowerCase().includes(normalizedKeyword) ||
-        customer.email.toLowerCase().includes(normalizedKeyword) ||
-        customer.phone.toLowerCase().includes(normalizedKeyword) ||
-        normalizePhone(customer.phone).includes(normalizedPhoneKeyword) ||
-        latest?.program?.toLowerCase().includes(normalizedKeyword) ||
-        getReservationDate(latest ?? ({} as Reservation))
-          .toLowerCase()
-          .includes(normalizedKeyword)
+        name.includes(trimmedKeyword) ||
+        phone.includes(trimmedKeyword) ||
+        customer.normalizedPhone.includes(normalizedKeywordPhone)
       );
     });
-  }, [customers, keyword]);
+  }, [customerGroups, keyword]);
 
-  const skippedReservationCount = useMemo(() => {
-    return reservations.filter((reservation) => !makeCustomerKey(reservation)).length;
-  }, [reservations]);
+  const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+
+  const pagedCustomers = useMemo(() => {
+    const startIndex = (safePage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+
+    return filteredCustomers.slice(startIndex, endIndex);
+  }, [filteredCustomers, safePage, pageSize]);
+
+  const startNumber =
+    filteredCustomers.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
+
+  const endNumber = Math.min(safePage * pageSize, filteredCustomers.length);
+
+  const totalCustomerCount = customerGroups.length;
+  const repeatCustomerCount = customerGroups.filter(
+    (customer) => customer.totalReservations >= 2,
+  ).length;
+  const totalReservationCount = reservations.length;
+
+  function goPrevPage() {
+    setPage((prev) => Math.max(1, prev - 1));
+  }
+
+  function goNextPage() {
+    setPage((prev) => Math.min(totalPages, prev + 1));
+  }
 
   return (
-    <main className="p-6 sm:p-8">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-semibold text-cyan-600">Customers</p>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">고객 관리</h1>
+          <p className="text-sm font-medium text-slate-500">관리자</p>
+          <h1 className="mt-1 text-2xl font-bold text-slate-900">고객관리</h1>
           <p className="mt-2 text-sm text-slate-500">
             이름과 전화번호가 모두 같은 예약만 같은 고객으로 묶습니다.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={loadReservations}
-          disabled={isLoading}
-          className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isLoading ? "새로고침 중..." : "새로고침"}
-        </button>
+        <div className="grid grid-cols-3 gap-2 sm:min-w-[420px]">
+          <SummaryCard label="고객" value={totalCustomerCount} />
+          <SummaryCard label="재예약 고객" value={repeatCustomerCount} />
+          <SummaryCard label="전체 예약" value={totalReservationCount} />
+        </div>
       </div>
 
-      {errorMessage && (
-        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-          {errorMessage}
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="grid gap-3 lg:grid-cols-[1fr_160px]">
+          <input
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+            placeholder="이름 또는 연락처로 검색"
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          />
+
+          <select
+            value={pageSize}
+            onChange={(event) => setPageSize(Number(event.target.value))}
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          >
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>
+                {size}개씩 보기
+              </option>
+            ))}
+          </select>
         </div>
-      )}
 
-      {skippedReservationCount > 0 && (
-        <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-          이름 또는 전화번호가 없는 예약 {skippedReservationCount}건은 고객 묶음에서 제외되었습니다.
+        <div className="mt-4 flex flex-col gap-2 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            총{" "}
+            <span className="font-bold text-slate-900">
+              {filteredCustomers.length}
+            </span>
+            명 중{" "}
+            <span className="font-bold text-slate-900">{startNumber}</span>
+            {" - "}
+            <span className="font-bold text-slate-900">{endNumber}</span>명 표시
+          </p>
+
+          <p>
+            {safePage} / {totalPages} 페이지
+          </p>
         </div>
-      )}
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 px-5 py-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-base font-bold text-slate-900">
-                고객 목록{" "}
-                <span className="text-sm font-medium text-slate-500">
-                  ({filteredCustomers.length}명)
-                </span>
-              </h2>
-              <p className="mt-1 text-xs text-slate-500">
-                예: 홍길동 + 010-1234-5678이 같을 때만 같은 고객으로 계산합니다.
-              </p>
-            </div>
-
-            <input
-              type="search"
-              value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
-              placeholder="이름, 이메일, 연락처, 프로그램 검색"
-              className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 sm:w-80"
-            />
+        {errorMessage ? (
+          <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {errorMessage}
           </div>
-        </div>
+        ) : null}
 
-        {isLoading ? (
-          <div className="p-8 text-sm text-slate-500">
+        {loading ? (
+          <div className="mt-5 rounded-2xl bg-slate-50 p-6 text-sm text-slate-500">
             고객 목록을 불러오는 중입니다.
           </div>
-        ) : filteredCustomers.length === 0 ? (
-          <div className="p-8 text-sm text-slate-500">
-            표시할 고객 데이터가 없습니다.
-          </div>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {filteredCustomers.map((customer) => {
-              const latest = customer.latestReservation;
+          <>
+            <div className="mt-5 hidden overflow-hidden rounded-2xl border border-slate-200 lg:block">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3">고객</th>
+                    <th className="px-4 py-3">총 예약수</th>
+                    <th className="px-4 py-3">총 인원</th>
+                    <th className="px-4 py-3">최근 예약일</th>
+                    <th className="px-4 py-3">최근 체험시간</th>
+                    <th className="px-4 py-3">최근 상태</th>
+                    <th className="px-4 py-3">최근 접수일시</th>
+                    <th className="px-4 py-3 text-right">관리</th>
+                  </tr>
+                </thead>
 
-              return (
-                <div key={customer.key} className="px-5 py-5">
-                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                    <div className="min-w-0">
-                      <h3 className="truncate font-bold text-slate-900">
-                        {customer.name || "-"}
-                      </h3>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {customer.phone || "-"} · {customer.email || "-"}
-                      </p>
+                <tbody className="divide-y divide-slate-200">
+                  {pagedCustomers.map((customer) => {
+                    const latestReservation = customer.latestReservation;
 
-                      {latest && (
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <span
-                            className={`rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${
-                              statusClassNames[latest.status]
-                            }`}
-                          >
-                            최근 상태: {statusLabels[latest.status]}
-                          </span>
-                          <span className="text-xs text-slate-400">
-                            최근 접수: {formatDateTime(latest.createdAt)}
-                          </span>
-                        </div>
-                      )}
+                    return (
+                      <tr key={customer.key} className="hover:bg-slate-50">
+                        <td className="px-4 py-4">
+                          <div className="font-bold text-slate-900">
+                            {customer.name}
+                          </div>
+                          <div className="mt-1 text-xs text-slate-500">
+                            {customer.phone}
+                          </div>
+                        </td>
+
+                        <td className="whitespace-nowrap px-4 py-4 font-bold text-slate-900">
+                          {customer.totalReservations}건
+                        </td>
+
+                        <td className="whitespace-nowrap px-4 py-4 font-semibold text-slate-700">
+                          {customer.totalPeople}명
+                        </td>
+
+                        <td className="whitespace-nowrap px-4 py-4 font-semibold text-slate-900">
+                          {customer.latestReservationDate}
+                        </td>
+
+                        <td className="whitespace-nowrap px-4 py-4 font-bold text-blue-700">
+                          {latestReservation?.experienceTime || "미정"}
+                        </td>
+
+                        <td className="whitespace-nowrap px-4 py-4">
+                          {latestReservation ? (
+                            <span
+                              className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ring-1 ${
+                                STATUS_STYLE[latestReservation.status]
+                              }`}
+                            >
+                              {STATUS_LABEL[latestReservation.status]}
+                            </span>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+
+                        <td className="whitespace-nowrap px-4 py-4 text-slate-600">
+                          {formatDateTime(customer.latestCreatedAt)}
+                        </td>
+
+                        <td className="whitespace-nowrap px-4 py-4 text-right">
+                          {latestReservation ? (
+                            <Link
+                              href={`/admin/reservations/${latestReservation.id}`}
+                              className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700"
+                            >
+                              최근예약 보기
+                            </Link>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {pagedCustomers.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={8}
+                        className="px-4 py-10 text-center text-sm text-slate-500"
+                      >
+                        표시할 고객이 없습니다.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-5 space-y-3 lg:hidden">
+              {pagedCustomers.map((customer) => {
+                const latestReservation = customer.latestReservation;
+
+                return (
+                  <div
+                    key={customer.key}
+                    className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-lg font-bold text-slate-900">
+                          {customer.name}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {customer.phone}
+                        </p>
+                      </div>
+
+                      {latestReservation ? (
+                        <span
+                          className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ring-1 ${
+                            STATUS_STYLE[latestReservation.status]
+                          }`}
+                        >
+                          {STATUS_LABEL[latestReservation.status]}
+                        </span>
+                      ) : null}
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:min-w-[700px]">
-                      <CustomerInfo
-                        label="예약 횟수"
-                        value={`${customer.reservationCount}회`}
+                    <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                      <MobileInfo
+                        label="총 예약수"
+                        value={`${customer.totalReservations}건`}
                       />
-                      <CustomerInfo
-                        label="누적 인원"
+                      <MobileInfo
+                        label="총 인원"
                         value={`${customer.totalPeople}명`}
                       />
-                      <CustomerInfo
+                      <MobileInfo
                         label="최근 예약일"
-                        value={latest ? getReservationDate(latest) : "-"}
+                        value={customer.latestReservationDate}
                       />
-                      <CustomerInfo
-                        label="최근 프로그램"
-                        value={latest?.program || "-"}
+                      <MobileInfo
+                        label="최근 체험시간"
+                        value={latestReservation?.experienceTime || "미정"}
                       />
                     </div>
 
-                    {latest && (
-                      <Link
-                        href={`/admin/reservations/${latest.id}`}
-                        className="inline-flex shrink-0 justify-center rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white hover:bg-slate-700"
-                      >
-                        최근 예약 보기
-                      </Link>
-                    )}
-                  </div>
-
-                  {customer.reservations.length > 1 && (
-                    <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3">
+                    <div className="mt-4 rounded-xl bg-slate-50 p-3 text-sm">
                       <p className="text-xs font-semibold text-slate-500">
-                        예약 이력
+                        최근 접수일시
                       </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {customer.reservations
-                          .slice()
-                          .sort((a, b) => getCreatedTime(b) - getCreatedTime(a))
-                          .slice(0, 5)
-                          .map((reservation) => (
-                            <Link
-                              key={reservation.id}
-                              href={`/admin/reservations/${reservation.id}`}
-                              className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"
-                            >
-                              {getReservationDate(reservation)} ·{" "}
-                              {reservation.program}
-                            </Link>
-                          ))}
-
-                        {customer.reservations.length > 5 && (
-                          <span className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-400">
-                            +{customer.reservations.length - 5}건
-                          </span>
-                        )}
-                      </div>
+                      <p className="mt-1 font-bold text-slate-900">
+                        {formatDateTime(customer.latestCreatedAt)}
+                      </p>
                     </div>
-                  )}
+
+                    {latestReservation ? (
+                      <Link
+                        href={`/admin/reservations/${latestReservation.id}`}
+                        className="mt-4 block rounded-xl bg-slate-900 px-4 py-3 text-center text-sm font-bold text-white hover:bg-slate-700"
+                      >
+                        최근예약 보기
+                      </Link>
+                    ) : null}
+                  </div>
+                );
+              })}
+
+              {pagedCustomers.length === 0 ? (
+                <div className="rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500">
+                  표시할 고객이 없습니다.
                 </div>
-              );
-            })}
-          </div>
+              ) : null}
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-slate-500">
+                {safePage} / {totalPages} 페이지
+              </p>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage(1)}
+                  disabled={safePage <= 1}
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  처음
+                </button>
+
+                <button
+                  type="button"
+                  onClick={goPrevPage}
+                  disabled={safePage <= 1}
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  이전
+                </button>
+
+                <div className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">
+                  {safePage}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={goNextPage}
+                  disabled={safePage >= totalPages}
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  다음
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPage(totalPages)}
+                  disabled={safePage >= totalPages}
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  마지막
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </section>
-    </main>
+    </div>
   );
 }
 
-function CustomerInfo({ label, value }: { label: string; value: string }) {
+function SummaryCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl bg-slate-50 px-4 py-3">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
       <p className="text-xs font-semibold text-slate-500">{label}</p>
-      <p className="mt-1 break-words text-sm font-bold text-slate-900">
-        {value}
-      </p>
+      <p className="mt-1 text-xl font-black text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+function MobileInfo({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-slate-50 p-3">
+      <p className="text-xs font-semibold text-slate-500">{label}</p>
+      <p className="mt-1 font-bold text-slate-900">{value}</p>
     </div>
   );
 }

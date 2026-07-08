@@ -3,14 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
+import { PROGRAM_OPTIONS, normalizeProgramValue } from "@/lib/programs";
+
 type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
 
 type Reservation = {
   id: string;
   name: string;
   phone: string;
+  email?: string;
   program: string;
   reservationDate: string;
+  date?: string;
   people: number;
   message?: string;
   status: ReservationStatus;
@@ -18,6 +22,28 @@ type Reservation = {
   experienceTime?: string;
   createdAt?: string;
   updatedAt?: string;
+};
+
+type SaveResponse = {
+  ok: boolean;
+  reservation?: Reservation;
+  message?: string;
+  email?: {
+    sent?: boolean;
+    skippedReason?: string;
+    error?: string;
+  };
+};
+
+type ResendEmailResponse = {
+  ok: boolean;
+  message?: string;
+  emailType?: "CONFIRMED" | "CANCELLED";
+  email?: {
+    sent?: boolean;
+    skippedReason?: string;
+    error?: string;
+  };
 };
 
 const STATUS_LABEL: Record<ReservationStatus, string> = {
@@ -63,12 +89,28 @@ export default function AdminReservationDetailPage() {
   const reservationId = params.id;
 
   const [reservation, setReservation] = useState<Reservation | null>(null);
+
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [program, setProgram] = useState(PROGRAM_OPTIONS[0].value);
+  const [reservationDate, setReservationDate] = useState("");
+  const [people, setPeople] = useState(1);
+
   const [status, setStatus] = useState<ReservationStatus>("PENDING");
   const [adminMemo, setAdminMemo] = useState("");
   const [experienceTime, setExperienceTime] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [resending, setResending] = useState(false);
+
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [emailMessageType, setEmailMessageType] = useState<
+    "success" | "warning" | "error" | ""
+  >("");
 
   const createdAtText = useMemo(() => {
     if (!reservation?.createdAt) return "-";
@@ -82,11 +124,36 @@ export default function AdminReservationDetailPage() {
     return date.toLocaleString("ko-KR");
   }, [reservation]);
 
+  const updatedAtText = useMemo(() => {
+    if (!reservation?.updatedAt) return "-";
+
+    const date = new Date(reservation.updatedAt);
+
+    if (Number.isNaN(date.getTime())) {
+      return reservation.updatedAt;
+    }
+
+    return date.toLocaleString("ko-KR");
+  }, [reservation]);
+
+  const canResendEmail =
+    reservation?.status === "CONFIRMED" || reservation?.status === "CANCELLED";
+
+  const resendEmailButtonText =
+    reservation?.status === "CONFIRMED"
+      ? "확정 메일 다시 보내기"
+      : reservation?.status === "CANCELLED"
+        ? "취소 메일 다시 보내기"
+        : "메일 다시 보내기";
+
   useEffect(() => {
     async function fetchReservation() {
       try {
         setLoading(true);
         setErrorMessage("");
+        setSuccessMessage("");
+        setEmailMessage("");
+        setEmailMessageType("");
 
         const res = await fetch(`/api/reservations/${reservationId}`, {
           cache: "no-store",
@@ -100,10 +167,7 @@ export default function AdminReservationDetailPage() {
 
         const item = data.reservation as Reservation;
 
-        setReservation(item);
-        setStatus(item.status || "PENDING");
-        setAdminMemo(item.adminMemo || "");
-        setExperienceTime(item.experienceTime || "");
+        applyReservationToForm(item);
       } catch (error) {
         const message =
           error instanceof Error
@@ -121,10 +185,57 @@ export default function AdminReservationDetailPage() {
     }
   }, [reservationId]);
 
+  function applyReservationToForm(item: Reservation) {
+    const nextReservationDate = item.reservationDate || item.date || "";
+    const nextProgram = normalizeProgramValue(item.program);
+
+    setReservation({
+      ...item,
+      program: nextProgram,
+    });
+
+    setName(item.name || "");
+    setPhone(item.phone || "");
+    setEmail(item.email || "");
+    setProgram(nextProgram);
+    setReservationDate(nextReservationDate);
+    setPeople(Number(item.people || 1));
+
+    setStatus(item.status || "PENDING");
+    setAdminMemo(item.adminMemo || "");
+    setExperienceTime(item.experienceTime || "");
+  }
+
+  function showEmailResult(data: {
+    email?: {
+      sent?: boolean;
+      skippedReason?: string;
+      error?: string;
+    };
+  }) {
+    if (!data.email) {
+      return;
+    }
+
+    if (data.email.sent) {
+      setEmailMessage("고객 안내 메일이 발송되었습니다.");
+      setEmailMessageType("success");
+    } else if (data.email.error) {
+      setEmailMessage(`메일 발송 실패: ${data.email.error}`);
+      setEmailMessageType("error");
+    } else if (data.email.skippedReason) {
+      setEmailMessage(`메일 발송 안 함: ${data.email.skippedReason}`);
+      setEmailMessageType("warning");
+    }
+  }
+
   async function handleSave() {
     try {
       setSaving(true);
       setErrorMessage("");
+      setSuccessMessage("");
+      setEmailMessage("");
+      setEmailMessageType("");
 
       const res = await fetch(`/api/reservations/${reservationId}`, {
         method: "PATCH",
@@ -132,26 +243,28 @@ export default function AdminReservationDetailPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          name,
+          phone,
+          email,
+          program,
+          reservationDate,
+          people,
           status,
           adminMemo,
-          experienceTime: experienceTime || undefined,
+          experienceTime: experienceTime || "",
         }),
       });
 
-      const data = await res.json();
+      const data = (await res.json()) as SaveResponse;
 
-      if (!res.ok || !data.ok) {
+      if (!res.ok || !data.ok || !data.reservation) {
         throw new Error(data.message || "예약 정보를 저장하지 못했습니다.");
       }
 
-      const updated = data.reservation as Reservation;
+      applyReservationToForm(data.reservation);
 
-      setReservation(updated);
-      setStatus(updated.status || "PENDING");
-      setAdminMemo(updated.adminMemo || "");
-      setExperienceTime(updated.experienceTime || "");
-
-      alert("예약 정보가 저장되었습니다.");
+      setSuccessMessage("예약 정보가 저장되었습니다.");
+      showEmailResult(data);
     } catch (error) {
       const message =
         error instanceof Error
@@ -161,6 +274,51 @@ export default function AdminReservationDetailPage() {
       setErrorMessage(message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleResendEmail() {
+    if (!reservation) return;
+
+    const confirmed = window.confirm(
+      `${reservation.email || "고객 이메일"}로 안내 메일을 다시 보낼까요?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setResending(true);
+      setErrorMessage("");
+      setSuccessMessage("");
+      setEmailMessage("");
+      setEmailMessageType("");
+
+      const res = await fetch(
+        `/api/reservations/${reservationId}/resend-email`,
+        {
+          method: "POST",
+        },
+      );
+
+      const data = (await res.json()) as ResendEmailResponse;
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.message || "메일을 다시 보내지 못했습니다.");
+      }
+
+      showEmailResult(data);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "메일을 다시 보내지 못했습니다.";
+
+      setEmailMessage(message);
+      setEmailMessageType("error");
+    } finally {
+      setResending(false);
     }
   }
 
@@ -202,9 +360,7 @@ export default function AdminReservationDetailPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-medium text-slate-500">예약 상세</p>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">
-            {reservation.name}
-          </h1>
+          <h1 className="mt-1 text-2xl font-bold text-slate-900">{name}</h1>
         </div>
 
         <button
@@ -216,6 +372,26 @@ export default function AdminReservationDetailPage() {
         </button>
       </div>
 
+      {successMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">
+          {successMessage}
+        </div>
+      ) : null}
+
+      {emailMessage ? (
+        <div
+          className={`rounded-2xl border p-4 text-sm font-semibold ${
+            emailMessageType === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : emailMessageType === "warning"
+                ? "border-amber-200 bg-amber-50 text-amber-700"
+                : "border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
+          {emailMessage}
+        </div>
+      ) : null}
+
       {errorMessage ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {errorMessage}
@@ -223,24 +399,103 @@ export default function AdminReservationDetailPage() {
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-900">예약 정보</h2>
+        <section className="space-y-6">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-bold text-slate-900">고객 정보</h2>
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <InfoItem label="이름" value={reservation.name} />
-            <InfoItem label="연락처" value={reservation.phone} />
-            <InfoItem label="프로그램" value={reservation.program} />
-            <InfoItem label="예약 희망일" value={reservation.reservationDate} />
-            <InfoItem label="인원" value={`${reservation.people}명`} />
-            <InfoItem label="접수일시" value={createdAtText} />
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <FormField label="이름" required>
+                <input
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                />
+              </FormField>
+
+              <FormField label="연락처" required>
+                <input
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                />
+              </FormField>
+
+              <FormField label="이메일">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="example@email.com"
+                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                />
+              </FormField>
+
+              <InfoItem label="접수일시" value={createdAtText} />
+              <InfoItem label="최근 수정일시" value={updatedAtText} />
+            </div>
           </div>
 
-          <div className="mt-6">
-            <p className="text-sm font-semibold text-slate-500">요청사항</p>
-            <div className="mt-2 min-h-28 rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">
-              {reservation.message?.trim()
-                ? reservation.message
-                : "요청사항이 없습니다."}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-bold text-slate-900">예약 정보</h2>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <FormField label="프로그램" required>
+                <select
+                  value={program}
+                  onChange={(event) => setProgram(event.target.value)}
+                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                >
+                  {PROGRAM_OPTIONS.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+
+              <FormField label="예약 희망일" required>
+                <input
+                  type="date"
+                  value={reservationDate}
+                  onChange={(event) => setReservationDate(event.target.value)}
+                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                />
+              </FormField>
+
+              <FormField label="인원" required>
+                <input
+                  type="number"
+                  min={1}
+                  value={people}
+                  onChange={(event) => setPeople(Number(event.target.value))}
+                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                />
+              </FormField>
+
+              <FormField label="체험시간">
+                <select
+                  value={experienceTime}
+                  onChange={(event) => setExperienceTime(event.target.value)}
+                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                >
+                  <option value="">시간 미지정</option>
+
+                  {EXPERIENCE_TIME_OPTIONS.map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+            </div>
+
+            <div className="mt-6">
+              <p className="text-sm font-semibold text-slate-500">요청사항</p>
+              <div className="mt-2 min-h-28 rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+                {reservation.message?.trim()
+                  ? reservation.message
+                  : "요청사항이 없습니다."}
+              </div>
             </div>
           </div>
         </section>
@@ -267,29 +522,10 @@ export default function AdminReservationDetailPage() {
                   </option>
                 ))}
               </select>
-            </div>
 
-            <div>
-              <label className="text-sm font-semibold text-slate-600">
-                체험시간
-              </label>
-
-              <select
-                value={experienceTime}
-                onChange={(event) => setExperienceTime(event.target.value)}
-                className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-              >
-                <option value="">시간 미지정</option>
-
-                {EXPERIENCE_TIME_OPTIONS.map((time) => (
-                  <option key={time} value={time}>
-                    {time}
-                  </option>
-                ))}
-              </select>
-
-              <p className="mt-2 text-xs text-slate-500">
-                예약시간은 30분 단위로만 선택됩니다.
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                예약확정 또는 취소로 상태가 변경되면 고객 이메일로 안내 메일이
+                발송됩니다.
               </p>
             </div>
 
@@ -307,6 +543,14 @@ export default function AdminReservationDetailPage() {
               />
             </div>
 
+            <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+              <p className="font-bold text-slate-900">저장 안내</p>
+              <p className="mt-1">프로그램명은 한글로 저장됩니다.</p>
+              <p>예약확정 변경 시: 확정 안내 메일</p>
+              <p>취소 변경 시: 취소 안내 메일</p>
+              <p>같은 상태로 다시 저장 시: 중복 발송 안 함</p>
+            </div>
+
             <button
               type="button"
               onClick={handleSave}
@@ -315,9 +559,44 @@ export default function AdminReservationDetailPage() {
             >
               {saving ? "저장 중..." : "저장하기"}
             </button>
+
+            <button
+              type="button"
+              onClick={handleResendEmail}
+              disabled={!canResendEmail || resending}
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {resending ? "메일 발송 중..." : resendEmailButtonText}
+            </button>
+
+            {!canResendEmail ? (
+              <p className="text-xs leading-5 text-slate-500">
+                메일 재발송은 예약확정 또는 취소 상태에서만 가능합니다.
+              </p>
+            ) : null}
           </div>
         </aside>
       </div>
+    </div>
+  );
+}
+
+function FormField({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="text-sm font-semibold text-slate-600">
+        {label}
+        {required ? <span className="ml-1 text-red-500">*</span> : null}
+      </label>
+      {children}
     </div>
   );
 }

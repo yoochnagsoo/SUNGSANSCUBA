@@ -1,62 +1,43 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
-type StatusFilter = "ALL" | ReservationStatus;
 
 type Reservation = {
   id: string;
   name: string;
-  email: string;
   phone: string;
   program: string;
-  reservationDate?: string;
-  date?: string;
+  reservationDate: string;
   people: number;
   message?: string;
   status: ReservationStatus;
   adminMemo?: string;
-  createdAt: string;
-  updatedAt: string;
+  experienceTime?: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
-type ReservationsResponse = {
-  ok: boolean;
-  reservations?: Reservation[];
-  nextCursor?: string | null;
-  message?: string;
-};
-
-const PAGE_SIZE = 50;
-
-const statusLabels: Record<ReservationStatus, string> = {
-  PENDING: "대기",
-  CONFIRMED: "확정",
+const STATUS_LABEL: Record<ReservationStatus, string> = {
+  PENDING: "접수대기",
+  CONFIRMED: "예약확정",
   CANCELLED: "취소",
   COMPLETED: "완료",
 };
 
-const statusFilterLabels: Record<StatusFilter, string> = {
-  ALL: "전체",
-  PENDING: "대기",
-  CONFIRMED: "확정",
-  CANCELLED: "취소",
-  COMPLETED: "완료",
-};
-
-const statusClassNames: Record<ReservationStatus, string> = {
+const STATUS_STYLE: Record<ReservationStatus, string> = {
   PENDING: "bg-amber-50 text-amber-700 ring-amber-200",
-  CONFIRMED: "bg-cyan-50 text-cyan-700 ring-cyan-200",
-  CANCELLED: "bg-red-50 text-red-700 ring-red-200",
+  CONFIRMED: "bg-blue-50 text-blue-700 ring-blue-200",
+  CANCELLED: "bg-rose-50 text-rose-700 ring-rose-200",
   COMPLETED: "bg-emerald-50 text-emerald-700 ring-emerald-200",
 };
 
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+
 function formatDateTime(value?: string) {
-  if (!value) {
-    return "-";
-  }
+  if (!value) return "-";
 
   const date = new Date(value);
 
@@ -64,401 +45,420 @@ function formatDateTime(value?: string) {
     return value;
   }
 
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return date.toLocaleString("ko-KR");
 }
 
-function getReservationDate(reservation: Reservation) {
-  return reservation.reservationDate || reservation.date || "-";
+function getCreatedAtTime(value?: string) {
+  if (!value) return 0;
+
+  const time = new Date(value).getTime();
+
+  if (Number.isNaN(time)) return 0;
+
+  return time;
+}
+
+function normalizePhone(phone: string) {
+  return phone.replace(/[^0-9]/g, "");
 }
 
 export default function AdminReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
-  const [keyword, setKeyword] = useState("");
-  const [currentCursor, setCurrentCursor] = useState<string | null>(null);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [cursorHistory, setCursorHistory] = useState<(string | null)[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-
-  async function loadReservations(
-    cursor: string | null,
-    pageNumber: number,
-    history: (string | null)[]
-  ) {
-    try {
-      setIsLoading(true);
-      setErrorMessage("");
-
-      const params = new URLSearchParams();
-      params.set("limit", String(PAGE_SIZE));
-      params.set("status", statusFilter);
-
-      if (keyword.trim()) {
-        params.set("keyword", keyword.trim());
-      }
-
-      if (cursor) {
-        params.set("cursor", cursor);
-      }
-
-      const response = await fetch(`/api/reservations?${params.toString()}`, {
-        method: "GET",
-        cache: "no-store",
-      });
-
-      const data = (await response.json()) as ReservationsResponse;
-
-      if (!response.ok || !data.ok) {
-        throw new Error(data.message ?? "예약 목록을 불러오지 못했습니다.");
-      }
-
-      setReservations(data.reservations ?? []);
-      setCurrentCursor(cursor);
-      setNextCursor(data.nextCursor ?? null);
-      setCursorHistory(history);
-      setCurrentPage(pageNumber);
-    } catch (error) {
-      console.error("[AdminReservationsPage] loadReservations error:", error);
-      setErrorMessage("예약 목록을 불러오지 못했습니다.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
+  const [keyword, setKeyword] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | ReservationStatus>(
+    "ALL",
+  );
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   useEffect(() => {
-    loadReservations(null, 1, []);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+    async function fetchReservations() {
+      try {
+        setLoading(true);
+        setErrorMessage("");
 
-  function handleSearchSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    loadReservations(null, 1, []);
-  }
+        const res = await fetch("/api/reservations", {
+          cache: "no-store",
+        });
 
-  function handleResetFilters() {
-    setKeyword("");
-    setStatusFilter("ALL");
-    loadReservations(null, 1, []);
-  }
+        const data = await res.json();
 
-  function goToNextPage() {
-    if (!nextCursor) {
-      return;
+        if (!res.ok || !data.ok) {
+          throw new Error(data.message || "예약 목록을 불러오지 못했습니다.");
+        }
+
+        setReservations(data.reservations || []);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "예약 목록을 불러오지 못했습니다.";
+
+        setErrorMessage(message);
+      } finally {
+        setLoading(false);
+      }
     }
 
-    loadReservations(nextCursor, currentPage + 1, [
-      ...cursorHistory,
-      currentCursor,
-    ]);
+    fetchReservations();
+  }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [keyword, statusFilter, pageSize]);
+
+  const filteredReservations = useMemo(() => {
+    const trimmedKeyword = keyword.trim().toLowerCase();
+    const normalizedKeywordPhone = normalizePhone(trimmedKeyword);
+
+    return reservations
+      .filter((reservation) => {
+        if (statusFilter !== "ALL" && reservation.status !== statusFilter) {
+          return false;
+        }
+
+        if (!trimmedKeyword) {
+          return true;
+        }
+
+        const name = reservation.name.toLowerCase();
+        const phone = reservation.phone.toLowerCase();
+        const normalizedPhone = normalizePhone(reservation.phone);
+        const program = reservation.program.toLowerCase();
+        const reservationDate = reservation.reservationDate.toLowerCase();
+
+        return (
+          name.includes(trimmedKeyword) ||
+          phone.includes(trimmedKeyword) ||
+          program.includes(trimmedKeyword) ||
+          reservationDate.includes(trimmedKeyword) ||
+          normalizedPhone.includes(normalizedKeywordPhone)
+        );
+      })
+      .sort(
+        (a, b) => getCreatedAtTime(b.createdAt) - getCreatedAtTime(a.createdAt),
+      );
+  }, [reservations, keyword, statusFilter]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredReservations.length / pageSize),
+  );
+
+  const safePage = Math.min(page, totalPages);
+
+  const pagedReservations = useMemo(() => {
+    const startIndex = (safePage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+
+    return filteredReservations.slice(startIndex, endIndex);
+  }, [filteredReservations, safePage, pageSize]);
+
+  const startNumber =
+    filteredReservations.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
+
+  const endNumber = Math.min(
+    safePage * pageSize,
+    filteredReservations.length,
+  );
+
+  const totalCount = reservations.length;
+  const pendingCount = reservations.filter(
+    (item) => item.status === "PENDING",
+  ).length;
+  const confirmedCount = reservations.filter(
+    (item) => item.status === "CONFIRMED",
+  ).length;
+
+  function goPrevPage() {
+    setPage((prev) => Math.max(1, prev - 1));
   }
 
-  function goToPreviousPage() {
-    if (currentPage <= 1) {
-      return;
-    }
-
-    const previousHistory = [...cursorHistory];
-    const previousCursor = previousHistory.pop() ?? null;
-
-    loadReservations(previousCursor, currentPage - 1, previousHistory);
+  function goNextPage() {
+    setPage((prev) => Math.min(totalPages, prev + 1));
   }
-
-  const pageInfoText = useMemo(() => {
-    if (reservations.length === 0) {
-      return "표시할 예약이 없습니다.";
-    }
-
-    return `${currentPage}페이지 · ${reservations.length}건 표시`;
-  }, [currentPage, reservations.length]);
 
   return (
-    <main className="p-6 sm:p-8">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-semibold text-cyan-600">Reservations</p>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">예약 관리</h1>
+          <p className="text-sm font-medium text-slate-500">관리자</p>
+          <h1 className="mt-1 text-2xl font-bold text-slate-900">예약관리</h1>
           <p className="mt-2 text-sm text-slate-500">
-            최근 접수된 예약부터 50건씩 확인하고 상태를 관리합니다.
+            접수일시 기준 최신 예약부터 표시됩니다.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => loadReservations(currentCursor, currentPage, cursorHistory)}
-          disabled={isLoading}
-          className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isLoading ? "새로고침 중..." : "새로고침"}
-        </button>
+        <div className="grid grid-cols-3 gap-2 sm:min-w-[360px]">
+          <SummaryCard label="전체" value={totalCount} />
+          <SummaryCard label="접수대기" value={pendingCount} />
+          <SummaryCard label="예약확정" value={confirmedCount} />
+        </div>
       </div>
 
-      {errorMessage && (
-        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-          {errorMessage}
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="grid gap-3 lg:grid-cols-[1fr_220px_160px]">
+          <input
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+            placeholder="이름, 연락처, 프로그램, 예약일로 검색"
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          />
+
+          <select
+            value={statusFilter}
+            onChange={(event) =>
+              setStatusFilter(event.target.value as "ALL" | ReservationStatus)
+            }
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          >
+            <option value="ALL">전체 상태</option>
+            <option value="PENDING">접수대기</option>
+            <option value="CONFIRMED">예약확정</option>
+            <option value="CANCELLED">취소</option>
+            <option value="COMPLETED">완료</option>
+          </select>
+
+          <select
+            value={pageSize}
+            onChange={(event) => setPageSize(Number(event.target.value))}
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          >
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>
+                {size}개씩 보기
+              </option>
+            ))}
+          </select>
         </div>
-      )}
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 px-5 py-4">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <h2 className="text-base font-bold text-slate-900">예약 목록</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                 접수일시 최신순으로 50건씩 불러옵니다.
-              </p>
-            </div>
+        <div className="mt-4 flex flex-col gap-2 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            총 <span className="font-bold text-slate-900">{filteredReservations.length}</span>
+            건 중{" "}
+            <span className="font-bold text-slate-900">{startNumber}</span>
+            {" - "}
+            <span className="font-bold text-slate-900">{endNumber}</span>
+            건 표시
+          </p>
 
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <div className="flex flex-wrap gap-2">
-                {(
-                  [
-                    "ALL",
-                    "PENDING",
-                    "CONFIRMED",
-                    "CANCELLED",
-                    "COMPLETED",
-                  ] as StatusFilter[]
-                ).map((status) => (
-                  <button
-                    key={status}
-                    type="button"
-                    onClick={() => setStatusFilter(status)}
-                    className={`rounded-full px-3 py-2 text-xs font-bold ring-1 transition ${
-                      statusFilter === status
-                        ? "bg-slate-900 text-white ring-slate-900"
-                        : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
-                    }`}
-                  >
-                    {statusFilterLabels[status]}
-                  </button>
-                ))}
-              </div>
+          <p>
+            {safePage} / {totalPages} 페이지
+          </p>
+        </div>
 
-              <form onSubmit={handleSearchSubmit} className="flex gap-2">
-                <input
-                  type="search"
-                  value={keyword}
-                  onChange={(event) => setKeyword(event.target.value)}
-                  placeholder="이름, 연락처, 이메일, 프로그램 검색"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 lg:w-80"
-                />
-                <button
-                  type="submit"
-                  className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-700"
-                >
-                  검색
-                </button>
-              </form>
-
-              <button
-                type="button"
-                onClick={handleResetFilters}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                초기화
-              </button>
-            </div>
+        {errorMessage ? (
+          <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {errorMessage}
           </div>
-        </div>
+        ) : null}
 
-        {isLoading ? (
-          <div className="p-8 text-sm text-slate-500">
+        {loading ? (
+          <div className="mt-5 rounded-2xl bg-slate-50 p-6 text-sm text-slate-500">
             예약 목록을 불러오는 중입니다.
-          </div>
-        ) : reservations.length === 0 ? (
-          <div className="p-8 text-sm text-slate-500">
-            조건에 맞는 예약이 없습니다.
           </div>
         ) : (
           <>
-            <div className="border-b border-slate-100 bg-slate-50 px-5 py-3 text-sm text-slate-600">
-              {pageInfoText}
-            </div>
-
-            <div className="hidden overflow-x-auto md:block">
-              <table className="min-w-full divide-y divide-slate-200">
-                <thead className="bg-slate-50">
+            <div className="mt-5 hidden overflow-hidden rounded-2xl border border-slate-200 lg:block">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
                   <tr>
-                    <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                      예약자
-                    </th>
-                    <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                      프로그램
-                    </th>
-                    <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                      예약일자
-                    </th>
-                    <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                      인원
-                    </th>
-                    <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                      상태
-                    </th>
-                    <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                      접수일시
-                    </th>
-                    <th className="px-5 py-3 text-right text-xs font-bold uppercase tracking-wide text-slate-500">
-                      상세
-                    </th>
+                    <th className="px-4 py-3">접수일시</th>
+                    <th className="px-4 py-3">예약일</th>
+                    <th className="px-4 py-3">체험시간</th>
+                    <th className="px-4 py-3">고객</th>
+                    <th className="px-4 py-3">프로그램</th>
+                    <th className="px-4 py-3">인원</th>
+                    <th className="px-4 py-3">상태</th>
+                    <th className="px-4 py-3 text-right">관리</th>
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {reservations.map((reservation) => (
+                <tbody className="divide-y divide-slate-200">
+                  {pagedReservations.map((reservation) => (
                     <tr key={reservation.id} className="hover:bg-slate-50">
-                      <td className="px-5 py-4">
-                        <div className="font-semibold text-slate-900">
+                      <td className="whitespace-nowrap px-4 py-4 text-slate-600">
+                        {formatDateTime(reservation.createdAt)}
+                      </td>
+
+                      <td className="whitespace-nowrap px-4 py-4 font-semibold text-slate-900">
+                        {reservation.reservationDate}
+                      </td>
+
+                      <td className="whitespace-nowrap px-4 py-4 font-bold text-blue-700">
+                        {reservation.experienceTime || "미정"}
+                      </td>
+
+                      <td className="px-4 py-4">
+                        <div className="font-bold text-slate-900">
                           {reservation.name}
                         </div>
                         <div className="mt-1 text-xs text-slate-500">
                           {reservation.phone}
                         </div>
-                        <div className="mt-1 text-xs text-slate-400">
-                          {reservation.email}
-                        </div>
                       </td>
 
-                      <td className="px-5 py-4 text-sm font-medium text-slate-700">
+                      <td className="px-4 py-4 text-slate-700">
                         {reservation.program}
                       </td>
 
-                      <td className="px-5 py-4 text-sm font-medium text-slate-700">
-                        {getReservationDate(reservation)}
-                      </td>
-
-                      <td className="px-5 py-4 text-sm text-slate-700">
+                      <td className="whitespace-nowrap px-4 py-4 font-semibold text-slate-700">
                         {reservation.people}명
                       </td>
 
-                      <td className="px-5 py-4">
+                      <td className="whitespace-nowrap px-4 py-4">
                         <span
                           className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ring-1 ${
-                            statusClassNames[reservation.status]
+                            STATUS_STYLE[reservation.status]
                           }`}
                         >
-                          {statusLabels[reservation.status]}
+                          {STATUS_LABEL[reservation.status]}
                         </span>
                       </td>
 
-                      <td className="px-5 py-4 text-sm text-slate-500">
-                        {formatDateTime(reservation.createdAt)}
-                      </td>
-
-                      <td className="px-5 py-4 text-right">
+                      <td className="whitespace-nowrap px-4 py-4 text-right">
                         <Link
                           href={`/admin/reservations/${reservation.id}`}
-                          className="inline-flex rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700"
+                          className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700"
                         >
-                          보기
+                          상세보기
                         </Link>
                       </td>
                     </tr>
                   ))}
+
+                  {pagedReservations.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={8}
+                        className="px-4 py-10 text-center text-sm text-slate-500"
+                      >
+                        표시할 예약이 없습니다.
+                      </td>
+                    </tr>
+                  ) : null}
                 </tbody>
               </table>
             </div>
 
-            <div className="divide-y divide-slate-100 md:hidden">
-              {reservations.map((reservation) => (
+            <div className="mt-5 space-y-3 lg:hidden">
+              {pagedReservations.map((reservation) => (
                 <Link
                   key={reservation.id}
                   href={`/admin/reservations/${reservation.id}`}
-                  className="block p-5 hover:bg-slate-50"
+                  className="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="font-bold text-slate-900">
+                      <p className="text-xs text-slate-500">
+                        접수일시 {formatDateTime(reservation.createdAt)}
+                      </p>
+                      <p className="mt-1 text-lg font-bold text-slate-900">
                         {reservation.name}
-                      </div>
-                      <div className="mt-1 text-sm text-slate-500">
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
                         {reservation.phone}
-                      </div>
-                      <div className="mt-1 text-xs text-slate-400">
-                        {reservation.email}
-                      </div>
+                      </p>
                     </div>
 
                     <span
                       className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ring-1 ${
-                        statusClassNames[reservation.status]
+                        STATUS_STYLE[reservation.status]
                       }`}
                     >
-                      {statusLabels[reservation.status]}
+                      {STATUS_LABEL[reservation.status]}
                     </span>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <div className="text-xs font-semibold text-slate-500">
-                        프로그램
-                      </div>
-                      <div className="mt-1 font-semibold text-slate-800">
-                        {reservation.program}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs font-semibold text-slate-500">
-                        예약일자
-                      </div>
-                      <div className="mt-1 font-semibold text-slate-800">
-                        {getReservationDate(reservation)}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs font-semibold text-slate-500">
-                        인원
-                      </div>
-                      <div className="mt-1 font-semibold text-slate-800">
-                        {reservation.people}명
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs font-semibold text-slate-500">
-                        접수일시
-                      </div>
-                      <div className="mt-1 font-semibold text-slate-800">
-                        {formatDateTime(reservation.createdAt)}
-                      </div>
-                    </div>
+                  <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                    <MobileInfo label="예약일" value={reservation.reservationDate} />
+                    <MobileInfo
+                      label="체험시간"
+                      value={reservation.experienceTime || "미정"}
+                    />
+                    <MobileInfo label="프로그램" value={reservation.program} />
+                    <MobileInfo label="인원" value={`${reservation.people}명`} />
                   </div>
                 </Link>
               ))}
+
+              {pagedReservations.length === 0 ? (
+                <div className="rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500">
+                  표시할 예약이 없습니다.
+                </div>
+              ) : null}
             </div>
 
-            <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-slate-500">{pageInfoText}</p>
+            <div className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-slate-500">
+                {safePage} / {totalPages} 페이지
+              </p>
 
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={goToPreviousPage}
-                  disabled={currentPage <= 1 || isLoading}
-                  className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => setPage(1)}
+                  disabled={safePage <= 1}
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  이전
+                  처음
                 </button>
 
                 <button
                   type="button"
-                  onClick={goToNextPage}
-                  disabled={!nextCursor || isLoading}
-                  className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={goPrevPage}
+                  disabled={safePage <= 1}
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  이전
+                </button>
+
+                <div className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">
+                  {safePage}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={goNextPage}
+                  disabled={safePage >= totalPages}
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   다음
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPage(totalPages)}
+                  disabled={safePage >= totalPages}
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  마지막
                 </button>
               </div>
             </div>
           </>
         )}
       </section>
-    </main>
+    </div>
+  );
+}
+
+function SummaryCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
+      <p className="text-xs font-semibold text-slate-500">{label}</p>
+      <p className="mt-1 text-xl font-black text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+function MobileInfo({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-slate-50 p-3">
+      <p className="text-xs font-semibold text-slate-500">{label}</p>
+      <p className="mt-1 font-bold text-slate-900">{value}</p>
+    </div>
   );
 }
