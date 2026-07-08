@@ -59,7 +59,7 @@ export default function Hero() {
   return (
     <section className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
       <Image
-        src="/images/hero/hero-01.jpg"
+        src="/images/hero/hero-04.jpg"
         alt={siteConfig.fullName}
         fill
         priority
