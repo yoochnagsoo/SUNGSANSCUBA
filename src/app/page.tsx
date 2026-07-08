@@ -6,6 +6,7 @@ import PadiCourses from "@/components/home/PadiCourses";
 import Gallery from "@/components/home/Gallery";
 import Reviews from "@/components/home/Reviews";
 import ReservationCTA from "@/components/home/ReservationCTA";
+import InstagramSection from "@/components/home/InstagramSection";
 
 export default function Home() {
   return (
@@ -17,6 +18,7 @@ export default function Home() {
        <PadiCourses />
        <Gallery />
        <Reviews />
+       <InstagramSection />
        <ReservationCTA />
     </main>
   );
