@@ -39,7 +39,7 @@ const destinations = [
   {
     name: "자리여",
     en: "Seopjikoji",
-    image: "/images/destinations/seopjikoji.jpg",
+    image: "/images/destinations/jari2.jpg",
     level: "Intermediate",
     temperature: "18~26℃",
     visibility: "10~25m",
@@ -51,7 +51,7 @@ const destinations = [
   {
     name: "독립문",
     en: "Munseom",
-    image: "/images/destinations/munseom.jpg",
+    image: "/images/destinations/jari.jpg",
     level: "Intermediate ~ Advanced",
     temperature: "18~28℃",
     visibility: "10~30m",
