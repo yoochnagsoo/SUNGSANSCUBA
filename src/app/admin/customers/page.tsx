@@ -205,7 +205,10 @@ export default function AdminCustomersPage() {
           return latestReservationDateDiff;
         }
 
-        return getDateTimeValue(b.latestCreatedAt) - getDateTimeValue(a.latestCreatedAt);
+        return (
+          getDateTimeValue(b.latestCreatedAt) -
+          getDateTimeValue(a.latestCreatedAt)
+        );
       });
   }, [reservations]);
 
@@ -221,10 +224,22 @@ export default function AdminCustomersPage() {
       const name = customer.name.toLowerCase();
       const phone = customer.phone.toLowerCase();
 
+      const reservationMatched = customer.reservations.some((reservation) => {
+        return (
+          reservation.program.toLowerCase().includes(trimmedKeyword) ||
+          reservation.reservationDate.toLowerCase().includes(trimmedKeyword) ||
+          String(reservation.experienceTime ?? "")
+            .toLowerCase()
+            .includes(trimmedKeyword) ||
+          STATUS_LABEL[reservation.status].toLowerCase().includes(trimmedKeyword)
+        );
+      });
+
       return (
         name.includes(trimmedKeyword) ||
         phone.includes(trimmedKeyword) ||
-        customer.normalizedPhone.includes(normalizedKeywordPhone)
+        customer.normalizedPhone.includes(normalizedKeywordPhone) ||
+        reservationMatched
       );
     });
   }, [customerGroups, keyword]);
@@ -281,7 +296,7 @@ export default function AdminCustomersPage() {
           <input
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
-            placeholder="이름 또는 연락처로 검색"
+            placeholder="이름, 연락처, 프로그램, 예약일로 검색"
             className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
           />
 
@@ -332,11 +347,10 @@ export default function AdminCustomersPage() {
                 <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
                   <tr>
                     <th className="px-4 py-3">고객</th>
-                    <th className="px-4 py-3">총 예약수</th>
+                    <th className="px-4 py-3">예약수</th>
                     <th className="px-4 py-3">총 인원</th>
-                    <th className="px-4 py-3">최근 예약일</th>
-                    <th className="px-4 py-3">최근 체험시간</th>
-                    <th className="px-4 py-3">최근 상태</th>
+                    <th className="px-4 py-3">최근 예약</th>
+                    <th className="px-4 py-3">예약일 목록</th>
                     <th className="px-4 py-3">최근 접수일시</th>
                     <th className="px-4 py-3 text-right">관리</th>
                   </tr>
@@ -347,7 +361,7 @@ export default function AdminCustomersPage() {
                     const latestReservation = customer.latestReservation;
 
                     return (
-                      <tr key={customer.key} className="hover:bg-slate-50">
+                      <tr key={customer.key} className="align-top hover:bg-slate-50">
                         <td className="px-4 py-4">
                           <div className="font-bold text-slate-900">
                             {customer.name}
@@ -357,34 +371,80 @@ export default function AdminCustomersPage() {
                           </div>
                         </td>
 
-                        <td className="whitespace-nowrap px-4 py-4 font-bold text-slate-900">
-                          {customer.totalReservations}건
+                        <td className="whitespace-nowrap px-4 py-4">
+                          <span className="inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">
+                            {customer.totalReservations}건
+                          </span>
                         </td>
 
                         <td className="whitespace-nowrap px-4 py-4 font-semibold text-slate-700">
                           {customer.totalPeople}명
                         </td>
 
-                        <td className="whitespace-nowrap px-4 py-4 font-semibold text-slate-900">
-                          {customer.latestReservationDate}
-                        </td>
-
-                        <td className="whitespace-nowrap px-4 py-4 font-bold text-blue-700">
-                          {latestReservation?.experienceTime || "미정"}
-                        </td>
-
                         <td className="whitespace-nowrap px-4 py-4">
+                          <div className="font-semibold text-slate-900">
+                            {customer.latestReservationDate}
+                          </div>
+                          <div className="mt-1 text-xs font-bold text-blue-700">
+                            {latestReservation?.experienceTime || "미정"}
+                          </div>
+
                           {latestReservation ? (
-                            <span
-                              className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ring-1 ${
-                                STATUS_STYLE[latestReservation.status]
-                              }`}
-                            >
-                              {STATUS_LABEL[latestReservation.status]}
-                            </span>
-                          ) : (
-                            "-"
-                          )}
+                            <div className="mt-2">
+                              <span
+                                className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ring-1 ${
+                                  STATUS_STYLE[latestReservation.status]
+                                }`}
+                              >
+                                {STATUS_LABEL[latestReservation.status]}
+                              </span>
+                            </div>
+                          ) : null}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <div className="max-w-[420px] space-y-2">
+                            {customer.reservations.map((reservation) => (
+                              <div
+                                key={reservation.id}
+                                className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="font-black text-slate-900">
+                                        {reservation.reservationDate || "-"}
+                                      </span>
+
+                                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">
+                                        {reservation.experienceTime || "미정"}
+                                      </span>
+
+                                      <span
+                                        className={`rounded-full px-2 py-0.5 text-xs font-bold ring-1 ${
+                                          STATUS_STYLE[reservation.status]
+                                        }`}
+                                      >
+                                        {STATUS_LABEL[reservation.status]}
+                                      </span>
+                                    </div>
+
+                                    <p className="mt-1 truncate text-xs font-semibold text-slate-600">
+                                      {reservation.program} · {reservation.people}
+                                      명
+                                    </p>
+                                  </div>
+
+                                  <Link
+                                    href={`/admin/reservations/${reservation.id}`}
+                                    className="shrink-0 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700"
+                                  >
+                                    보기
+                                  </Link>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </td>
 
                         <td className="whitespace-nowrap px-4 py-4 text-slate-600">
@@ -410,7 +470,7 @@ export default function AdminCustomersPage() {
                   {pagedCustomers.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={8}
+                        colSpan={7}
                         className="px-4 py-10 text-center text-sm text-slate-500"
                       >
                         표시할 고객이 없습니다.
@@ -440,15 +500,9 @@ export default function AdminCustomersPage() {
                         </p>
                       </div>
 
-                      {latestReservation ? (
-                        <span
-                          className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ring-1 ${
-                            STATUS_STYLE[latestReservation.status]
-                          }`}
-                        >
-                          {STATUS_LABEL[latestReservation.status]}
-                        </span>
-                      ) : null}
+                      <span className="shrink-0 rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">
+                        {customer.totalReservations}건
+                      </span>
                     </div>
 
                     <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
@@ -477,6 +531,54 @@ export default function AdminCustomersPage() {
                       <p className="mt-1 font-bold text-slate-900">
                         {formatDateTime(customer.latestCreatedAt)}
                       </p>
+                    </div>
+
+                    <div className="mt-4">
+                      <p className="text-sm font-black text-slate-900">
+                        예약일 목록
+                      </p>
+
+                      <div className="mt-2 space-y-2">
+                        {customer.reservations.map((reservation) => (
+                          <div
+                            key={reservation.id}
+                            className="rounded-xl border border-slate-200 bg-white p-3"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="font-black text-slate-900">
+                                    {reservation.reservationDate || "-"}
+                                  </span>
+
+                                  <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">
+                                    {reservation.experienceTime || "미정"}
+                                  </span>
+
+                                  <span
+                                    className={`rounded-full px-2 py-0.5 text-xs font-bold ring-1 ${
+                                      STATUS_STYLE[reservation.status]
+                                    }`}
+                                  >
+                                    {STATUS_LABEL[reservation.status]}
+                                  </span>
+                                </div>
+
+                                <p className="mt-1 truncate text-xs font-semibold text-slate-600">
+                                  {reservation.program} · {reservation.people}명
+                                </p>
+                              </div>
+
+                              <Link
+                                href={`/admin/reservations/${reservation.id}`}
+                                className="shrink-0 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700"
+                              >
+                                보기
+                              </Link>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
                     {latestReservation ? (
