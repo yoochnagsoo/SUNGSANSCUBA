@@ -184,6 +184,8 @@ export default function AdminCalendarPage() {
   const [savingStaffSchedule, setSavingStaffSchedule] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  const [showStaffPanel, setShowStaffPanel] = useState(false);
+
   const [staffName, setStaffName] = useState("");
   const [staffScheduleType, setStaffScheduleType] =
     useState<StaffScheduleType>("VACATION");
@@ -522,10 +524,28 @@ export default function AdminCalendarPage() {
           >
             다음달
           </button>
+
+          <button
+            type="button"
+            onClick={() => setShowStaffPanel((prev) => !prev)}
+            className={[
+              "rounded-xl px-4 py-2 text-sm font-black transition",
+              showStaffPanel
+                ? "bg-purple-100 text-purple-800 hover:bg-purple-200"
+                : "bg-slate-900 text-white hover:bg-slate-700",
+            ].join(" ")}
+          >
+            {showStaffPanel ? "직원 일정 닫기" : "직원 일정 등록"}
+          </button>
         </div>
       </div>
 
-      <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
+      <section
+        className={[
+          "grid gap-6",
+          showStaffPanel ? "xl:grid-cols-[1fr_360px]" : "xl:grid-cols-1",
+        ].join(" ")}
+      >
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-xl font-bold text-slate-900">
@@ -549,6 +569,52 @@ export default function AdminCalendarPage() {
               </div>
             </div>
           </div>
+
+          {currentMonthStaffSchedules.length > 0 ? (
+            <div className="mt-4 rounded-2xl border border-purple-200 bg-purple-50/70 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-black text-purple-900">
+                    이번 달 직원 일정 {currentMonthStaffSchedules.length}건
+                  </p>
+                  <p className="mt-1 text-xs font-medium text-purple-700">
+                    휴가/반차/근무불가 직원이 있는 날짜가 캘린더에 표시됩니다.
+                  </p>
+                </div>
+
+                {!showStaffPanel ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowStaffPanel(true)}
+                    className="rounded-xl bg-purple-700 px-4 py-2 text-xs font-black text-white hover:bg-purple-800"
+                  >
+                    목록/등록 열기
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {currentMonthStaffSchedules.slice(0, 8).map((schedule) => (
+                  <span
+                    key={schedule.id}
+                    className={`rounded-full border px-3 py-1 text-xs font-bold ${
+                      STAFF_SCHEDULE_STYLE[schedule.type]
+                    }`}
+                  >
+                    {schedule.date}
+                    {schedule.endDate ? `~${schedule.endDate}` : ""} ·{" "}
+                    {schedule.staffName} · {STAFF_SCHEDULE_LABEL[schedule.type]}
+                  </span>
+                ))}
+
+                {currentMonthStaffSchedules.length > 8 ? (
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-purple-700">
+                    +{currentMonthStaffSchedules.length - 8}건 더보기
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
 
           {errorMessage ? (
             <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -688,169 +754,191 @@ export default function AdminCalendarPage() {
           )}
         </div>
 
-        <aside className="space-y-6">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900">
-              직원 휴가 등록
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              캘린더에 휴가/반차/근무불가 직원을 표시합니다.
-            </p>
+        {showStaffPanel ? (
+          <aside className="space-y-6">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    직원 휴가 등록
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    캘린더에 휴가/반차/근무불가 직원을 표시합니다.
+                  </p>
+                </div>
 
-            {staffFormError ? (
-              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
-                {staffFormError}
-              </div>
-            ) : null}
-
-            <form onSubmit={handleAddStaffSchedule} className="mt-5 space-y-4">
-              <div>
-                <label className="text-sm font-bold text-slate-700">
-                  직원명
-                </label>
-                <input
-                  value={staffName}
-                  onChange={(event) => setStaffName(event.target.value)}
-                  placeholder="예: 김강사"
-                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-bold text-slate-700">구분</label>
-                <select
-                  value={staffScheduleType}
-                  onChange={(event) =>
-                    setStaffScheduleType(event.target.value as StaffScheduleType)
-                  }
-                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                <button
+                  type="button"
+                  onClick={() => setShowStaffPanel(false)}
+                  className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200"
                 >
-                  {STAFF_SCHEDULE_OPTIONS.map((type) => (
-                    <option key={type} value={type}>
-                      {STAFF_SCHEDULE_LABEL[type]}
-                    </option>
-                  ))}
-                </select>
+                  닫기
+                </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {staffFormError ? (
+                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+                  {staffFormError}
+                </div>
+              ) : null}
+
+              <form onSubmit={handleAddStaffSchedule} className="mt-5 space-y-4">
                 <div>
                   <label className="text-sm font-bold text-slate-700">
-                    시작일
+                    직원명
                   </label>
                   <input
-                    type="date"
-                    value={staffScheduleDate}
-                    onChange={(event) =>
-                      setStaffScheduleDate(event.target.value)
-                    }
+                    value={staffName}
+                    onChange={(event) => setStaffName(event.target.value)}
+                    placeholder="예: 김강사"
                     className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                   />
                 </div>
 
                 <div>
                   <label className="text-sm font-bold text-slate-700">
-                    종료일
+                    구분
                   </label>
-                  <input
-                    type="date"
-                    value={staffScheduleEndDate}
+                  <select
+                    value={staffScheduleType}
                     onChange={(event) =>
-                      setStaffScheduleEndDate(event.target.value)
+                      setStaffScheduleType(
+                        event.target.value as StaffScheduleType,
+                      )
                     }
-                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  >
+                    {STAFF_SCHEDULE_OPTIONS.map((type) => (
+                      <option key={type} value={type}>
+                        {STAFF_SCHEDULE_LABEL[type]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-bold text-slate-700">
+                      시작일
+                    </label>
+                    <input
+                      type="date"
+                      value={staffScheduleDate}
+                      onChange={(event) =>
+                        setStaffScheduleDate(event.target.value)
+                      }
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-bold text-slate-700">
+                      종료일
+                    </label>
+                    <input
+                      type="date"
+                      value={staffScheduleEndDate}
+                      onChange={(event) =>
+                        setStaffScheduleEndDate(event.target.value)
+                      }
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-bold text-slate-700">
+                    메모
+                  </label>
+                  <textarea
+                    value={staffScheduleMemo}
+                    onChange={(event) =>
+                      setStaffScheduleMemo(event.target.value)
+                    }
+                    placeholder="예: 가족여행, 오후 병원, 장비교육 등"
+                    rows={3}
+                    className="mt-2 w-full resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="text-sm font-bold text-slate-700">메모</label>
-                <textarea
-                  value={staffScheduleMemo}
-                  onChange={(event) => setStaffScheduleMemo(event.target.value)}
-                  placeholder="예: 가족여행, 오후 병원, 장비교육 등"
-                  rows={3}
-                  className="mt-2 w-full resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={savingStaffSchedule}
-                className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {savingStaffSchedule ? "등록 중..." : "직원 일정 등록"}
-              </button>
-            </form>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">
-                  이번 달 직원 일정
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  휴가자가 있는 날을 명시적으로 확인합니다.
-                </p>
-              </div>
-
-              <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">
-                {currentMonthStaffSchedules.length}건
-              </span>
+                <button
+                  type="submit"
+                  disabled={savingStaffSchedule}
+                  className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {savingStaffSchedule ? "등록 중..." : "직원 일정 등록"}
+                </button>
+              </form>
             </div>
 
-            <div className="mt-5 space-y-3">
-              {currentMonthStaffSchedules.length === 0 ? (
-                <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-                  이번 달 등록된 직원 일정이 없습니다.
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    이번 달 직원 일정
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    휴가자가 있는 날을 명시적으로 확인합니다.
+                  </p>
                 </div>
-              ) : (
-                currentMonthStaffSchedules.map((schedule) => (
-                  <div
-                    key={schedule.id}
-                    className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-black text-slate-900">
-                          {schedule.staffName}
-                        </p>
 
-                        <p className="mt-1 text-sm font-semibold text-slate-600">
-                          {schedule.date}
-                          {schedule.endDate ? ` ~ ${schedule.endDate}` : ""}
-                        </p>
+                <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">
+                  {currentMonthStaffSchedules.length}건
+                </span>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {currentMonthStaffSchedules.length === 0 ? (
+                  <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
+                    이번 달 등록된 직원 일정이 없습니다.
+                  </div>
+                ) : (
+                  currentMonthStaffSchedules.map((schedule) => (
+                    <div
+                      key={schedule.id}
+                      className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-black text-slate-900">
+                            {schedule.staffName}
+                          </p>
+
+                          <p className="mt-1 text-sm font-semibold text-slate-600">
+                            {schedule.date}
+                            {schedule.endDate ? ` ~ ${schedule.endDate}` : ""}
+                          </p>
+                        </div>
+
+                        <span
+                          className={`shrink-0 rounded-full border px-3 py-1 text-xs font-black ${
+                            STAFF_SCHEDULE_STYLE[schedule.type]
+                          }`}
+                        >
+                          {STAFF_SCHEDULE_LABEL[schedule.type]}
+                        </span>
                       </div>
 
-                      <span
-                        className={`shrink-0 rounded-full border px-3 py-1 text-xs font-black ${
-                          STAFF_SCHEDULE_STYLE[schedule.type]
-                        }`}
+                      {schedule.memo ? (
+                        <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+                          {schedule.memo}
+                        </p>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteStaffSchedule(schedule.id)}
+                        className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100"
                       >
-                        {STAFF_SCHEDULE_LABEL[schedule.type]}
-                      </span>
+                        삭제
+                      </button>
                     </div>
-
-                    {schedule.memo ? (
-                      <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
-                        {schedule.memo}
-                      </p>
-                    ) : null}
-
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteStaffSchedule(schedule.id)}
-                      className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100"
-                    >
-                      삭제
-                    </button>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </div>
-          </div>
-        </aside>
+          </aside>
+        ) : null}
       </section>
     </div>
   );
