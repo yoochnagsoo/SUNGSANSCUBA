@@ -488,7 +488,7 @@ export default function AdminCalendarPage() {
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+    <div className="max-w-full space-y-6 overflow-hidden p-4 sm:p-6 lg:p-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-sm font-medium text-slate-500">관리자</p>
@@ -542,11 +542,13 @@ export default function AdminCalendarPage() {
 
       <section
         className={[
-          "grid gap-6",
-          showStaffPanel ? "xl:grid-cols-[1fr_360px]" : "xl:grid-cols-1",
+          "grid max-w-full gap-6 overflow-hidden",
+          showStaffPanel
+            ? "lg:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_360px]"
+            : "grid-cols-1",
         ].join(" ")}
       >
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-xl font-bold text-slate-900">
               {year}년 {month + 1}월
@@ -627,13 +629,20 @@ export default function AdminCalendarPage() {
               예약 캘린더를 불러오는 중입니다.
             </div>
           ) : (
-            <div className="mt-5 overflow-x-auto">
-              <div className="min-w-[980px]">
+            <div className="mt-5 max-w-full overflow-x-auto">
+              <div
+                className={[
+                  "transition-all",
+                  showStaffPanel
+                    ? "min-w-[700px]"
+                    : "min-w-[980px]",
+                ].join(" ")}
+              >
                 <div className="grid grid-cols-7 border-y border-slate-200 bg-slate-50">
                   {DAY_NAMES.map((dayName, index) => (
                     <div
                       key={dayName}
-                      className={`px-3 py-3 text-center text-sm font-bold ${
+                      className={`px-2 py-3 text-center text-sm font-bold ${
                         index === 0
                           ? "text-rose-500"
                           : index === 6
@@ -656,9 +665,11 @@ export default function AdminCalendarPage() {
                     return (
                       <div
                         key={day.dateKey}
-                        className={`min-h-48 border-b border-r border-slate-200 p-2 ${
-                          day.isCurrentMonth ? "bg-white" : "bg-slate-50"
-                        }`}
+                        className={[
+                          "border-b border-r border-slate-200 p-2",
+                          showStaffPanel ? "min-h-44" : "min-h-48",
+                          day.isCurrentMonth ? "bg-white" : "bg-slate-50",
+                        ].join(" ")}
                       >
                         <div className="mb-2 flex items-center justify-between gap-2">
                           <span
@@ -673,15 +684,15 @@ export default function AdminCalendarPage() {
                             {day.date.getDate()}
                           </span>
 
-                          <div className="flex items-center gap-1">
+                          <div className="flex shrink-0 items-center gap-1">
                             {dayStaffSchedules.length > 0 ? (
-                              <span className="rounded-full bg-purple-100 px-2 py-1 text-[11px] font-black text-purple-700">
+                              <span className="rounded-full bg-purple-100 px-2 py-1 text-[10px] font-black text-purple-700">
                                 휴가 {dayStaffSchedules.length}
                               </span>
                             ) : null}
 
                             {dayReservations.length > 0 ? (
-                              <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-500">
+                              <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
                                 예약 {dayReservations.length}
                               </span>
                             ) : null}
@@ -690,14 +701,14 @@ export default function AdminCalendarPage() {
 
                         {dayStaffSchedules.length > 0 ? (
                           <div className="mb-2 space-y-1.5 rounded-xl border border-purple-200 bg-purple-50/60 p-2">
-                            <p className="text-[11px] font-black text-purple-800">
+                            <p className="text-[10px] font-black text-purple-800">
                               직원 일정
                             </p>
 
                             {dayStaffSchedules.map((schedule) => (
                               <div
                                 key={`${day.dateKey}-${schedule.id}`}
-                                className={`rounded-lg border px-2 py-1.5 text-xs font-bold leading-5 ${
+                                className={`rounded-lg border px-2 py-1.5 text-[11px] font-bold leading-4 ${
                                   STAFF_SCHEDULE_STYLE[schedule.type]
                                 }`}
                               >
@@ -705,13 +716,13 @@ export default function AdminCalendarPage() {
                                   <span className="truncate">
                                     {schedule.staffName}
                                   </span>
-                                  <span className="shrink-0 text-[11px]">
+                                  <span className="shrink-0 text-[10px]">
                                     {STAFF_SCHEDULE_LABEL[schedule.type]}
                                   </span>
                                 </div>
 
                                 {schedule.memo ? (
-                                  <p className="mt-0.5 truncate text-[11px] font-medium opacity-80">
+                                  <p className="mt-0.5 truncate text-[10px] font-medium opacity-80">
                                     {schedule.memo}
                                   </p>
                                 ) : null}
@@ -725,7 +736,7 @@ export default function AdminCalendarPage() {
                             <Link
                               key={reservation.id}
                               href={`/admin/reservations/${reservation.id}`}
-                              className={`block rounded-xl border px-2 py-2 text-xs font-semibold leading-5 transition hover:scale-[1.01] hover:shadow-sm ${
+                              className={`block rounded-xl border px-2 py-2 text-[11px] font-semibold leading-4 transition hover:scale-[1.01] hover:shadow-sm ${
                                 STATUS_STYLE[reservation.status]
                               }`}
                             >
@@ -755,7 +766,7 @@ export default function AdminCalendarPage() {
         </div>
 
         {showStaffPanel ? (
-          <aside className="space-y-6">
+          <aside className="min-w-0 space-y-6 lg:sticky lg:top-20 lg:self-start">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -763,7 +774,7 @@ export default function AdminCalendarPage() {
                     직원 휴가 등록
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    캘린더에 휴가/반차/근무불가 직원을 표시합니다.
+                    휴가/반차/근무불가 직원을 표시합니다.
                   </p>
                 </div>
 
@@ -827,7 +838,7 @@ export default function AdminCalendarPage() {
                       onChange={(event) =>
                         setStaffScheduleDate(event.target.value)
                       }
-                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                     />
                   </div>
 
@@ -841,7 +852,7 @@ export default function AdminCalendarPage() {
                       onChange={(event) =>
                         setStaffScheduleEndDate(event.target.value)
                       }
-                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                     />
                   </div>
                 </div>
@@ -878,7 +889,7 @@ export default function AdminCalendarPage() {
                     이번 달 직원 일정
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    휴가자가 있는 날을 명시적으로 확인합니다.
+                    휴가자가 있는 날을 확인합니다.
                   </p>
                 </div>
 
@@ -887,7 +898,7 @@ export default function AdminCalendarPage() {
                 </span>
               </div>
 
-              <div className="mt-5 space-y-3">
+              <div className="mt-5 max-h-[520px] space-y-3 overflow-y-auto pr-1">
                 {currentMonthStaffSchedules.length === 0 ? (
                   <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
                     이번 달 등록된 직원 일정이 없습니다.
@@ -899,8 +910,8 @@ export default function AdminCalendarPage() {
                       className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-black text-slate-900">
+                        <div className="min-w-0">
+                          <p className="truncate font-black text-slate-900">
                             {schedule.staffName}
                           </p>
 
