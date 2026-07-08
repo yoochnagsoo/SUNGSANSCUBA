@@ -6,24 +6,28 @@ const courses = [
     title: "Discover Scuba Diving",
     ko: "체험다이빙",
     image: "/images/courses/discover.jpg",
+    href: "/discover-scuba",
     desc: "처음 바다를 만나는 분들을 위한 가장 쉬운 입문 코스입니다.",
   },
   {
     title: "Open Water Diver",
     ko: "오픈워터",
     image: "/images/courses/openwater.jpg",
+    href: "/padi",
     desc: "전 세계에서 인정받는 PADI 기본 다이버 자격 과정입니다.",
   },
   {
     title: "Advanced Open Water",
     ko: "어드밴스드",
     image: "/images/courses/advanced.jpg",
+    href: "/padi",
     desc: "더 깊고 다양한 환경에서 다이빙 경험을 확장하는 과정입니다.",
   },
   {
     title: "Rescue Diver",
     ko: "레스큐 다이버",
     image: "/images/courses/rescue.jpg",
+    href: "/padi",
     desc: "안전과 구조 능력을 배우며 더 책임감 있는 다이버로 성장합니다.",
   },
 ];
@@ -71,12 +75,10 @@ export default function PadiCourses() {
                   {course.title}
                 </h3>
 
-                <p className="mt-4 leading-7 text-slate-500">
-                  {course.desc}
-                </p>
+                <p className="mt-4 leading-7 text-slate-500">{course.desc}</p>
 
                 <a
-                  href="/courses"
+                  href={course.href}
                   className="mt-7 inline-flex items-center gap-3 font-bold text-sky-600"
                 >
                   자세히 보기
