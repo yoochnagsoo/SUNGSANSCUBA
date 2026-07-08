@@ -5,115 +5,143 @@ import {
   ScanCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
-
 import { dynamoDb } from "@/lib/aws/dynamodb";
 import type {
   Reservation,
   ReservationInput,
-  ReservationRepository,
-  ReservationStatus,
+  ReservationUpdateInput,
 } from "./types";
 
-const TABLE_NAME =
-  process.env.DYNAMODB_RESERVATIONS_TABLE || "sungsan-reservations";
+const TABLE_NAME = process.env.DYNAMODB_RESERVATIONS_TABLE;
 
-function nowIso() {
-  return new Date().toISOString();
+function getTableName() {
+  if (!TABLE_NAME) {
+    throw new Error("DYNAMODB_RESERVATIONS_TABLE is not set.");
+  }
+
+  return TABLE_NAME;
 }
 
-export class DynamoReservationRepository implements ReservationRepository {
-  async listReservations(): Promise<Reservation[]> {
-    const result = await dynamoDb.send(
-      new ScanCommand({
-        TableName: TABLE_NAME,
-      })
-    );
+function createId() {
+  return crypto.randomUUID();
+}
 
-    return ((result.Items || []) as Reservation[]).sort((a, b) =>
-      b.createdAt.localeCompare(a.createdAt)
-    );
-  }
-
-  async getReservationById(id: string): Promise<Reservation | null> {
-    const result = await dynamoDb.send(
-      new GetCommand({
-        TableName: TABLE_NAME,
-        Key: { id },
-      })
-    );
-
-    return (result.Item as Reservation) || null;
-  }
-
-  async createReservation(input: ReservationInput): Promise<Reservation> {
-    const now = nowIso();
+export const dynamoReservationRepository = {
+  async create(input: ReservationInput): Promise<Reservation> {
+    const now = new Date().toISOString();
+    const reservationDate = String(input.reservationDate ?? input.date ?? "");
 
     const reservation: Reservation = {
-      id: crypto.randomUUID(),
-      ...input,
-      status: "pending",
+      id: createId(),
+
+      name: input.name,
+      email: input.email,
+      phone: input.phone,
+      program: input.program,
+
+      reservationDate,
+      date: reservationDate,
+
+      people: input.people,
+      message: input.message ?? "",
+
+      status: input.status ?? "PENDING",
       adminMemo: "",
+
       createdAt: now,
       updatedAt: now,
     };
 
     await dynamoDb.send(
       new PutCommand({
-        TableName: TABLE_NAME,
+        TableName: getTableName(),
         Item: reservation,
       })
     );
 
     return reservation;
-  }
+  },
 
-  async updateReservation(
+  async findAll(): Promise<Reservation[]> {
+    const result = await dynamoDb.send(
+      new ScanCommand({
+        TableName: getTableName(),
+      })
+    );
+
+    const reservations = (result.Items ?? []) as Reservation[];
+
+    return reservations.sort((a, b) => {
+      return b.createdAt.localeCompare(a.createdAt);
+    });
+  },
+
+  async findById(id: string): Promise<Reservation | null> {
+    const result = await dynamoDb.send(
+      new GetCommand({
+        TableName: getTableName(),
+        Key: {
+          id,
+        },
+      })
+    );
+
+    if (!result.Item) {
+      return null;
+    }
+
+    return result.Item as Reservation;
+  },
+
+  async update(
     id: string,
-    patch: Partial<Reservation>
+    input: ReservationUpdateInput
   ): Promise<Reservation | null> {
-    const current = await this.getReservationById(id);
+    const current = await this.findById(id);
 
     if (!current) {
       return null;
     }
 
-    const updated: Reservation = {
-      ...current,
-      ...patch,
-      id,
-      updatedAt: nowIso(),
-    };
+    const updatedAt = new Date().toISOString();
 
-    await dynamoDb.send(
-      new PutCommand({
-        TableName: TABLE_NAME,
-        Item: updated,
+    const result = await dynamoDb.send(
+      new UpdateCommand({
+        TableName: getTableName(),
+        Key: {
+          id,
+        },
+        UpdateExpression:
+          "SET #status = :status, adminMemo = :adminMemo, updatedAt = :updatedAt",
+        ExpressionAttributeNames: {
+          "#status": "status",
+        },
+        ExpressionAttributeValues: {
+          ":status": input.status ?? current.status,
+          ":adminMemo": input.adminMemo ?? current.adminMemo ?? "",
+          ":updatedAt": updatedAt,
+        },
+        ReturnValues: "ALL_NEW",
       })
     );
 
-    return updated;
-  }
+    if (!result.Attributes) {
+      return null;
+    }
 
-  async updateStatus(
-    id: string,
-    status: ReservationStatus
-  ): Promise<Reservation | null> {
-    return this.updateReservation(id, { status });
-  }
+    return result.Attributes as Reservation;
+  },
 
-  async updateAdminMemo(
-    id: string,
-    adminMemo: string
-  ): Promise<Reservation | null> {
-    return this.updateReservation(id, { adminMemo });
-  }
-
-  async deleteReservation(id: string): Promise<void> {
+  async delete(id: string): Promise<boolean> {
     await dynamoDb.send(
       new DeleteCommand({
-        TableName: TABLE_NAME,
-        Key: { id },
+        TableName: getTableName(),
+        Key: {
+          id,
+        },
       })
     );
-  }
-}
+
+    return true;
+  },
+};

@@ -1,29 +1,45 @@
-import type { Reservation, ReservationStatus } from "@/types/reservation";
+export type ReservationStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "CANCELLED"
+  | "COMPLETED";
 
-export type CreateReservationInput = {
+export type Reservation = {
+  id: string;
+
   name: string;
+  email: string;
   phone: string;
-  email?: string;
-  program?: string;
+  program: string;
+
+  reservationDate: string;
   date: string;
-  time?: string;
+
   people: number;
-  memo?: string;
-};
+  message?: string;
 
-export type UpdateReservationInput = {
-  status?: ReservationStatus;
+  status: ReservationStatus;
   adminMemo?: string;
+
+  createdAt: string;
+  updatedAt: string;
 };
 
-export type ReservationRepository = {
-  listReservations: () => Promise<Reservation[]>;
-  getReservationById: (id: string) => Promise<Reservation | null>;
-  createReservation: (
-    input: CreateReservationInput
-  ) => Promise<Reservation>;
-  updateReservation: (
-    id: string,
-    input: UpdateReservationInput
-  ) => Promise<Reservation | null>;
+export type ReservationInput = {
+  name: string;
+  email: string;
+  phone: string;
+  program: string;
+
+  reservationDate?: string;
+  date?: string;
+
+  people: number;
+  message?: string;
+
+  status?: ReservationStatus;
 };
+
+export type ReservationUpdateInput = Partial<
+  Pick<Reservation, "status" | "adminMemo">
+>;

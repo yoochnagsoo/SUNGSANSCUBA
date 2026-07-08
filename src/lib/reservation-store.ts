@@ -2,10 +2,13 @@ import { Reservation, ReservationStatus } from "@/types/reservation";
 
 let reservations: Reservation[] = [];
 
+function getTime(value?: string) {
+  return value ? new Date(value).getTime() : 0;
+}
+
 export function getReservations() {
-  return reservations.sort(
-    (a, b) =>
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  return [...reservations].sort(
+    (a, b) => getTime(b.createdAt) - getTime(a.createdAt)
   );
 }
 
@@ -15,7 +18,7 @@ export function createReservation(data: {
   email: string;
   program: string;
   date: string;
-  people: string;
+  people: string | number;
   message: string;
 }) {
   const now = new Date().toISOString();
@@ -27,8 +30,9 @@ export function createReservation(data: {
     email: data.email,
     program: data.program,
     date: data.date,
-    people: data.people,
+    people: Number(data.people),
     message: data.message,
+    memo: data.message,
 
     status: "pending",
     adminMemo: "",

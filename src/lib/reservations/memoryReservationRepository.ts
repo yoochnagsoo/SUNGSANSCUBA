@@ -1,38 +1,39 @@
-import { randomUUID } from "crypto";
-import type { Reservation } from "@/types/reservation";
 import type {
-  CreateReservationInput,
-  ReservationRepository,
-  UpdateReservationInput,
+  Reservation,
+  ReservationInput,
+  ReservationUpdateInput,
 } from "./types";
 
 const reservations: Reservation[] = [];
 
-export const memoryReservationRepository: ReservationRepository = {
-  async listReservations() {
-    return reservations;
-  },
+function createId() {
+  return crypto.randomUUID();
+}
 
-  async getReservationById(id: string) {
-    return reservations.find((item) => item.id === id) ?? null;
-  },
-
-  async createReservation(input: CreateReservationInput) {
+export const memoryReservationRepository = {
+  async create(input: ReservationInput): Promise<Reservation> {
     const now = new Date().toISOString();
+    const reservationDate = String(input.reservationDate ?? input.date ?? "");
 
     const reservation: Reservation = {
-      id: randomUUID(),
+      id: createId(),
+
       name: input.name,
-      phone: input.phone,
       email: input.email,
+      phone: input.phone,
       program: input.program,
-      date: input.date,
-      time: input.time,
+
+      reservationDate,
+      date: reservationDate,
+
       people: input.people,
-      memo: input.memo,
+      message: input.message ?? "",
+
+      status: input.status ?? "PENDING",
       adminMemo: "",
-      status: "pending",
+
       createdAt: now,
+      updatedAt: now,
     };
 
     reservations.unshift(reservation);
@@ -40,20 +41,47 @@ export const memoryReservationRepository: ReservationRepository = {
     return reservation;
   },
 
-  async updateReservation(
+  async findAll(): Promise<Reservation[]> {
+    return reservations;
+  },
+
+  async findById(id: string): Promise<Reservation | null> {
+    return reservations.find((reservation) => reservation.id === id) ?? null;
+  },
+
+  async update(
     id: string,
-    input: UpdateReservationInput
-  ) {
-    const index = reservations.findIndex((item) => item.id === id);
+    input: ReservationUpdateInput
+  ): Promise<Reservation | null> {
+    const index = reservations.findIndex(
+      (reservation) => reservation.id === id
+    );
 
-    if (index === -1) return null;
+    if (index === -1) {
+      return null;
+    }
 
-    reservations[index] = {
+    const updated: Reservation = {
       ...reservations[index],
-      status: input.status ?? reservations[index].status,
-      adminMemo: input.adminMemo ?? reservations[index].adminMemo,
+      ...input,
+      updatedAt: new Date().toISOString(),
     };
 
-    return reservations[index];
+    reservations[index] = updated;
+
+    return updated;
+  },
+
+  async delete(id: string): Promise<boolean> {
+    const index = reservations.findIndex(
+      (reservation) => reservation.id === id
+    );
+
+    if (index === -1) {
+      return false;
+    }
+
+    reservations.splice(index, 1);
+    return true;
   },
 };

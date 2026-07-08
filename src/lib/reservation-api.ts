@@ -1,78 +1,39 @@
-import { Reservation, ReservationStatus } from "@/types/reservation";
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000/api";
-
-export async function createReservation(data: {
+export type CreateReservationRequest = {
   name: string;
-  phone: string;
   email: string;
+  phone: string;
   program: string;
-  date: string;
-  people: string;
-  message: string;
-}) {
-  const response = await fetch(`${API_BASE_URL}/reservations`, {
+  reservationDate: string;
+  people: number;
+  message?: string;
+};
+
+export async function createReservation(input: CreateReservationRequest) {
+  const response = await fetch("/api/reservations", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      name: input.name,
+      email: input.email,
+      phone: input.phone,
+      program: input.program,
+
+      reservationDate: input.reservationDate,
+      date: input.reservationDate,
+
+      people: input.people,
+      message: input.message ?? "",
+    }),
   });
 
-  if (!response.ok) {
-    throw new Error("Failed to create reservation");
-  }
-
-  return response.json();
-}
-
-export async function getReservations(): Promise<Reservation[]> {
-  const response = await fetch(`${API_BASE_URL}/reservations`, {
-    cache: "no-store",
-  });
+  const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error("Failed to load reservations");
+    console.error("[createReservation] failed:", data);
+    throw new Error(data?.message ?? "Failed to create reservation");
   }
 
-  const data = await response.json();
-
-  return data.reservations || [];
-}
-
-export async function updateReservation(
-  id: string,
-  data: Partial<{
-    status: ReservationStatus;
-    adminMemo: string;
-  }>
-): Promise<Reservation> {
-  const response = await fetch(`${API_BASE_URL}/reservations/${id}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to update reservation");
-  }
-
-  const result = await response.json();
-
-  return result.reservation;
-}
-
-export async function deleteReservation(id: string) {
-  const response = await fetch(`${API_BASE_URL}/reservations/${id}`, {
-    method: "DELETE",
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to delete reservation");
-  }
-
-  return response.json();
+  return data;
 }
