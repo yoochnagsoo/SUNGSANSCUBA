@@ -30,8 +30,8 @@ export const PROGRAM_OPTIONS = [
     shortDescription: "자격증 보유자를 위한 제주 성산 바다 다이빙",
     duration: "일정 협의",
     recommendedFor: "자격증 보유 다이버",
-    price: "문의",
-    priceDescription: "포인트와 일정에 따라 협의",
+    price: "160,000원",
+    priceDescription: "가이드, 보트2회, 장비렌탈" ,
     maxGuestsPerInstructor: undefined,
   },
   {
@@ -41,8 +41,8 @@ export const PROGRAM_OPTIONS = [
     shortDescription: "스쿠버다이빙 입문 자격증 취득 과정",
     duration: "일정 협의",
     recommendedFor: "자격증 취득 희망자",
-    price: "문의",
-    priceDescription: "교육 일정에 따라 협의",
+    price: "790,000원",
+    priceDescription: "2박3일 소요",
     maxGuestsPerInstructor: undefined,
   },
   {

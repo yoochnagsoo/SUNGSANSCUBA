@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useSearchParams } from "next/navigation";
 
 import {
@@ -21,6 +28,8 @@ export default function ReservationPage() {
 
 function ReservationPageContent() {
   const searchParams = useSearchParams();
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const phoneInputRef = useRef<HTMLInputElement | null>(null);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -58,6 +67,36 @@ function ReservationPageContent() {
     }
   }, [searchParams]);
 
+  function getPhoneDigits(value: string) {
+    return value.replace(/\D/g, "");
+  }
+
+  function formatKoreanMobilePhone(value: string) {
+    const digits = getPhoneDigits(value).slice(0, 11);
+
+    if (digits.length <= 3) {
+      return digits;
+    }
+
+    if (digits.length <= 7) {
+      return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    }
+
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  }
+
+  function isValidKoreanMobilePhone(value: string) {
+    const digits = getPhoneDigits(value);
+
+    return /^01[016789]\d{7,8}$/.test(digits);
+  }
+
+  function handleFocusReservationName() {
+    setTimeout(() => {
+      nameInputRef.current?.focus();
+    }, 300);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -67,17 +106,25 @@ function ReservationPageContent() {
       setErrorMessage("");
 
       const trimmedName = name.trim();
-      const trimmedPhone = phone.trim();
+      const formattedPhone = formatKoreanMobilePhone(phone);
       const trimmedEmail = email.trim();
       const trimmedReservationDate = reservationDate.trim();
       const trimmedMessage = message.trim();
 
       if (!trimmedName) {
+        nameInputRef.current?.focus();
         throw new Error("이름을 입력해주세요.");
       }
 
-      if (!trimmedPhone) {
+      if (!formattedPhone) {
+        phoneInputRef.current?.focus();
         throw new Error("연락처를 입력해주세요.");
+      }
+
+      if (!isValidKoreanMobilePhone(formattedPhone)) {
+        setPhone(formattedPhone);
+        phoneInputRef.current?.focus();
+        throw new Error("연락처는 010-1234-5678 형식으로 입력해주세요.");
       }
 
       if (!trimmedEmail) {
@@ -99,7 +146,7 @@ function ReservationPageContent() {
         },
         body: JSON.stringify({
           name: trimmedName,
-          phone: trimmedPhone,
+          phone: formattedPhone,
           email: trimmedEmail,
           program,
           reservationDate: trimmedReservationDate,
@@ -158,8 +205,6 @@ function ReservationPageContent() {
               <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100">
                 Jeju Seongsan Dive
               </span>
-
-              
             </div>
           </div>
         </div>
@@ -233,6 +278,7 @@ function ReservationPageContent() {
 
                 <a
                   href="#reservation-form"
+                  onClick={handleFocusReservationName}
                   className="mt-6 block rounded-2xl bg-slate-950 px-5 py-4 text-center text-sm font-black text-white transition hover:bg-blue-700"
                 >
                   예약 정보 입력하기
@@ -355,6 +401,7 @@ function ReservationPageContent() {
               <div className="mt-9 grid gap-5 sm:grid-cols-2">
                 <FormField label="이름" required>
                   <input
+                    ref={nameInputRef}
                     value={name}
                     onChange={(event) => setName(event.target.value)}
                     placeholder="홍길동"
@@ -364,11 +411,26 @@ function ReservationPageContent() {
 
                 <FormField label="연락처" required>
                   <input
+                    ref={phoneInputRef}
+                    type="tel"
+                    inputMode="numeric"
                     value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
+                    onChange={(event) => {
+                      setPhone(formatKoreanMobilePhone(event.target.value));
+                      if (errorMessage.includes("연락처")) {
+                        setErrorMessage("");
+                      }
+                    }}
+                    onBlur={() =>
+                      setPhone((prev) => formatKoreanMobilePhone(prev))
+                    }
                     placeholder="010-0000-0000"
+                    maxLength={13}
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
                   />
+                  <p className="mt-2 text-xs leading-5 text-slate-500">
+                    예: 010-1234-5678
+                  </p>
                 </FormField>
 
                 <div className="sm:col-span-2">
@@ -503,9 +565,10 @@ function ReservationPageContent() {
           </aside>
         </div>
       </section>
+
       <section id="location" className="scroll-mt-24">
-              <Footer />
-            </section>
+        <Footer />
+      </section>
     </main>
   );
 }
