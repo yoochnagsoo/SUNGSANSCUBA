@@ -149,11 +149,11 @@ export default function Hero() {
 
             <button
               type="button"
-              onClick={() => scrollToSection("destinations")}
+              onClick={() => scrollToSection("courses")}
               className="inline-flex h-16 items-center justify-center gap-3 rounded-full border border-white/20 bg-white/10 px-8 text-sm font-black uppercase tracking-[0.22em] text-white shadow-xl shadow-slate-950/20 backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/15"
             >
               View Programs
-              <Waves className="h-5 w-5" />
+              <BookOpen className="h-5 w-5" />
             </button>
           </div>
 

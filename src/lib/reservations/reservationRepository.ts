@@ -16,6 +16,7 @@ export function getReservationRepository() {
 export type {
   Reservation,
   ReservationInput,
+  ReservationSource,
   ReservationStatus,
   ReservationUpdateInput,
 } from "./types";

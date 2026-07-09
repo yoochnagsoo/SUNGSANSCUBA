@@ -3,11 +3,19 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
+import {
+  PROGRAM_OPTIONS,
+  getProgramOption,
+  normalizeProgramValue,
+} from "@/lib/programs";
+
 type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
 
 type Reservation = {
   id: string;
+  source?: "CUSTOMER" | "ADMIN";
   name: string;
+  email?: string;
   phone: string;
   program: string;
   reservationDate: string;
@@ -52,6 +60,12 @@ type StaffScheduleCreateResponse = {
   message?: string;
 };
 
+type ReservationCreateResponse = {
+  ok: boolean;
+  reservation?: Reservation;
+  message?: string;
+};
+
 const STATUS_LABEL: Record<ReservationStatus, string> = {
   PENDING: "접수대기",
   CONFIRMED: "예약확정",
@@ -64,6 +78,16 @@ const STATUS_STYLE: Record<ReservationStatus, string> = {
   CONFIRMED: "border-blue-200 bg-blue-50 text-blue-800",
   CANCELLED: "border-rose-200 bg-rose-50 text-rose-800",
   COMPLETED: "border-emerald-200 bg-emerald-50 text-emerald-800",
+};
+
+const SOURCE_LABEL: Record<NonNullable<Reservation["source"]>, string> = {
+  CUSTOMER: "고객 예약",
+  ADMIN: "관리자 등록",
+};
+
+const SOURCE_STYLE: Record<NonNullable<Reservation["source"]>, string> = {
+  CUSTOMER: "bg-slate-100 text-slate-600",
+  ADMIN: "bg-blue-100 text-blue-700",
 };
 
 const STAFF_SCHEDULE_LABEL: Record<StaffScheduleType, string> = {
@@ -174,6 +198,10 @@ function sortStaffSchedules(items: StaffSchedule[]) {
   });
 }
 
+function getProgramLabel(program: string) {
+  return getProgramOption(program)?.label || program;
+}
+
 export default function AdminCalendarPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [staffSchedules, setStaffSchedules] = useState<StaffSchedule[]>([]);
@@ -182,9 +210,25 @@ export default function AdminCalendarPage() {
   const [loading, setLoading] = useState(true);
   const [staffLoading, setStaffLoading] = useState(true);
   const [savingStaffSchedule, setSavingStaffSchedule] = useState(false);
+  const [savingReservation, setSavingReservation] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const [showStaffPanel, setShowStaffPanel] = useState(false);
+  const [showReservationPanel, setShowReservationPanel] = useState(false);
+
+  const [reservationName, setReservationName] = useState("");
+  const [reservationPhone, setReservationPhone] = useState("");
+  const [reservationEmail, setReservationEmail] = useState("");
+  const [reservationProgram, setReservationProgram] = useState("");
+  const [reservationDate, setReservationDate] = useState(() =>
+    toDateKey(new Date()),
+  );
+  const [reservationTime, setReservationTime] = useState("09:00");
+  const [reservationPeople, setReservationPeople] = useState("1");
+  const [reservationStatus, setReservationStatus] =
+    useState<ReservationStatus>("CONFIRMED");
+  const [reservationMemo, setReservationMemo] = useState("");
+  const [reservationFormError, setReservationFormError] = useState("");
 
   const [staffName, setStaffName] = useState("");
   const [staffScheduleType, setStaffScheduleType] =
@@ -262,6 +306,10 @@ export default function AdminCalendarPage() {
 
     for (const reservation of reservations) {
       const dateKey = reservation.reservationDate;
+
+      if (!dateKey) {
+        continue;
+      }
 
       if (!map.has(dateKey)) {
         map.set(dateKey, []);
@@ -388,6 +436,93 @@ export default function AdminCalendarPage() {
     setCurrentDate(new Date());
   }
 
+  async function handleAddReservation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const nextName = reservationName.trim();
+    const nextPhone = reservationPhone.trim();
+    const nextEmail = reservationEmail.trim();
+    const nextProgram = normalizeProgramValue(reservationProgram);
+    const nextMemo = reservationMemo.trim();
+
+    if (!nextName) {
+      setReservationFormError("이름을 입력해주세요.");
+      return;
+    }
+
+    if (!nextPhone) {
+      setReservationFormError("연락처를 입력해주세요.");
+      return;
+    }
+
+    if (!nextProgram) {
+      setReservationFormError("프로그램 / 예약 내용을 선택해주세요.");
+      return;
+    }
+
+    if (!reservationDate) {
+      setReservationFormError("예약일을 선택해주세요.");
+      return;
+    }
+
+    if (!reservationTime) {
+      setReservationFormError("예약 시간을 선택해주세요.");
+      return;
+    }
+
+    try {
+      setSavingReservation(true);
+      setReservationFormError("");
+
+      const res = await fetch("/api/admin/calendar-reservations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify({
+          name: nextName,
+          phone: nextPhone,
+          email: nextEmail,
+          program: nextProgram,
+          title: nextProgram,
+          reservationDate,
+          experienceTime: reservationTime,
+          people: Number(reservationPeople || 1),
+          memo: nextMemo,
+          status: reservationStatus,
+        }),
+      });
+
+      const data = (await res.json()) as ReservationCreateResponse;
+
+      if (!res.ok || !data.ok || !data.reservation) {
+        throw new Error(data.message || "예약을 등록하지 못했습니다.");
+      }
+
+      setReservations((prev) =>
+        sortReservationsByTime([...prev, data.reservation as Reservation]),
+      );
+
+      setReservationName("");
+      setReservationPhone("");
+      setReservationEmail("");
+      setReservationProgram("");
+      setReservationDate(toDateKey(new Date()));
+      setReservationTime("09:00");
+      setReservationPeople("1");
+      setReservationStatus("CONFIRMED");
+      setReservationMemo("");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "예약을 등록하지 못했습니다.";
+
+      setReservationFormError(message);
+    } finally {
+      setSavingReservation(false);
+    }
+  }
+
   async function handleAddStaffSchedule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -487,6 +622,9 @@ export default function AdminCalendarPage() {
     }
   }
 
+  const calendarMinWidth =
+    showStaffPanel || showReservationPanel ? "min-w-[700px]" : "min-w-[980px]";
+
   return (
     <div className="max-w-full space-y-6 overflow-hidden p-4 sm:p-6 lg:p-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -496,7 +634,8 @@ export default function AdminCalendarPage() {
             예약 캘린더
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            날짜별 예약과 직원 휴가/근무불가 일정을 함께 확인합니다.
+            고객 예약과 관리자가 직접 등록한 예약, 직원 휴가/근무불가 일정을
+            함께 확인합니다.
           </p>
         </div>
 
@@ -527,6 +666,19 @@ export default function AdminCalendarPage() {
 
           <button
             type="button"
+            onClick={() => setShowReservationPanel((prev) => !prev)}
+            className={[
+              "rounded-xl px-4 py-2 text-sm font-black transition",
+              showReservationPanel
+                ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
+                : "bg-blue-600 text-white hover:bg-blue-700",
+            ].join(" ")}
+          >
+            {showReservationPanel ? "예약 등록 닫기" : "예약 직접 등록"}
+          </button>
+
+          <button
+            type="button"
             onClick={() => setShowStaffPanel((prev) => !prev)}
             className={[
               "rounded-xl px-4 py-2 text-sm font-black transition",
@@ -543,8 +695,8 @@ export default function AdminCalendarPage() {
       <section
         className={[
           "grid max-w-full gap-6 overflow-hidden",
-          showStaffPanel
-            ? "lg:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_360px]"
+          showStaffPanel || showReservationPanel
+            ? "lg:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]"
             : "grid-cols-1",
         ].join(" ")}
       >
@@ -565,6 +717,10 @@ export default function AdminCalendarPage() {
                   {label}
                 </div>
               ))}
+
+              <div className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
+                관리자 등록
+              </div>
 
               <div className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-bold text-purple-800">
                 직원 휴가
@@ -630,14 +786,7 @@ export default function AdminCalendarPage() {
             </div>
           ) : (
             <div className="mt-5 max-w-full overflow-x-auto">
-              <div
-                className={[
-                  "transition-all",
-                  showStaffPanel
-                    ? "min-w-[700px]"
-                    : "min-w-[980px]",
-                ].join(" ")}
-              >
+              <div className={["transition-all", calendarMinWidth].join(" ")}>
                 <div className="grid grid-cols-7 border-y border-slate-200 bg-slate-50">
                   {DAY_NAMES.map((dayName, index) => (
                     <div
@@ -667,7 +816,9 @@ export default function AdminCalendarPage() {
                         key={day.dateKey}
                         className={[
                           "border-b border-r border-slate-200 p-2",
-                          showStaffPanel ? "min-h-44" : "min-h-48",
+                          showStaffPanel || showReservationPanel
+                            ? "min-h-44"
+                            : "min-h-48",
                           day.isCurrentMonth ? "bg-white" : "bg-slate-50",
                         ].join(" ")}
                       >
@@ -684,7 +835,7 @@ export default function AdminCalendarPage() {
                             {day.date.getDate()}
                           </span>
 
-                          <div className="flex shrink-0 items-center gap-1">
+                          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
                             {dayStaffSchedules.length > 0 ? (
                               <span className="rounded-full bg-purple-100 px-2 py-1 text-[10px] font-black text-purple-700">
                                 휴가 {dayStaffSchedules.length}
@@ -732,29 +883,46 @@ export default function AdminCalendarPage() {
                         ) : null}
 
                         <div className="space-y-1.5">
-                          {dayReservations.map((reservation) => (
-                            <Link
-                              key={reservation.id}
-                              href={`/admin/reservations/${reservation.id}`}
-                              className={`block rounded-xl border px-2 py-2 text-[11px] font-semibold leading-4 transition hover:scale-[1.01] hover:shadow-sm ${
-                                STATUS_STYLE[reservation.status]
-                              }`}
-                            >
-                              <div className="flex items-center gap-1">
-                                <span className="shrink-0 font-black">
-                                  {reservation.experienceTime || "미정"}
-                                </span>
-                                <span className="truncate">
-                                  {reservation.name}
-                                </span>
-                              </div>
+                          {dayReservations.map((reservation) => {
+                            const source = reservation.source || "CUSTOMER";
 
-                              <div className="mt-0.5 truncate opacity-80">
-                                {reservation.people}명 ·{" "}
-                                {STATUS_LABEL[reservation.status]}
-                              </div>
-                            </Link>
-                          ))}
+                            return (
+                              <Link
+                                key={reservation.id}
+                                href={`/admin/reservations/${reservation.id}`}
+                                className={`block rounded-xl border px-2 py-2 text-[11px] font-semibold leading-4 transition hover:scale-[1.01] hover:shadow-sm ${
+                                  STATUS_STYLE[reservation.status]
+                                }`}
+                              >
+                                <div className="flex items-center gap-1">
+                                  <span className="shrink-0 font-black">
+                                    {reservation.experienceTime || "미정"}
+                                  </span>
+                                  <span className="truncate">
+                                    {reservation.name}
+                                  </span>
+                                </div>
+
+                                <div className="mt-1 flex items-center gap-1">
+                                  <span
+                                    className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${
+                                      SOURCE_STYLE[source]
+                                    }`}
+                                  >
+                                    {SOURCE_LABEL[source]}
+                                  </span>
+                                  <span className="truncate opacity-80">
+                                    {reservation.people}명 ·{" "}
+                                    {getProgramLabel(reservation.program)}
+                                  </span>
+                                </div>
+
+                                <div className="mt-0.5 truncate opacity-80">
+                                  {STATUS_LABEL[reservation.status]}
+                                </div>
+                              </Link>
+                            );
+                          })}
                         </div>
                       </div>
                     );
@@ -765,189 +933,384 @@ export default function AdminCalendarPage() {
           )}
         </div>
 
-        {showStaffPanel ? (
+        {showReservationPanel || showStaffPanel ? (
           <aside className="min-w-0 space-y-6 lg:sticky lg:top-20 lg:self-start">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    직원 휴가 등록
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    휴가/반차/근무불가 직원을 표시합니다.
-                  </p>
-                </div>
+            {showReservationPanel ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">
+                      예약 직접 등록
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      고객 예약과 동일한 예약 데이터로 저장됩니다.
+                    </p>
+                  </div>
 
-                <button
-                  type="button"
-                  onClick={() => setShowStaffPanel(false)}
-                  className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200"
-                >
-                  닫기
-                </button>
-              </div>
-
-              {staffFormError ? (
-                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
-                  {staffFormError}
-                </div>
-              ) : null}
-
-              <form onSubmit={handleAddStaffSchedule} className="mt-5 space-y-4">
-                <div>
-                  <label className="text-sm font-bold text-slate-700">
-                    직원명
-                  </label>
-                  <input
-                    value={staffName}
-                    onChange={(event) => setStaffName(event.target.value)}
-                    placeholder="예: 김강사"
-                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-bold text-slate-700">
-                    구분
-                  </label>
-                  <select
-                    value={staffScheduleType}
-                    onChange={(event) =>
-                      setStaffScheduleType(
-                        event.target.value as StaffScheduleType,
-                      )
-                    }
-                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  <button
+                    type="button"
+                    onClick={() => setShowReservationPanel(false)}
+                    className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200"
                   >
-                    {STAFF_SCHEDULE_OPTIONS.map((type) => (
-                      <option key={type} value={type}>
-                        {STAFF_SCHEDULE_LABEL[type]}
-                      </option>
-                    ))}
-                  </select>
+                    닫기
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                {reservationFormError ? (
+                  <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+                    {reservationFormError}
+                  </div>
+                ) : null}
+
+                <form onSubmit={handleAddReservation} className="mt-5 space-y-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="text-sm font-bold text-slate-700">
+                        이름
+                      </label>
+                      <input
+                        value={reservationName}
+                        onChange={(event) =>
+                          setReservationName(event.target.value)
+                        }
+                        placeholder="예: 홍길동"
+                        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-bold text-slate-700">
+                        연락처
+                      </label>
+                      <input
+                        value={reservationPhone}
+                        onChange={(event) =>
+                          setReservationPhone(event.target.value)
+                        }
+                        placeholder="010-0000-0000"
+                        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label className="text-sm font-bold text-slate-700">
-                      시작일
+                      이메일
                     </label>
                     <input
-                      type="date"
-                      value={staffScheduleDate}
+                      type="email"
+                      value={reservationEmail}
                       onChange={(event) =>
-                        setStaffScheduleDate(event.target.value)
+                        setReservationEmail(event.target.value)
                       }
-                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      placeholder="example@email.com"
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                     />
                   </div>
 
                   <div>
                     <label className="text-sm font-bold text-slate-700">
-                      종료일
+                      프로그램 / 예약 내용
                     </label>
-                    <input
-                      type="date"
-                      value={staffScheduleEndDate}
+                    <select
+                      value={reservationProgram}
                       onChange={(event) =>
-                        setStaffScheduleEndDate(event.target.value)
+                        setReservationProgram(event.target.value)
                       }
-                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-bold text-slate-700">
-                    메모
-                  </label>
-                  <textarea
-                    value={staffScheduleMemo}
-                    onChange={(event) =>
-                      setStaffScheduleMemo(event.target.value)
-                    }
-                    placeholder="예: 가족여행, 오후 병원, 장비교육 등"
-                    rows={3}
-                    className="mt-2 w-full resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={savingStaffSchedule}
-                  className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {savingStaffSchedule ? "등록 중..." : "직원 일정 등록"}
-                </button>
-              </form>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    이번 달 직원 일정
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    휴가자가 있는 날을 확인합니다.
-                  </p>
-                </div>
-
-                <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">
-                  {currentMonthStaffSchedules.length}건
-                </span>
-              </div>
-
-              <div className="mt-5 max-h-[520px] space-y-3 overflow-y-auto pr-1">
-                {currentMonthStaffSchedules.length === 0 ? (
-                  <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-                    이번 달 등록된 직원 일정이 없습니다.
-                  </div>
-                ) : (
-                  currentMonthStaffSchedules.map((schedule) => (
-                    <div
-                      key={schedule.id}
-                      className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate font-black text-slate-900">
-                            {schedule.staffName}
-                          </p>
+                      <option value="">프로그램 선택</option>
+                      {PROGRAM_OPTIONS.map((program) => (
+                        <option key={program.value} value={program.value}>
+                          {program.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                          <p className="mt-1 text-sm font-semibold text-slate-600">
-                            {schedule.date}
-                            {schedule.endDate ? ` ~ ${schedule.endDate}` : ""}
-                          </p>
-                        </div>
+                  <div>
+                    <label className="text-sm font-bold text-slate-700">
+                      예약일
+                    </label>
+                    <input
+                      type="date"
+                      value={reservationDate}
+                      onChange={(event) => setReservationDate(event.target.value)}
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    />
+                  </div>
 
-                        <span
-                          className={`shrink-0 rounded-full border px-3 py-1 text-xs font-black ${
-                            STAFF_SCHEDULE_STYLE[schedule.type]
-                          }`}
-                        >
-                          {STAFF_SCHEDULE_LABEL[schedule.type]}
-                        </span>
+                  <div>
+                    <label className="text-sm font-bold text-slate-700">
+                      예약 시간
+                    </label>
+                    <input
+                      type="time"
+                      step="1800"
+                      value={reservationTime}
+                      onChange={(event) =>
+                        setReservationTime(event.target.value)
+                      }
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    />
+                    <p className="mt-1 text-xs font-medium text-slate-500">
+                      30분 단위로 선택됩니다.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-sm font-bold text-slate-700">
+                        인원
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={reservationPeople}
+                        onChange={(event) =>
+                          setReservationPeople(event.target.value)
+                        }
+                        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-bold text-slate-700">
+                        상태
+                      </label>
+                      <select
+                        value={reservationStatus}
+                        onChange={(event) =>
+                          setReservationStatus(
+                            event.target.value as ReservationStatus,
+                          )
+                        }
+                        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      >
+                        <option value="CONFIRMED">예약확정</option>
+                        <option value="PENDING">접수대기</option>
+                        <option value="COMPLETED">완료</option>
+                        <option value="CANCELLED">취소</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-bold text-slate-700">
+                      요청사항 / 메모
+                    </label>
+                    <textarea
+                      value={reservationMemo}
+                      onChange={(event) => setReservationMemo(event.target.value)}
+                      placeholder="예: 장비 준비, 강사 배정, 고객 요청사항"
+                      rows={3}
+                      className="mt-2 w-full resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={savingReservation}
+                    className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {savingReservation ? "등록 중..." : "예약 등록"}
+                  </button>
+                </form>
+              </div>
+            ) : null}
+
+            {showStaffPanel ? (
+              <>
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-900">
+                        직원 휴가 등록
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-500">
+                        휴가/반차/근무불가 직원을 표시합니다.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowStaffPanel(false)}
+                      className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200"
+                    >
+                      닫기
+                    </button>
+                  </div>
+
+                  {staffFormError ? (
+                    <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+                      {staffFormError}
+                    </div>
+                  ) : null}
+
+                  <form
+                    onSubmit={handleAddStaffSchedule}
+                    className="mt-5 space-y-4"
+                  >
+                    <div>
+                      <label className="text-sm font-bold text-slate-700">
+                        직원명
+                      </label>
+                      <input
+                        value={staffName}
+                        onChange={(event) => setStaffName(event.target.value)}
+                        placeholder="예: 김강사"
+                        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-bold text-slate-700">
+                        구분
+                      </label>
+                      <select
+                        value={staffScheduleType}
+                        onChange={(event) =>
+                          setStaffScheduleType(
+                            event.target.value as StaffScheduleType,
+                          )
+                        }
+                        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      >
+                        {STAFF_SCHEDULE_OPTIONS.map((type) => (
+                          <option key={type} value={type}>
+                            {STAFF_SCHEDULE_LABEL[type]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-sm font-bold text-slate-700">
+                          시작일
+                        </label>
+                        <input
+                          type="date"
+                          value={staffScheduleDate}
+                          onChange={(event) =>
+                            setStaffScheduleDate(event.target.value)
+                          }
+                          className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                        />
                       </div>
 
-                      {schedule.memo ? (
-                        <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
-                          {schedule.memo}
-                        </p>
-                      ) : null}
-
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteStaffSchedule(schedule.id)}
-                        className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100"
-                      >
-                        삭제
-                      </button>
+                      <div>
+                        <label className="text-sm font-bold text-slate-700">
+                          종료일
+                        </label>
+                        <input
+                          type="date"
+                          value={staffScheduleEndDate}
+                          onChange={(event) =>
+                            setStaffScheduleEndDate(event.target.value)
+                          }
+                          className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                        />
+                      </div>
                     </div>
-                  ))
-                )}
-              </div>
-            </div>
+
+                    <div>
+                      <label className="text-sm font-bold text-slate-700">
+                        메모
+                      </label>
+                      <textarea
+                        value={staffScheduleMemo}
+                        onChange={(event) =>
+                          setStaffScheduleMemo(event.target.value)
+                        }
+                        placeholder="예: 가족여행, 오후 병원, 장비교육 등"
+                        rows={3}
+                        className="mt-2 w-full resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={savingStaffSchedule}
+                      className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {savingStaffSchedule ? "등록 중..." : "직원 일정 등록"}
+                    </button>
+                  </form>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-900">
+                        이번 달 직원 일정
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-500">
+                        휴가자가 있는 날을 확인합니다.
+                      </p>
+                    </div>
+
+                    <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">
+                      {currentMonthStaffSchedules.length}건
+                    </span>
+                  </div>
+
+                  <div className="mt-5 max-h-[520px] space-y-3 overflow-y-auto pr-1">
+                    {currentMonthStaffSchedules.length === 0 ? (
+                      <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
+                        이번 달 등록된 직원 일정이 없습니다.
+                      </div>
+                    ) : (
+                      currentMonthStaffSchedules.map((schedule) => (
+                        <div
+                          key={schedule.id}
+                          className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate font-black text-slate-900">
+                                {schedule.staffName}
+                              </p>
+
+                              <p className="mt-1 text-sm font-semibold text-slate-600">
+                                {schedule.date}
+                                {schedule.endDate
+                                  ? ` ~ ${schedule.endDate}`
+                                  : ""}
+                              </p>
+                            </div>
+
+                            <span
+                              className={`shrink-0 rounded-full border px-3 py-1 text-xs font-black ${
+                                STAFF_SCHEDULE_STYLE[schedule.type]
+                              }`}
+                            >
+                              {STAFF_SCHEDULE_LABEL[schedule.type]}
+                            </span>
+                          </div>
+
+                          {schedule.memo ? (
+                            <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+                              {schedule.memo}
+                            </p>
+                          ) : null}
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDeleteStaffSchedule(schedule.id)
+                            }
+                            className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : null}
           </aside>
         ) : null}
       </section>

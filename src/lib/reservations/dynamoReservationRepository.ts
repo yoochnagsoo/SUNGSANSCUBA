@@ -11,6 +11,7 @@ import type {
   ReservationInput,
   ReservationListOptions,
   ReservationListResult,
+  ReservationSource,
   ReservationUpdateInput,
 } from "./types";
 
@@ -34,6 +35,55 @@ function normalizeLimit(limit?: number) {
   }
 
   return Math.min(Math.max(Math.floor(limit), 1), 100);
+}
+
+function normalizeSource(value: unknown): ReservationSource {
+  return value === "ADMIN" ? "ADMIN" : "CUSTOMER";
+}
+
+function normalizeReservation(item: Partial<Reservation>): Reservation {
+  const reservationDate = String(item.reservationDate ?? item.date ?? "");
+  const createdAt = String(item.createdAt ?? new Date().toISOString());
+  const updatedAt = String(item.updatedAt ?? createdAt);
+
+  return {
+    id: String(item.id ?? createId()),
+
+    source: normalizeSource(item.source),
+
+    name: String(item.name ?? ""),
+    email: String(item.email ?? ""),
+    phone: String(item.phone ?? ""),
+    program: String(item.program ?? ""),
+
+    reservationDate,
+    date: reservationDate,
+
+    experienceTime: String(item.experienceTime ?? ""),
+
+    people:
+      typeof item.people === "number"
+        ? item.people
+        : Number(item.people ?? 0),
+
+    message: String(item.message ?? ""),
+
+    status: item.status ?? "PENDING",
+    adminMemo: String(item.adminMemo ?? ""),
+
+    paymentAmount:
+      typeof item.paymentAmount === "number"
+        ? item.paymentAmount
+        : typeof item.paymentAmount !== "undefined"
+          ? Number(item.paymentAmount)
+          : undefined,
+    paymentMethod: item.paymentMethod,
+    paymentMemo: item.paymentMemo,
+    completedAt: item.completedAt,
+
+    createdAt,
+    updatedAt,
+  };
 }
 
 function encodeCursor(value: Record<string, unknown> | undefined) {
@@ -60,6 +110,20 @@ function decodeCursor(cursor?: string) {
 
 function sortReservations(reservations: Reservation[]) {
   return [...reservations].sort((a, b) => {
+    const aDate = a.reservationDate || a.date || "";
+    const bDate = b.reservationDate || b.date || "";
+
+    if (aDate !== bDate) {
+      return bDate.localeCompare(aDate);
+    }
+
+    const aTime = a.experienceTime || "";
+    const bTime = b.experienceTime || "";
+
+    if (aTime !== bTime) {
+      return aTime.localeCompare(bTime);
+    }
+
     const createdAtCompare = b.createdAt.localeCompare(a.createdAt);
 
     if (createdAtCompare !== 0) {
@@ -85,7 +149,7 @@ function buildFilter(options: ReservationListOptions) {
 
   if (keyword) {
     expressions.push(
-      "(contains(#name, :keyword) OR contains(#email, :keyword) OR contains(#phone, :keyword) OR contains(#program, :keyword) OR contains(#reservationDate, :keyword) OR contains(#date, :keyword) OR contains(#experienceTime, :keyword) OR contains(#paymentMethod, :keyword) OR contains(#paymentMemo, :keyword))",
+      "(contains(#name, :keyword) OR contains(#email, :keyword) OR contains(#phone, :keyword) OR contains(#program, :keyword) OR contains(#reservationDate, :keyword) OR contains(#date, :keyword) OR contains(#experienceTime, :keyword) OR contains(#paymentMethod, :keyword) OR contains(#paymentMemo, :keyword) OR contains(#source, :keyword))",
     );
 
     expressionAttributeNames["#name"] = "name";
@@ -97,6 +161,7 @@ function buildFilter(options: ReservationListOptions) {
     expressionAttributeNames["#experienceTime"] = "experienceTime";
     expressionAttributeNames["#paymentMethod"] = "paymentMethod";
     expressionAttributeNames["#paymentMemo"] = "paymentMemo";
+    expressionAttributeNames["#source"] = "source";
     expressionAttributeValues[":keyword"] = keyword;
   }
 
@@ -122,9 +187,12 @@ export const dynamoReservationRepository = {
     const now = new Date().toISOString();
     const reservationDate = String(input.reservationDate ?? input.date ?? "");
     const status = input.status ?? "PENDING";
+    const source = normalizeSource(input.source);
 
     const reservation: Reservation = {
       id: createId(),
+
+      source,
 
       name: input.name,
       email: input.email,
@@ -136,7 +204,7 @@ export const dynamoReservationRepository = {
 
       experienceTime: input.experienceTime ?? "",
 
-      people: input.people,
+      people: Number(input.people ?? 0),
       message: input.message ?? "",
 
       status,
@@ -172,7 +240,9 @@ export const dynamoReservationRepository = {
       }),
     );
 
-    const reservations = (result.Items ?? []) as Reservation[];
+    const reservations = (result.Items ?? []).map((item) =>
+      normalizeReservation(item as Partial<Reservation>),
+    );
 
     return sortReservations(reservations);
   },
@@ -192,7 +262,11 @@ export const dynamoReservationRepository = {
       }),
     );
 
-    const reservations = sortReservations((result.Items ?? []) as Reservation[]);
+    const reservations = sortReservations(
+      (result.Items ?? []).map((item) =>
+        normalizeReservation(item as Partial<Reservation>),
+      ),
+    );
 
     return {
       reservations,
@@ -214,7 +288,7 @@ export const dynamoReservationRepository = {
       return null;
     }
 
-    return result.Item as Reservation;
+    return normalizeReservation(result.Item as Partial<Reservation>);
   },
 
   async update(
@@ -237,8 +311,14 @@ export const dynamoReservationRepository = {
       "";
 
     const nextStatus = input.status ?? current.status;
+    const nextSource =
+      typeof input.source !== "undefined"
+        ? normalizeSource(input.source)
+        : normalizeSource(current.source);
 
     const updateValues = removeUndefinedValues({
+      source: nextSource,
+
       name: input.name,
       email: input.email,
       phone: input.phone,
@@ -327,7 +407,7 @@ export const dynamoReservationRepository = {
       return null;
     }
 
-    return result.Attributes as Reservation;
+    return normalizeReservation(result.Attributes as Partial<Reservation>);
   },
 
   async delete(id: string): Promise<boolean> {

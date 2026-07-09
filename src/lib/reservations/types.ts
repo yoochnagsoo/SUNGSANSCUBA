@@ -4,6 +4,8 @@ export type ReservationStatus =
   | "CANCELLED"
   | "COMPLETED";
 
+export type ReservationSource = "CUSTOMER" | "ADMIN";
+
 export type PaymentMethod =
   | "CASH"
   | "CARD"
@@ -14,6 +16,8 @@ export type PaymentMethod =
 
 export type Reservation = {
   id: string;
+
+  source: ReservationSource;
 
   name: string;
   email: string;
@@ -41,6 +45,8 @@ export type Reservation = {
 };
 
 export type ReservationInput = {
+  source?: ReservationSource;
+
   name: string;
   email: string;
   phone: string;
@@ -64,6 +70,8 @@ export type ReservationInput = {
 };
 
 export type ReservationUpdateInput = {
+  source?: ReservationSource;
+
   name?: string;
   email?: string;
   phone?: string;
