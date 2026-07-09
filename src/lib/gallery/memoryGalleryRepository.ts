@@ -9,30 +9,7 @@ const globalForGallery = globalThis as unknown as {
   __galleryImages?: GalleryImage[];
 };
 
-const galleryImages =
-  globalForGallery.__galleryImages ??
-  [
-    {
-      id: "sample-gallery-1",
-      title: "성산 바다 체험다이빙",
-      description: "맑은 제주 성산 바다에서 즐기는 체험다이빙",
-      imageUrl: "/images/gallery/gallery-01.jpg",
-      sortOrder: 1,
-      isVisible: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: "sample-gallery-2",
-      title: "수중 포토",
-      description: "다이빙 중 남기는 특별한 추억",
-      imageUrl: "/images/gallery/gallery-02.jpg",
-      sortOrder: 2,
-      isVisible: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ];
+const galleryImages = globalForGallery.__galleryImages ?? [];
 
 globalForGallery.__galleryImages = galleryImages;
 
