@@ -32,6 +32,32 @@ type GalleryResponse = {
   message?: string;
 };
 
+function getCardAspectClass(index: number) {
+  const pattern = index % 6;
+
+  if (pattern === 0) {
+    return "aspect-[4/5]";
+  }
+
+  if (pattern === 1) {
+    return "aspect-[4/3]";
+  }
+
+  if (pattern === 2) {
+    return "aspect-square";
+  }
+
+  if (pattern === 3) {
+    return "aspect-[5/4]";
+  }
+
+  if (pattern === 4) {
+    return "aspect-[3/4]";
+  }
+
+  return "aspect-[4/3]";
+}
+
 export default function GalleryPage() {
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -192,40 +218,38 @@ export default function GalleryPage() {
               </div>
             </div>
           ) : (
-            <div className="grid auto-rows-[260px] gap-4 pb-20 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 lg:auto-rows-[280px]">
+            <div className="columns-1 gap-5 pb-20 sm:columns-2 lg:columns-3 xl:columns-4">
               {galleryImages.map((image, index) => (
                 <button
                   key={image.id}
                   type="button"
                   onClick={() => setSelectedIndex(index)}
-                  className={`group relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 text-left shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-cyan-300/50 ${
-                    index === 0 || index === 7
-                      ? "sm:col-span-2 sm:row-span-2"
-                      : ""
-                  } ${index === 4 ? "md:col-span-2" : ""}`}
+                  className="group mb-5 block w-full break-inside-avoid overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 text-left shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-cyan-300/50"
                 >
-                  <Image
-                    src={image.imageUrl}
-                    alt={image.title}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 25vw"
-                    className="object-cover transition duration-700 group-hover:scale-105"
-                    unoptimized
-                  />
+                  <div className={`relative ${getCardAspectClass(index)}`}>
+                    <Image
+                      src={image.imageUrl}
+                      alt={image.title}
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      className="object-cover transition duration-700 group-hover:scale-105"
+                      unoptimized
+                    />
 
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/10 to-transparent opacity-90 transition group-hover:opacity-100" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/10 to-transparent opacity-90 transition group-hover:opacity-100" />
 
-                  <div className="absolute left-5 top-5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black text-white backdrop-blur">
-                    {String(index + 1).padStart(2, "0")}
-                  </div>
+                    <div className="absolute left-5 top-5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black text-white backdrop-blur">
+                      {String(index + 1).padStart(2, "0")}
+                    </div>
 
-                  <div className="absolute inset-x-0 bottom-0 translate-y-2 p-6 opacity-90 transition duration-500 group-hover:translate-y-0 group-hover:opacity-100">
-                    <p className="text-xl font-black text-white">
-                      {image.title}
-                    </p>
-                    <p className="mt-2 line-clamp-2 text-sm font-medium text-slate-300">
-                      {image.description || "SUNG SAN SCUBA"}
-                    </p>
+                    <div className="absolute inset-x-0 bottom-0 translate-y-2 p-6 opacity-90 transition duration-500 group-hover:translate-y-0 group-hover:opacity-100">
+                      <p className="text-xl font-black text-white">
+                        {image.title}
+                      </p>
+                      <p className="mt-2 line-clamp-2 text-sm font-medium text-slate-300">
+                        {image.description || "SUNG SAN SCUBA"}
+                      </p>
+                    </div>
                   </div>
                 </button>
               ))}
@@ -293,7 +317,8 @@ export default function GalleryPage() {
                 SUNG SAN SCUBA Gallery
               </p>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                {selectedImage.description || "성산 바다에서 기록한 다이빙 순간입니다."}
+                {selectedImage.description ||
+                  "성산 바다에서 기록한 다이빙 순간입니다."}
               </p>
             </div>
           </div>
