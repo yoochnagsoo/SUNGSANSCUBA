@@ -14,6 +14,7 @@ import {
   Sparkles,
   Waves,
 } from "lucide-react";
+import Footer from "@/components/layout/Footer";
 
 const courses = [
   {
@@ -431,6 +432,10 @@ export default function PadiPage() {
           </div>
         </div>
       </section>
+
+      <section id="location" className="scroll-mt-24">
+              <Footer />
+            </section>
     </main>
   );
 }

@@ -14,6 +14,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import Footer from "@/components/layout/Footer";
 
 type GalleryImage = {
   id: string;
@@ -257,6 +258,10 @@ export default function GalleryPage() {
           )}
         </div>
       </section>
+
+      <section id="location" className="scroll-mt-24">
+              <Footer />
+            </section>
 
       {selectedImage && selectedIndex !== null ? (
         <div className="fixed inset-0 z-50 bg-slate-950/95 px-4 py-6 backdrop-blur-xl sm:px-6 lg:px-8">

@@ -36,12 +36,37 @@ function normalizePeople(value: unknown) {
   return Math.max(1, Math.floor(people));
 }
 
+function getPhoneDigits(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function formatKoreanMobilePhone(value: string) {
+  const digits = getPhoneDigits(value).slice(0, 11);
+
+  if (digits.length <= 3) {
+    return digits;
+  }
+
+  if (digits.length <= 7) {
+    return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  }
+
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+}
+
+function isValidKoreanMobilePhone(value: string) {
+  const digits = getPhoneDigits(value);
+
+  return /^01[016789]\d{7,8}$/.test(digits);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
 
     const name = normalizeString(body.name);
-    const phone = normalizeString(body.phone);
+    const rawPhone = normalizeString(body.phone);
+    const phone = formatKoreanMobilePhone(rawPhone);
     const email = normalizeString(body.email);
 
     const rawProgram = normalizeString(body.program ?? body.title);
@@ -70,6 +95,18 @@ export async function POST(request: NextRequest) {
         {
           ok: false,
           message: "연락처를 입력해주세요.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    if (!isValidKoreanMobilePhone(phone)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "연락처는 010-1234-5678 형식으로 입력해주세요.",
         },
         {
           status: 400,

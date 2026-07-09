@@ -15,6 +15,7 @@ import {
   Waves,
 } from "lucide-react";
 import { siteConfig } from "@/data/site";
+import Footer from "@/components/layout/Footer";
 
 const values = [
   {
@@ -338,7 +339,7 @@ export default function AboutPage() {
       </section>
         
         <FacilityPhotos />
-        
+
       <section className="relative overflow-hidden bg-slate-950 px-4 py-24 text-white sm:px-6 lg:px-8 lg:py-32">
         <Image
           src="/images/about/about-ocean.jpg"
@@ -390,6 +391,10 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
+
+      <section id="location" className="scroll-mt-24">
+              <Footer />
+            </section>
     </main>
   );
 }

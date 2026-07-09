@@ -9,6 +9,7 @@ import {
   getProgramOption,
   normalizeProgramValue,
 } from "@/lib/programs";
+import Footer from "@/components/layout/Footer";
 
 export default function ReservationPage() {
   return (
@@ -158,12 +159,7 @@ function ReservationPageContent() {
                 Jeju Seongsan Dive
               </span>
 
-              <Link
-                href="/admin/login"
-                className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"
-              >
-                Admin
-              </Link>
+              
             </div>
           </div>
         </div>
@@ -507,6 +503,9 @@ function ReservationPageContent() {
           </aside>
         </div>
       </section>
+      <section id="location" className="scroll-mt-24">
+              <Footer />
+            </section>
     </main>
   );
 }

@@ -129,12 +129,58 @@ const STAFF_SCHEDULE_OPTIONS: StaffScheduleType[] = [
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 
+const RESERVATION_TIME_OPTIONS = [
+  "09:00",
+  "09:30",
+  "10:00",
+  "10:30",
+  "11:00",
+  "11:30",
+  "12:00",
+  "12:30",
+  "13:00",
+  "13:30",
+  "14:00",
+  "14:30",
+  "15:00",
+  "15:30",
+  "16:00",
+  "16:30",
+  "17:00",
+  "17:30",
+  "18:00",
+];
+
 function toDateKey(date: Date) {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
   const day = `${date.getDate()}`.padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+}
+
+function getPhoneDigits(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function formatKoreanMobilePhone(value: string) {
+  const digits = getPhoneDigits(value).slice(0, 11);
+
+  if (digits.length <= 3) {
+    return digits;
+  }
+
+  if (digits.length <= 7) {
+    return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  }
+
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+}
+
+function isValidKoreanMobilePhone(value: string) {
+  const digits = getPhoneDigits(value);
+
+  return /^01[016789]\d{7,8}$/.test(digits);
 }
 
 function getTimeValue(time?: string) {
@@ -498,11 +544,29 @@ export default function AdminCalendarPage() {
     setShowStaffPanel(true);
   }
 
+  function toggleReservationPanel() {
+    if (showReservationPanel) {
+      setShowReservationPanel(false);
+      return;
+    }
+
+    openReservationPanel();
+  }
+
+  function toggleStaffPanel() {
+    if (showStaffPanel) {
+      setShowStaffPanel(false);
+      return;
+    }
+
+    openStaffPanel();
+  }
+
   async function handleAddReservation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const nextName = reservationName.trim();
-    const nextPhone = reservationPhone.trim();
+    const nextPhone = formatKoreanMobilePhone(reservationPhone);
     const nextEmail = reservationEmail.trim();
     const nextProgram = normalizeProgramValue(reservationProgram);
     const nextMemo = reservationMemo.trim();
@@ -514,6 +578,11 @@ export default function AdminCalendarPage() {
 
     if (!nextPhone) {
       setReservationFormError("연락처를 입력해주세요.");
+      return;
+    }
+
+    if (!isValidKoreanMobilePhone(nextPhone)) {
+      setReservationFormError("연락처는 010-1234-5678 형식으로 입력해주세요.");
       return;
     }
 
@@ -732,7 +801,7 @@ export default function AdminCalendarPage() {
 
           <button
             type="button"
-            onClick={() => openReservationPanel()}
+            onClick={toggleReservationPanel}
             className={[
               "w-full rounded-xl px-4 py-2 text-sm font-black transition sm:w-auto",
               showReservationPanel
@@ -745,7 +814,7 @@ export default function AdminCalendarPage() {
 
           <button
             type="button"
-            onClick={() => openStaffPanel()}
+            onClick={toggleStaffPanel}
             className={[
               "w-full rounded-xl px-4 py-2 text-sm font-black transition sm:w-auto",
               showStaffPanel
@@ -1257,13 +1326,26 @@ export default function AdminCalendarPage() {
                         연락처
                       </label>
                       <input
+                        type="tel"
+                        inputMode="numeric"
                         value={reservationPhone}
                         onChange={(event) =>
-                          setReservationPhone(event.target.value)
+                          setReservationPhone(
+                            formatKoreanMobilePhone(event.target.value),
+                          )
+                        }
+                        onBlur={() =>
+                          setReservationPhone((prev) =>
+                            formatKoreanMobilePhone(prev),
+                          )
                         }
                         placeholder="010-0000-0000"
+                        maxLength={13}
                         className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                       />
+                      <p className="mt-1 text-xs font-medium text-slate-500">
+                        예: 010-1234-5678
+                      </p>
                     </div>
                   </div>
 
@@ -1318,15 +1400,19 @@ export default function AdminCalendarPage() {
                     <label className="text-sm font-bold text-slate-700">
                       예약 시간
                     </label>
-                    <input
-                      type="time"
-                      step="1800"
+                    <select
                       value={reservationTime}
                       onChange={(event) =>
                         setReservationTime(event.target.value)
                       }
-                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                    />
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    >
+                      {RESERVATION_TIME_OPTIONS.map((time) => (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      ))}
+                    </select>
                     <p className="mt-1 text-xs font-medium text-slate-500">
                       30분 단위로 선택됩니다.
                     </p>

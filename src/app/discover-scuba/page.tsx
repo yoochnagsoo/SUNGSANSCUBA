@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { PROGRAM_OPTIONS } from "@/lib/programs";
+import Footer from "@/components/layout/Footer";
 
 function getReservationHref(program: string) {
   return `/reservation?program=${encodeURIComponent(program)}`;
@@ -196,6 +197,11 @@ export default function DiscoverScubaPage() {
           </div>
         </div>
       </section>
+
+      <section id="location" className="scroll-mt-24">
+        <Footer />
+      </section>
+      
     </main>
   );
 }
