@@ -35,6 +35,12 @@ function InstagramIcon({ size = 20 }: { size?: number }) {
 const NAVER_MAP_URL =
   "https://map.naver.com/p/search/%EC%84%B1%EC%82%B0%EC%8A%A4%EC%BF%A0%EB%B2%84/place/32278847?c=15.00,0,0,2,dh&placePath=%2Fhome%3Fbk_query%3D%EC%84%B1%EC%82%B0%EC%8A%A4%EC%BF%A0%EB%B2%84%26entry%3Dbmp%26from%3Dmap%26fromPanelNum%3D2%26timestamp%3D202607100206%26locale%3Dko%26svcName%3Dmap_pcv5%26searchText%3D%EC%84%B1%EC%82%B0%EC%8A%A4%EC%BF%A0%EB%B2%84";
 
+const KAKAO_MAP_URL =
+  "https://map.kakao.com/link/search/%EC%A0%9C%EC%A3%BC%20%EC%84%9C%EA%B7%80%ED%8F%AC%EC%8B%9C%20%EC%84%B1%EC%82%B0%EC%9D%8D%20%EC%9D%BC%EC%B6%9C%EB%A1%9C%20258-5%20%EC%84%B1%EC%82%B0%EC%8A%A4%EC%BF%A0%EB%B2%84%EB%A6%AC%EC%A1%B0%ED%8A%B8";
+
+const GOOGLE_MAP_URL =
+  "https://www.google.com/maps/search/?api=1&query=%EC%A0%9C%EC%A3%BC%20%EC%84%9C%EA%B7%80%ED%8F%AC%EC%8B%9C%20%EC%84%B1%EC%82%B0%EC%9D%8D%20%EC%9D%BC%EC%B6%9C%EB%A1%9C%20258-5%20%EC%84%B1%EC%82%B0%EC%8A%A4%EC%BF%A0%EB%B2%84%EB%A6%AC%EC%A1%B0%ED%8A%B8";
+
 export default function Footer() {
   return (
     <footer className="bg-slate-950 text-white">
@@ -68,16 +74,6 @@ export default function Footer() {
               >
                 <InstagramIcon size={20} />
               </a>
-
-              <a
-                href={NAVER_MAP_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="네이버 지도에서 성산스쿠버 보기"
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-[#03c75a] text-lg font-black text-white transition hover:bg-[#02b351]"
-              >
-                N
-              </a>
             </div>
           </div>
 
@@ -85,10 +81,50 @@ export default function Footer() {
             <h3 className="mb-6 text-lg font-black">CONTACT</h3>
 
             <div className="space-y-5 text-slate-300">
-              <p className="flex gap-3">
-                <MapPin className="shrink-0 text-sky-400" size={20} />
-                제주 서귀포시 성산읍 일출로 258-5 성산스쿠버리조트
-              </p>
+              <div className="flex gap-3">
+                <MapPin className="mt-1 shrink-0 text-sky-400" size={20} />
+
+                <div className="min-w-0">
+                  <p className="leading-7">
+                    제주 서귀포시 성산읍 일출로 258-5 성산스쿠버리조트
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <a
+                      href={NAVER_MAP_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="네이버 지도에서 성산스쿠버 보기"
+                      className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#03c75a] px-3 text-xs font-black text-white transition hover:bg-[#02b351]"
+                    >
+                      N
+                      <span>네이버</span>
+                    </a>
+
+                    <a
+                      href={KAKAO_MAP_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="카카오맵에서 성산스쿠버 보기"
+                      className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#fee500] px-3 text-xs font-black text-slate-950 transition hover:bg-[#f5dc00]"
+                    >
+                      K
+                      <span>카카오</span>
+                    </a>
+
+                    <a
+                      href={GOOGLE_MAP_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="구글맵에서 성산스쿠버 보기"
+                      className="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-black text-slate-900 transition hover:bg-slate-200"
+                    >
+                      G
+                      <span>구글</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
 
               <a
                 href="tel:064-782-6117"
