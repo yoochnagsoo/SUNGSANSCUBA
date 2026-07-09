@@ -62,45 +62,61 @@ const menuItems = [
   },
 ];
 
+function isActivePath(pathname: string, href: string) {
+  if (href === "/admin") {
+    return pathname === "/admin";
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export default function AdminSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-slate-200 bg-white lg:block">
-      <div className="flex h-20 items-center border-b border-slate-200 px-6">
-        <div>
-          <p className="text-sm font-semibold text-cyan-600">
+    <aside className="fixed left-0 top-0 z-40 hidden h-dvh w-72 shrink-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">
+      <div className="flex h-20 shrink-0 items-center border-b border-slate-200 px-6">
+        <Link href="/admin" className="min-w-0">
+          <p className="truncate text-sm font-semibold text-cyan-600">
             SUNGSAN SCUBA
           </p>
-          <h1 className="text-lg font-bold text-slate-900">Admin</h1>
-        </div>
+          <h1 className="truncate text-lg font-bold text-slate-900">Admin</h1>
+        </Link>
       </div>
 
-      <nav className="space-y-1 p-4">
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          const active =
-            item.href === "/admin"
-              ? pathname === "/admin"
-              : pathname.startsWith(item.href);
+      <nav className="min-h-0 flex-1 overflow-y-auto p-4">
+        <div className="space-y-1">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActivePath(pathname, item.href);
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={[
-                "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition",
-                active
-                  ? "bg-cyan-600 text-white shadow-sm"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-              ].join(" ")}
-            >
-              <Icon className="h-5 w-5 shrink-0" />
-              <span className="truncate">{item.name}</span>
-            </Link>
-          );
-        })}
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={[
+                  "flex min-w-0 items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition",
+                  active
+                    ? "bg-cyan-600 text-white shadow-sm"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                ].join(" ")}
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                <span className="min-w-0 truncate">{item.name}</span>
+              </Link>
+            );
+          })}
+        </div>
       </nav>
+
+      <div className="shrink-0 border-t border-slate-200 p-4">
+        <div className="rounded-2xl bg-slate-50 p-4">
+          <p className="text-xs font-semibold text-slate-500">관리자 모드</p>
+          <p className="mt-1 truncate text-sm font-bold text-slate-900">
+            SUNGSAN SCUBA Dive Center
+          </p>
+        </div>
+      </div>
     </aside>
   );
 }
