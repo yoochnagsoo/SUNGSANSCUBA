@@ -80,6 +80,13 @@ const STATUS_STYLE: Record<ReservationStatus, string> = {
   COMPLETED: "border-emerald-200 bg-emerald-50 text-emerald-800",
 };
 
+const STATUS_DOT_STYLE: Record<ReservationStatus, string> = {
+  PENDING: "bg-amber-400",
+  CONFIRMED: "bg-blue-500",
+  CANCELLED: "bg-rose-400",
+  COMPLETED: "bg-emerald-500",
+};
+
 const SOURCE_LABEL: Record<NonNullable<Reservation["source"]>, string> = {
   CUSTOMER: "고객 예약",
   ADMIN: "관리자 등록",
@@ -202,11 +209,27 @@ function getProgramLabel(program: string) {
   return getProgramOption(program)?.label || program;
 }
 
+function getKoreanDateLabel(dateKey: string) {
+  const date = new Date(`${dateKey}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return dateKey;
+  }
+
+  return `${date.getMonth() + 1}월 ${date.getDate()}일 ${
+    DAY_NAMES[date.getDay()]
+  }요일`;
+}
+
 export default function AdminCalendarPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [staffSchedules, setStaffSchedules] = useState<StaffSchedule[]>([]);
 
   const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [selectedDateKey, setSelectedDateKey] = useState(() =>
+    toDateKey(new Date()),
+  );
+
   const [loading, setLoading] = useState(true);
   const [staffLoading, setStaffLoading] = useState(true);
   const [savingStaffSchedule, setSavingStaffSchedule] = useState(false);
@@ -359,6 +382,26 @@ export default function AdminCalendarPage() {
     );
   }, [month, staffSchedules, year]);
 
+  const selectedReservations = useMemo(() => {
+    return reservationsByDate.get(selectedDateKey) || [];
+  }, [reservationsByDate, selectedDateKey]);
+
+  const selectedStaffSchedules = useMemo(() => {
+    return staffSchedulesByDate.get(selectedDateKey) || [];
+  }, [selectedDateKey, staffSchedulesByDate]);
+
+  useEffect(() => {
+    const today = new Date();
+    const todayKey = toDateKey(today);
+
+    if (today.getFullYear() === year && today.getMonth() === month) {
+      setSelectedDateKey(todayKey);
+      return;
+    }
+
+    setSelectedDateKey(toDateKey(new Date(year, month, 1)));
+  }, [month, year]);
+
   async function fetchReservations() {
     try {
       setLoading(true);
@@ -433,7 +476,26 @@ export default function AdminCalendarPage() {
   }
 
   function goToday() {
-    setCurrentDate(new Date());
+    const today = new Date();
+
+    setCurrentDate(today);
+    setSelectedDateKey(toDateKey(today));
+  }
+
+  function openReservationPanel(dateKey?: string) {
+    const nextDateKey = dateKey || selectedDateKey || toDateKey(new Date());
+
+    setReservationDate(nextDateKey);
+    setSelectedDateKey(nextDateKey);
+    setShowReservationPanel(true);
+  }
+
+  function openStaffPanel(dateKey?: string) {
+    const nextDateKey = dateKey || selectedDateKey || toDateKey(new Date());
+
+    setStaffScheduleDate(nextDateKey);
+    setSelectedDateKey(nextDateKey);
+    setShowStaffPanel(true);
   }
 
   async function handleAddReservation(event: FormEvent<HTMLFormElement>) {
@@ -504,6 +566,7 @@ export default function AdminCalendarPage() {
         sortReservationsByTime([...prev, data.reservation as Reservation]),
       );
 
+      setSelectedDateKey(reservationDate);
       setReservationName("");
       setReservationPhone("");
       setReservationEmail("");
@@ -577,6 +640,7 @@ export default function AdminCalendarPage() {
         sortStaffSchedules([...prev, data.staffSchedule as StaffSchedule]),
       );
 
+      setSelectedDateKey(staffScheduleDate);
       setStaffName("");
       setStaffScheduleType("VACATION");
       setStaffScheduleDate(toDateKey(new Date()));
@@ -623,27 +687,29 @@ export default function AdminCalendarPage() {
   }
 
   const calendarMinWidth =
-    showStaffPanel || showReservationPanel ? "min-w-[700px]" : "min-w-[980px]";
+    showStaffPanel || showReservationPanel
+      ? "min-w-[760px] xl:min-w-0"
+      : "min-w-[760px] lg:min-w-0";
 
   return (
-    <div className="max-w-full space-y-6 overflow-hidden p-4 sm:p-6 lg:p-8">
+    <div className="max-w-full space-y-4 overflow-hidden p-3 sm:space-y-6 sm:p-6 lg:p-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
+        <div className="min-w-0">
           <p className="text-sm font-medium text-slate-500">관리자</p>
           <h1 className="mt-1 text-2xl font-bold text-slate-900">
             예약 캘린더
           </h1>
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 text-sm leading-6 text-slate-500">
             고객 예약과 관리자가 직접 등록한 예약, 직원 휴가/근무불가 일정을
             함께 확인합니다.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
           <button
             type="button"
             onClick={goPrevMonth}
-            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto"
           >
             이전달
           </button>
@@ -651,7 +717,7 @@ export default function AdminCalendarPage() {
           <button
             type="button"
             onClick={goToday}
-            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto"
           >
             오늘
           </button>
@@ -659,16 +725,16 @@ export default function AdminCalendarPage() {
           <button
             type="button"
             onClick={goNextMonth}
-            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto"
           >
             다음달
           </button>
 
           <button
             type="button"
-            onClick={() => setShowReservationPanel((prev) => !prev)}
+            onClick={() => openReservationPanel()}
             className={[
-              "rounded-xl px-4 py-2 text-sm font-black transition",
+              "w-full rounded-xl px-4 py-2 text-sm font-black transition sm:w-auto",
               showReservationPanel
                 ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
                 : "bg-blue-600 text-white hover:bg-blue-700",
@@ -679,9 +745,9 @@ export default function AdminCalendarPage() {
 
           <button
             type="button"
-            onClick={() => setShowStaffPanel((prev) => !prev)}
+            onClick={() => openStaffPanel()}
             className={[
-              "rounded-xl px-4 py-2 text-sm font-black transition",
+              "w-full rounded-xl px-4 py-2 text-sm font-black transition sm:w-auto",
               showStaffPanel
                 ? "bg-purple-100 text-purple-800 hover:bg-purple-200"
                 : "bg-slate-900 text-white hover:bg-slate-700",
@@ -694,13 +760,13 @@ export default function AdminCalendarPage() {
 
       <section
         className={[
-          "grid max-w-full gap-6 overflow-hidden",
+          "grid max-w-full grid-cols-1 gap-4 overflow-hidden sm:gap-6",
           showStaffPanel || showReservationPanel
             ? "lg:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]"
-            : "grid-cols-1",
+            : "",
         ].join(" ")}
       >
-        <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-xl font-bold text-slate-900">
               {year}년 {month + 1}월
@@ -743,7 +809,7 @@ export default function AdminCalendarPage() {
                 {!showStaffPanel ? (
                   <button
                     type="button"
-                    onClick={() => setShowStaffPanel(true)}
+                    onClick={() => openStaffPanel()}
                     className="rounded-xl bg-purple-700 px-4 py-2 text-xs font-black text-white hover:bg-purple-800"
                   >
                     목록/등록 열기
@@ -753,8 +819,10 @@ export default function AdminCalendarPage() {
 
               <div className="mt-3 flex flex-wrap gap-2">
                 {currentMonthStaffSchedules.slice(0, 8).map((schedule) => (
-                  <span
+                  <button
+                    type="button"
                     key={schedule.id}
+                    onClick={() => setSelectedDateKey(schedule.date)}
                     className={`rounded-full border px-3 py-1 text-xs font-bold ${
                       STAFF_SCHEDULE_STYLE[schedule.type]
                     }`}
@@ -762,7 +830,7 @@ export default function AdminCalendarPage() {
                     {schedule.date}
                     {schedule.endDate ? `~${schedule.endDate}` : ""} ·{" "}
                     {schedule.staffName} · {STAFF_SCHEDULE_LABEL[schedule.type]}
-                  </span>
+                  </button>
                 ))}
 
                 {currentMonthStaffSchedules.length > 8 ? (
@@ -785,156 +853,362 @@ export default function AdminCalendarPage() {
               예약 캘린더를 불러오는 중입니다.
             </div>
           ) : (
-            <div className="mt-5 max-w-full overflow-x-auto">
-              <div className={["transition-all", calendarMinWidth].join(" ")}>
-                <div className="grid grid-cols-7 border-y border-slate-200 bg-slate-50">
-                  {DAY_NAMES.map((dayName, index) => (
-                    <div
-                      key={dayName}
-                      className={`px-2 py-3 text-center text-sm font-bold ${
-                        index === 0
-                          ? "text-rose-500"
-                          : index === 6
-                            ? "text-blue-500"
-                            : "text-slate-600"
-                      }`}
-                    >
-                      {dayName}
-                    </div>
-                  ))}
+            <>
+              <div className="mt-5 sm:hidden">
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                  <div className="grid grid-cols-7 bg-slate-50">
+                    {DAY_NAMES.map((dayName, index) => (
+                      <div
+                        key={dayName}
+                        className={`py-2 text-center text-xs font-black ${
+                          index === 0
+                            ? "text-rose-500"
+                            : index === 6
+                              ? "text-blue-500"
+                              : "text-slate-500"
+                        }`}
+                      >
+                        {dayName}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-px bg-slate-200">
+                    {calendarDays.map((day) => {
+                      const dayReservations =
+                        reservationsByDate.get(day.dateKey) || [];
+                      const dayStaffSchedules =
+                        staffSchedulesByDate.get(day.dateKey) || [];
+                      const selected = selectedDateKey === day.dateKey;
+                      const hasReservation = dayReservations.length > 0;
+                      const hasStaffSchedule = dayStaffSchedules.length > 0;
+
+                      return (
+                        <button
+                          type="button"
+                          key={day.dateKey}
+                          onClick={() => setSelectedDateKey(day.dateKey)}
+                          className={[
+                            "relative aspect-square bg-white p-1 text-left transition",
+                            day.isCurrentMonth ? "" : "bg-slate-50",
+                            selected
+                              ? "z-10 ring-2 ring-inset ring-blue-600"
+                              : "",
+                          ].join(" ")}
+                        >
+                          <div
+                            className={[
+                              "flex h-full flex-col rounded-xl p-1.5",
+                              selected ? "bg-blue-50" : "",
+                            ].join(" ")}
+                          >
+                            <span
+                              className={[
+                                "flex h-6 w-6 items-center justify-center rounded-full text-xs font-black",
+                                day.isToday
+                                  ? "bg-blue-600 text-white"
+                                  : day.isCurrentMonth
+                                    ? "text-slate-800"
+                                    : "text-slate-400",
+                              ].join(" ")}
+                            >
+                              {day.date.getDate()}
+                            </span>
+
+                            <div className="mt-auto flex flex-wrap gap-0.5">
+                              {hasReservation ? (
+                                <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-black text-blue-700">
+                                  {dayReservations.length}
+                                </span>
+                              ) : null}
+
+                              {hasStaffSchedule ? (
+                                <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-[9px] font-black text-purple-700">
+                                  휴
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-7 border-l border-slate-200">
-                  {calendarDays.map((day) => {
-                    const dayReservations =
-                      reservationsByDate.get(day.dateKey) || [];
-                    const dayStaffSchedules =
-                      staffSchedulesByDate.get(day.dateKey) || [];
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-black text-slate-900">
+                        {getKoreanDateLabel(selectedDateKey)}
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">
+                        예약 {selectedReservations.length}건 · 직원 일정{" "}
+                        {selectedStaffSchedules.length}건
+                      </p>
+                    </div>
 
-                    return (
-                      <div
-                        key={day.dateKey}
-                        className={[
-                          "border-b border-r border-slate-200 p-2",
-                          showStaffPanel || showReservationPanel
-                            ? "min-h-44"
-                            : "min-h-48",
-                          day.isCurrentMonth ? "bg-white" : "bg-slate-50",
-                        ].join(" ")}
+                    <div className="flex shrink-0 gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openReservationPanel(selectedDateKey)}
+                        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-black text-white"
                       >
-                        <div className="mb-2 flex items-center justify-between gap-2">
-                          <span
-                            className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold ${
-                              day.isToday
-                                ? "bg-blue-600 text-white"
-                                : day.isCurrentMonth
-                                  ? "text-slate-800"
-                                  : "text-slate-400"
+                        예약
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openStaffPanel(selectedDateKey)}
+                        className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-black text-white"
+                      >
+                        직원
+                      </button>
+                    </div>
+                  </div>
+
+                  {selectedStaffSchedules.length > 0 ? (
+                    <div className="mt-4 space-y-2">
+                      <p className="text-xs font-black text-purple-700">
+                        직원 일정
+                      </p>
+
+                      {selectedStaffSchedules.map((schedule) => (
+                        <div
+                          key={`${selectedDateKey}-${schedule.id}`}
+                          className={`rounded-xl border px-3 py-2 text-xs font-bold ${
+                            STAFF_SCHEDULE_STYLE[schedule.type]
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate">
+                              {schedule.staffName}
+                            </span>
+                            <span className="shrink-0">
+                              {STAFF_SCHEDULE_LABEL[schedule.type]}
+                            </span>
+                          </div>
+
+                          {schedule.memo ? (
+                            <p className="mt-1 truncate font-medium opacity-80">
+                              {schedule.memo}
+                            </p>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {selectedReservations.length > 0 ? (
+                    <div className="mt-4 space-y-2">
+                      <p className="text-xs font-black text-blue-700">
+                        예약 목록
+                      </p>
+
+                      {selectedReservations.map((reservation) => {
+                        const source = reservation.source || "CUSTOMER";
+
+                        return (
+                          <Link
+                            key={reservation.id}
+                            href={`/admin/reservations/${reservation.id}`}
+                            className={`block rounded-xl border px-3 py-3 text-xs font-semibold ${
+                              STATUS_STYLE[reservation.status]
                             }`}
                           >
-                            {day.date.getDate()}
-                          </span>
-
-                          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-                            {dayStaffSchedules.length > 0 ? (
-                              <span className="rounded-full bg-purple-100 px-2 py-1 text-[10px] font-black text-purple-700">
-                                휴가 {dayStaffSchedules.length}
-                              </span>
-                            ) : null}
-
-                            {dayReservations.length > 0 ? (
-                              <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
-                                예약 {dayReservations.length}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-
-                        {dayStaffSchedules.length > 0 ? (
-                          <div className="mb-2 space-y-1.5 rounded-xl border border-purple-200 bg-purple-50/60 p-2">
-                            <p className="text-[10px] font-black text-purple-800">
-                              직원 일정
-                            </p>
-
-                            {dayStaffSchedules.map((schedule) => (
-                              <div
-                                key={`${day.dateKey}-${schedule.id}`}
-                                className={`rounded-lg border px-2 py-1.5 text-[11px] font-bold leading-4 ${
-                                  STAFF_SCHEDULE_STYLE[schedule.type]
-                                }`}
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="truncate">
-                                    {schedule.staffName}
-                                  </span>
-                                  <span className="shrink-0 text-[10px]">
-                                    {STAFF_SCHEDULE_LABEL[schedule.type]}
-                                  </span>
-                                </div>
-
-                                {schedule.memo ? (
-                                  <p className="mt-0.5 truncate text-[10px] font-medium opacity-80">
-                                    {schedule.memo}
-                                  </p>
-                                ) : null}
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-black">
+                                  {reservation.experienceTime || "미정"} ·{" "}
+                                  {reservation.name}
+                                </p>
+                                <p className="mt-1 truncate opacity-80">
+                                  {reservation.people}명 ·{" "}
+                                  {getProgramLabel(reservation.program)}
+                                </p>
                               </div>
-                            ))}
-                          </div>
-                        ) : null}
 
-                        <div className="space-y-1.5">
-                          {dayReservations.map((reservation) => {
-                            const source = reservation.source || "CUSTOMER";
-
-                            return (
-                              <Link
-                                key={reservation.id}
-                                href={`/admin/reservations/${reservation.id}`}
-                                className={`block rounded-xl border px-2 py-2 text-[11px] font-semibold leading-4 transition hover:scale-[1.01] hover:shadow-sm ${
-                                  STATUS_STYLE[reservation.status]
-                                }`}
+                              <span
+                                className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black ${SOURCE_STYLE[source]}`}
                               >
-                                <div className="flex items-center gap-1">
-                                  <span className="shrink-0 font-black">
-                                    {reservation.experienceTime || "미정"}
-                                  </span>
-                                  <span className="truncate">
-                                    {reservation.name}
-                                  </span>
-                                </div>
+                                {SOURCE_LABEL[source]}
+                              </span>
+                            </div>
 
-                                <div className="mt-1 flex items-center gap-1">
-                                  <span
-                                    className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${
-                                      SOURCE_STYLE[source]
-                                    }`}
-                                  >
-                                    {SOURCE_LABEL[source]}
-                                  </span>
-                                  <span className="truncate opacity-80">
-                                    {reservation.people}명 ·{" "}
-                                    {getProgramLabel(reservation.program)}
-                                  </span>
-                                </div>
+                            <div className="mt-2 flex items-center gap-1">
+                              <span
+                                className={`h-2 w-2 rounded-full ${
+                                  STATUS_DOT_STYLE[reservation.status]
+                                }`}
+                              />
+                              <span className="text-[11px] font-bold opacity-80">
+                                {STATUS_LABEL[reservation.status]}
+                              </span>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ) : null}
 
-                                <div className="mt-0.5 truncate opacity-80">
-                                  {STATUS_LABEL[reservation.status]}
-                                </div>
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {selectedReservations.length === 0 &&
+                  selectedStaffSchedules.length === 0 ? (
+                    <div className="mt-4 rounded-xl bg-white p-4 text-center text-sm font-semibold text-slate-500">
+                      선택한 날짜에 등록된 예약이나 직원 일정이 없습니다.
+                    </div>
+                  ) : null}
                 </div>
               </div>
-            </div>
+
+              <div className="-mx-3 mt-5 hidden max-w-none overflow-x-auto px-3 sm:mx-0 sm:block sm:max-w-full sm:px-0">
+                <div className={["transition-all", calendarMinWidth].join(" ")}>
+                  <div className="grid grid-cols-7 border-y border-slate-200 bg-slate-50">
+                    {DAY_NAMES.map((dayName, index) => (
+                      <div
+                        key={dayName}
+                        className={`px-2 py-3 text-center text-sm font-bold ${
+                          index === 0
+                            ? "text-rose-500"
+                            : index === 6
+                              ? "text-blue-500"
+                              : "text-slate-600"
+                        }`}
+                      >
+                        {dayName}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-7 border-l border-slate-200">
+                    {calendarDays.map((day) => {
+                      const dayReservations =
+                        reservationsByDate.get(day.dateKey) || [];
+                      const dayStaffSchedules =
+                        staffSchedulesByDate.get(day.dateKey) || [];
+
+                      return (
+                        <div
+                          key={day.dateKey}
+                          className={[
+                            "border-b border-r border-slate-200 p-2",
+                            showStaffPanel || showReservationPanel
+                              ? "min-h-40 sm:min-h-44"
+                              : "min-h-40 sm:min-h-48",
+                            day.isCurrentMonth ? "bg-white" : "bg-slate-50",
+                          ].join(" ")}
+                        >
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <span
+                              className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold ${
+                                day.isToday
+                                  ? "bg-blue-600 text-white"
+                                  : day.isCurrentMonth
+                                    ? "text-slate-800"
+                                    : "text-slate-400"
+                              }`}
+                            >
+                              {day.date.getDate()}
+                            </span>
+
+                            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                              {dayStaffSchedules.length > 0 ? (
+                                <span className="rounded-full bg-purple-100 px-2 py-1 text-[10px] font-black text-purple-700">
+                                  휴가 {dayStaffSchedules.length}
+                                </span>
+                              ) : null}
+
+                              {dayReservations.length > 0 ? (
+                                <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
+                                  예약 {dayReservations.length}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          {dayStaffSchedules.length > 0 ? (
+                            <div className="mb-2 space-y-1.5 rounded-xl border border-purple-200 bg-purple-50/60 p-2">
+                              <p className="text-[10px] font-black text-purple-800">
+                                직원 일정
+                              </p>
+
+                              {dayStaffSchedules.map((schedule) => (
+                                <div
+                                  key={`${day.dateKey}-${schedule.id}`}
+                                  className={`rounded-lg border px-2 py-1.5 text-[11px] font-bold leading-4 ${
+                                    STAFF_SCHEDULE_STYLE[schedule.type]
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="truncate">
+                                      {schedule.staffName}
+                                    </span>
+                                    <span className="shrink-0 text-[10px]">
+                                      {STAFF_SCHEDULE_LABEL[schedule.type]}
+                                    </span>
+                                  </div>
+
+                                  {schedule.memo ? (
+                                    <p className="mt-0.5 truncate text-[10px] font-medium opacity-80">
+                                      {schedule.memo}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+
+                          <div className="space-y-1.5">
+                            {dayReservations.map((reservation) => {
+                              const source = reservation.source || "CUSTOMER";
+
+                              return (
+                                <Link
+                                  key={reservation.id}
+                                  href={`/admin/reservations/${reservation.id}`}
+                                  className={`block rounded-xl border px-2 py-2 text-[11px] font-semibold leading-4 transition hover:scale-[1.01] hover:shadow-sm ${
+                                    STATUS_STYLE[reservation.status]
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-1">
+                                    <span className="shrink-0 font-black">
+                                      {reservation.experienceTime || "미정"}
+                                    </span>
+                                    <span className="truncate">
+                                      {reservation.name}
+                                    </span>
+                                  </div>
+
+                                  <div className="mt-1 flex items-center gap-1">
+                                    <span
+                                      className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${
+                                        SOURCE_STYLE[source]
+                                      }`}
+                                    >
+                                      {SOURCE_LABEL[source]}
+                                    </span>
+                                    <span className="truncate opacity-80">
+                                      {reservation.people}명 ·{" "}
+                                      {getProgramLabel(reservation.program)}
+                                    </span>
+                                  </div>
+
+                                  <div className="mt-0.5 truncate opacity-80">
+                                    {STATUS_LABEL[reservation.status]}
+                                  </div>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </>
           )}
         </div>
 
         {showReservationPanel || showStaffPanel ? (
-          <aside className="min-w-0 space-y-6 lg:sticky lg:top-20 lg:self-start">
+          <aside className="min-w-0 space-y-4 sm:space-y-6 lg:sticky lg:top-20 lg:self-start">
             {showReservationPanel ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
