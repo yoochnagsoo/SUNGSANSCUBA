@@ -7,6 +7,7 @@ import {
   ClipboardList,
   ImageIcon,
   LayoutDashboard,
+  MessageCircle,
   Settings,
   TrendingUp,
   Users,
@@ -42,6 +43,11 @@ const menuItems = [
     name: "갤러리 관리",
     href: "/admin/gallery",
     icon: ImageIcon,
+  },
+  {
+    name: "리뷰 관리",
+    href: "/admin/reviews",
+    icon: MessageCircle,
   },
   {
     name: "설정",

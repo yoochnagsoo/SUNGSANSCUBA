@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ChangeEvent, DragEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
@@ -59,6 +59,14 @@ type ResendEmailResponse = {
   };
 };
 
+type SendPhotosResponse = {
+  ok: boolean;
+  message?: string;
+  sentTo?: string;
+  photoCount?: number;
+  zipSize?: number;
+};
+
 const STATUS_LABEL: Record<ReservationStatus, string> = {
   PENDING: "접수대기",
   CONFIRMED: "예약확정",
@@ -113,6 +121,28 @@ const EXPERIENCE_TIME_OPTIONS = [
   "18:00",
 ];
 
+const MAX_PHOTO_TOTAL_SIZE = 25 * 1024 * 1024;
+
+function formatBytes(bytes: number) {
+  if (bytes === 0) {
+    return "0 B";
+  }
+
+  const units = ["B", "KB", "MB", "GB"];
+  const index = Math.floor(Math.log(bytes) / Math.log(1024));
+  const size = bytes / Math.pow(1024, index);
+
+  return `${size.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
+function isImageFile(file: File) {
+  return file.type.startsWith("image/");
+}
+
+function createPhotoKey(file: File) {
+  return `${file.name}-${file.size}-${file.lastModified}`;
+}
+
 export default function AdminReservationDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -135,6 +165,14 @@ export default function AdminReservationDetailPage() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
   const [paymentMemo, setPaymentMemo] = useState("");
+
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [isPhotoDragging, setIsPhotoDragging] = useState(false);
+  const [sendingPhotos, setSendingPhotos] = useState(false);
+  const [photoMessage, setPhotoMessage] = useState("");
+  const [photoMessageType, setPhotoMessageType] = useState<
+    "success" | "warning" | "error" | ""
+  >("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -183,6 +221,11 @@ export default function AdminReservationDetailPage() {
     return date.toLocaleString("ko-KR");
   }, [reservation]);
 
+  const photoTotalSize = useMemo(
+    () => photoFiles.reduce((total, file) => total + file.size, 0),
+    [photoFiles],
+  );
+
   const canResendEmail =
     reservation?.status === "CONFIRMED" || reservation?.status === "CANCELLED";
 
@@ -193,6 +236,9 @@ export default function AdminReservationDetailPage() {
         ? "취소 메일 다시 보내기"
         : "메일 다시 보내기";
 
+  const canSendPhotos =
+    reservation?.status === "COMPLETED" && Boolean(email.trim());
+
   useEffect(() => {
     async function fetchReservation() {
       try {
@@ -201,6 +247,8 @@ export default function AdminReservationDetailPage() {
         setSuccessMessage("");
         setEmailMessage("");
         setEmailMessageType("");
+        setPhotoMessage("");
+        setPhotoMessageType("");
 
         const res = await fetch(`/api/reservations/${reservationId}`, {
           cache: "no-store",
@@ -280,6 +328,81 @@ export default function AdminReservationDetailPage() {
       setEmailMessage(`메일 발송 안 함: ${data.email.skippedReason}`);
       setEmailMessageType("warning");
     }
+  }
+
+  function addPhotoFiles(files: File[]) {
+    setPhotoMessage("");
+    setPhotoMessageType("");
+
+    const imageFiles = files.filter(isImageFile);
+    const rejectedCount = files.length - imageFiles.length;
+
+    if (imageFiles.length === 0) {
+      setPhotoMessage("이미지 파일만 업로드할 수 있습니다.");
+      setPhotoMessageType("error");
+      return;
+    }
+
+    setPhotoFiles((currentFiles) => {
+      const existingKeys = new Set(currentFiles.map(createPhotoKey));
+      const merged = [...currentFiles];
+
+      for (const file of imageFiles) {
+        const key = createPhotoKey(file);
+
+        if (!existingKeys.has(key)) {
+          merged.push(file);
+          existingKeys.add(key);
+        }
+      }
+
+      const nextTotalSize = merged.reduce((total, file) => total + file.size, 0);
+
+      if (nextTotalSize > MAX_PHOTO_TOTAL_SIZE) {
+        setPhotoMessage(
+          `사진 총 용량은 최대 ${formatBytes(
+            MAX_PHOTO_TOTAL_SIZE,
+          )}까지 가능합니다. 현재 선택 용량: ${formatBytes(nextTotalSize)}`,
+        );
+        setPhotoMessageType("error");
+        return currentFiles;
+      }
+
+      if (rejectedCount > 0) {
+        setPhotoMessage(
+          `이미지가 아닌 파일 ${rejectedCount}개는 제외했습니다.`,
+        );
+        setPhotoMessageType("warning");
+      }
+
+      return merged;
+    });
+  }
+
+  function handlePhotoInputChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    addPhotoFiles(files);
+    event.target.value = "";
+  }
+
+  function handlePhotoDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setIsPhotoDragging(false);
+
+    const files = Array.from(event.dataTransfer.files);
+    addPhotoFiles(files);
+  }
+
+  function removePhotoFile(index: number) {
+    setPhotoFiles((currentFiles) =>
+      currentFiles.filter((_file, fileIndex) => fileIndex !== index),
+    );
+  }
+
+  function clearPhotoFiles() {
+    setPhotoFiles([]);
+    setPhotoMessage("");
+    setPhotoMessageType("");
   }
 
   async function handleSave() {
@@ -405,6 +528,88 @@ export default function AdminReservationDetailPage() {
       setEmailMessageType("error");
     } finally {
       setResending(false);
+    }
+  }
+
+  async function handleSendPhotos() {
+    if (!reservation) {
+      return;
+    }
+
+    if (reservation.status !== "COMPLETED") {
+      setPhotoMessage("완료 처리된 예약에서만 사진을 발송할 수 있습니다.");
+      setPhotoMessageType("warning");
+      return;
+    }
+
+    if (!email.trim()) {
+      setPhotoMessage("고객 이메일이 없어 사진을 발송할 수 없습니다.");
+      setPhotoMessageType("error");
+      return;
+    }
+
+    if (photoFiles.length === 0) {
+      setPhotoMessage("전송할 사진을 선택해주세요.");
+      setPhotoMessageType("error");
+      return;
+    }
+
+    if (photoTotalSize > MAX_PHOTO_TOTAL_SIZE) {
+      setPhotoMessage(
+        `사진 총 용량은 최대 ${formatBytes(MAX_PHOTO_TOTAL_SIZE)}까지 가능합니다.`,
+      );
+      setPhotoMessageType("error");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `${email}로 사진 ${photoFiles.length}장을 ZIP 파일로 발송할까요?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setSendingPhotos(true);
+      setPhotoMessage("");
+      setPhotoMessageType("");
+
+      const formData = new FormData();
+
+      for (const file of photoFiles) {
+        formData.append("photos", file);
+      }
+
+      const res = await fetch(
+        `/api/admin/reservations/${reservationId}/send-photos`,
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
+
+      const data = (await res.json()) as SendPhotosResponse;
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.message || "사진 메일을 발송하지 못했습니다.");
+      }
+
+      setPhotoMessage(
+        `${data.sentTo || email}로 사진 ${data.photoCount || photoFiles.length}장을 발송했습니다.`,
+      );
+      setPhotoMessageType("success");
+      setPhotoFiles([]);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "사진 메일을 발송하지 못했습니다.";
+
+      setPhotoMessage(message);
+      setPhotoMessageType("error");
+    } finally {
+      setSendingPhotos(false);
     }
   }
 
@@ -584,6 +789,169 @@ export default function AdminReservationDetailPage() {
               </div>
             </div>
           </div>
+
+          <div className="rounded-2xl border border-cyan-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  고객 사진 ZIP 메일 발송
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  촬영한 사진 여러 장을 드래그&드롭으로 올리면 ZIP 파일로 묶어
+                  고객 이메일로 발송합니다.
+                </p>
+              </div>
+
+              <div className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700">
+                최대 {formatBytes(MAX_PHOTO_TOTAL_SIZE)}
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_220px]">
+              <div
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setIsPhotoDragging(true);
+                }}
+                onDragLeave={() => setIsPhotoDragging(false)}
+                onDrop={handlePhotoDrop}
+                className={`flex min-h-52 items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition ${
+                  isPhotoDragging
+                    ? "border-cyan-500 bg-cyan-50"
+                    : "border-slate-300 bg-slate-50"
+                }`}
+              >
+                <div>
+                  <p className="text-base font-bold text-slate-900">
+                    사진을 여기에 드래그&드롭
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    JPG, PNG, WEBP, GIF 이미지를 여러 장 선택할 수 있습니다.
+                  </p>
+
+                  <label className="mt-4 inline-flex cursor-pointer rounded-xl bg-cyan-600 px-4 py-2 text-sm font-bold text-white hover:bg-cyan-700">
+                    사진 선택
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handlePhotoInputChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-bold text-slate-900">발송 정보</p>
+
+                <div className="mt-3 space-y-2 text-sm text-slate-700">
+                  <p>
+                    고객 이메일:{" "}
+                    <span className="font-bold text-slate-950">
+                      {email || "이메일 없음"}
+                    </span>
+                  </p>
+                  <p>
+                    예약 상태:{" "}
+                    <span className="font-bold text-slate-950">
+                      {STATUS_LABEL[reservation.status]}
+                    </span>
+                  </p>
+                  <p>
+                    선택 사진:{" "}
+                    <span className="font-bold text-slate-950">
+                      {photoFiles.length}장
+                    </span>
+                  </p>
+                  <p>
+                    총 용량:{" "}
+                    <span className="font-bold text-slate-950">
+                      {formatBytes(photoTotalSize)}
+                    </span>
+                  </p>
+                </div>
+
+                {!canSendPhotos ? (
+                  <div className="mt-4 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-700">
+                    사진 발송은 완료 상태이고 고객 이메일이 있는 예약에서만
+                    가능합니다.
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            {photoFiles.length > 0 ? (
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-bold text-slate-900">
+                    선택된 사진
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={clearPhotoFiles}
+                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                  >
+                    전체 비우기
+                  </button>
+                </div>
+
+                <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
+                  {photoFiles.map((file, index) => (
+                    <div
+                      key={createPhotoKey(file)}
+                      className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                          {index + 1}. {file.name}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {formatBytes(file.size)}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => removePhotoFile(index)}
+                        className="shrink-0 rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-100"
+                      >
+                        제거
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {photoMessage ? (
+              <div
+                className={`mt-5 rounded-2xl border p-4 text-sm font-semibold ${
+                  photoMessageType === "success"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : photoMessageType === "warning"
+                      ? "border-amber-200 bg-amber-50 text-amber-700"
+                      : "border-red-200 bg-red-50 text-red-700"
+                }`}
+              >
+                {photoMessage}
+              </div>
+            ) : null}
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={handleSendPhotos}
+                disabled={
+                  !canSendPhotos || photoFiles.length === 0 || sendingPhotos
+                }
+                className="rounded-xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
+                {sendingPhotos ? "사진 메일 발송 중..." : "사진 ZIP 메일 발송"}
+              </button>
+            </div>
+          </div>
         </section>
 
         <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -727,6 +1095,7 @@ export default function AdminReservationDetailPage() {
               <p>취소 변경 시: 취소 안내 메일</p>
               <p>같은 상태로 다시 저장 시: 중복 발송 안 함</p>
               <p>완료 변경 시: 결제 정보 저장</p>
+              <p>완료 후 고객 사진 ZIP 메일 발송 가능</p>
             </div>
 
             <button
