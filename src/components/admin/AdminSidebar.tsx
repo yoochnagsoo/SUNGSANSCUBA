@@ -7,6 +7,7 @@ import {
   ClipboardList,
   ImageIcon,
   LayoutDashboard,
+  MapPin,
   MessageCircle,
   Settings,
   TrendingUp,
@@ -50,6 +51,11 @@ const menuItems = [
     icon: MessageCircle,
   },
   {
+    name: "다이빙 포인트 관리",
+    href: "/admin/dive-destinations",
+    icon: MapPin,
+  },
+  {
     name: "설정",
     href: "/admin/settings",
     icon: Settings,
@@ -89,8 +95,8 @@ export default function AdminSidebar() {
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
               ].join(" ")}
             >
-              <Icon className="h-5 w-5" />
-              {item.name}
+              <Icon className="h-5 w-5 shrink-0" />
+              <span className="truncate">{item.name}</span>
             </Link>
           );
         })}
