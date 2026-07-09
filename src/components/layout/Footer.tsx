@@ -63,18 +63,6 @@ export default function Footer() {
               제주 성산의 아름다운 바다에서 체험다이빙, PADI 교육,
               펀다이빙을 제공하는 프리미엄 다이빙 센터입니다.
             </p>
-
-            <div className="mt-8 flex gap-3">
-              <a
-                href="https://www.instagram.com/sungsanscuba"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Instagram"
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 transition hover:bg-pink-500"
-              >
-                <InstagramIcon size={20} />
-              </a>
-            </div>
           </div>
 
           <div>
@@ -140,6 +128,17 @@ export default function Footer() {
               >
                 <Mail className="shrink-0 text-sky-400" size={20} />
                 info@sungsanscuba.com
+              </a>
+
+              <a
+                href="https://www.instagram.com/sungsanscuba"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="성산스쿠버 인스타그램 보기"
+                className="flex gap-3 transition hover:text-sky-400"
+              >
+                <InstagramIcon size={20} />
+                @sungsanscuba
               </a>
             </div>
           </div>
