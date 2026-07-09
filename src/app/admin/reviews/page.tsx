@@ -6,6 +6,7 @@ import {
   Edit3,
   Eye,
   EyeOff,
+  GripVertical,
   ImageIcon,
   Loader2,
   Plus,
@@ -78,6 +79,28 @@ function formatFileSize(size: number) {
   return `${size}B`;
 }
 
+function sortReviewsForDisplay(reviews: Review[]) {
+  return [...reviews].sort((a, b) => {
+    if (a.sortOrder !== b.sortOrder) {
+      return a.sortOrder - b.sortOrder;
+    }
+
+    return b.createdAt.localeCompare(a.createdAt);
+  });
+}
+
+function reorderReviews(list: Review[], fromIndex: number, toIndex: number) {
+  const nextList = [...list];
+  const [movedItem] = nextList.splice(fromIndex, 1);
+
+  nextList.splice(toIndex, 0, movedItem);
+
+  return nextList.map((review, index) => ({
+    ...review,
+    sortOrder: (index + 1) * 10,
+  }));
+}
+
 export default function AdminReviewsPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -87,15 +110,22 @@ export default function AdminReviewsPage() {
   const [selectedPreviewImage, setSelectedPreviewImage] = useState<
     string | null
   >(null);
+  const [draggingReviewId, setDraggingReviewId] = useState<string | null>(null);
+  const [dragOverReviewId, setDragOverReviewId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isOrdering, setIsOrdering] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [message, setMessage] = useState("");
 
   const previewImages = useMemo(() => {
     return imagesTextToArray(form.imagesText);
   }, [form.imagesText]);
+
+  const sortedReviews = useMemo(() => {
+    return sortReviewsForDisplay(reviews);
+  }, [reviews]);
 
   async function loadReviews() {
     setIsLoading(true);
@@ -396,6 +426,102 @@ export default function AdminReviewsPage() {
     }
   }
 
+  async function saveReviewOrder(orderedReviews: Review[]) {
+    setIsOrdering(true);
+    setMessage("");
+
+    try {
+      await Promise.all(
+        orderedReviews.map((review) =>
+          fetch(`/api/admin/reviews/${review.id}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              userId: review.userId,
+              program: review.program,
+              comment: review.comment,
+              images: review.images,
+              isVisible: review.isVisible,
+              sortOrder: review.sortOrder,
+            }),
+          }).then(async (response) => {
+            const data = await response.json();
+
+            if (!response.ok || !data.ok) {
+              throw new Error(data.message || "리뷰 순서 저장 중 오류가 발생했습니다.");
+            }
+
+            return data;
+          })
+        )
+      );
+
+      setMessage("리뷰 노출 순서가 저장되었습니다.");
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "리뷰 순서 저장 중 오류가 발생했습니다.";
+
+      setMessage(errorMessage);
+      await loadReviews();
+    } finally {
+      setIsOrdering(false);
+    }
+  }
+
+  function handleReviewDragStart(reviewId: string) {
+    setDraggingReviewId(reviewId);
+  }
+
+  function handleReviewDragOver(event: React.DragEvent, reviewId: string) {
+    event.preventDefault();
+
+    if (dragOverReviewId !== reviewId) {
+      setDragOverReviewId(reviewId);
+    }
+  }
+
+  async function handleReviewDrop(targetReviewId: string) {
+    if (!draggingReviewId) {
+      return;
+    }
+
+    if (draggingReviewId === targetReviewId) {
+      setDraggingReviewId(null);
+      setDragOverReviewId(null);
+      return;
+    }
+
+    const fromIndex = sortedReviews.findIndex(
+      (review) => review.id === draggingReviewId
+    );
+    const toIndex = sortedReviews.findIndex(
+      (review) => review.id === targetReviewId
+    );
+
+    if (fromIndex < 0 || toIndex < 0) {
+      setDraggingReviewId(null);
+      setDragOverReviewId(null);
+      return;
+    }
+
+    const reorderedReviews = reorderReviews(sortedReviews, fromIndex, toIndex);
+
+    setReviews(reorderedReviews);
+    setDraggingReviewId(null);
+    setDragOverReviewId(null);
+
+    await saveReviewOrder(reorderedReviews);
+  }
+
+  function handleReviewDragEnd() {
+    setDraggingReviewId(null);
+    setDragOverReviewId(null);
+  }
+
   return (
     <div className="space-y-8 text-slate-900">
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -413,11 +539,13 @@ export default function AdminReviewsPage() {
           <button
             type="button"
             onClick={() => void loadReviews()}
-            disabled={isLoading}
+            disabled={isLoading || isOrdering}
             className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <RefreshCw
-              className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+              className={`h-4 w-4 ${
+                isLoading || isOrdering ? "animate-spin" : ""
+              }`}
             />
             새로고침
           </button>
@@ -496,26 +624,6 @@ export default function AdminReviewsPage() {
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-black text-slate-900">
-                정렬순서
-              </label>
-              <input
-                type="number"
-                value={form.sortOrder}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    sortOrder: Number(event.target.value),
-                  }))
-                }
-                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-950 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
-              />
-              <p className="mt-2 text-xs font-semibold text-slate-600">
-                숫자가 작을수록 먼저 노출됩니다.
-              </p>
             </div>
 
             <div>
@@ -739,14 +847,24 @@ https://d2ck1cgvtnr7j2.cloudfront.net/reviews/2026/07/09/sample.jpg`}
               <p className="mt-1 text-sm font-semibold text-slate-700">
                 총 {reviews.length}개의 리뷰가 등록되어 있습니다.
               </p>
+              <p className="mt-1 text-xs font-semibold text-cyan-700">
+                왼쪽 손잡이를 잡고 드래그하면 메인 노출 순서를 바꿀 수 있습니다.
+              </p>
             </div>
+
+            {isOrdering && (
+              <div className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-4 py-2 text-xs font-black text-cyan-800">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                순서 저장 중
+              </div>
+            )}
           </div>
 
           {isLoading ? (
             <div className="flex h-64 items-center justify-center rounded-3xl bg-slate-100">
               <Loader2 className="h-8 w-8 animate-spin text-cyan-700" />
             </div>
-          ) : reviews.length === 0 ? (
+          ) : sortedReviews.length === 0 ? (
             <div className="flex h-64 flex-col items-center justify-center rounded-3xl bg-slate-100 text-center">
               <ImageIcon className="h-10 w-10 text-slate-500" />
               <p className="mt-4 text-sm font-black text-slate-700">
@@ -755,91 +873,124 @@ https://d2ck1cgvtnr7j2.cloudfront.net/reviews/2026/07/09/sample.jpg`}
             </div>
           ) : (
             <div className="space-y-4">
-              {reviews.map((review) => (
-                <article
-                  key={review.id}
-                  className="rounded-3xl border border-slate-300 bg-white p-4 transition hover:border-cyan-300 hover:bg-cyan-50/40"
-                >
-                  <div className="grid gap-4 lg:grid-cols-[160px_1fr]">
-                    <div className="relative h-36 overflow-hidden rounded-2xl bg-slate-200">
-                      {review.images[0] ? (
-                        <Image
-                          src={review.images[0]}
-                          alt={`${review.program} 리뷰 대표 이미지`}
-                          fill
-                          sizes="180px"
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center">
-                          <ImageIcon className="h-8 w-8 text-slate-500" />
+              {sortedReviews.map((review, index) => {
+                const isDragging = draggingReviewId === review.id;
+                const isDragTarget = dragOverReviewId === review.id;
+
+                return (
+                  <article
+                    key={review.id}
+                    draggable={!isOrdering}
+                    onDragStart={() => handleReviewDragStart(review.id)}
+                    onDragOver={(event) =>
+                      handleReviewDragOver(event, review.id)
+                    }
+                    onDrop={() => void handleReviewDrop(review.id)}
+                    onDragEnd={handleReviewDragEnd}
+                    className={[
+                      "rounded-3xl border bg-white p-4 transition",
+                      isDragging
+                        ? "scale-[0.99] border-cyan-400 opacity-50"
+                        : "border-slate-300",
+                      isDragTarget && !isDragging
+                        ? "border-cyan-500 bg-cyan-50 shadow-md"
+                        : "hover:border-cyan-300 hover:bg-cyan-50/40",
+                      isOrdering ? "cursor-wait opacity-80" : "cursor-grab",
+                    ].join(" ")}
+                  >
+                    <div className="grid gap-4 lg:grid-cols-[42px_160px_1fr]">
+                      <div className="flex items-center justify-center">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-300 bg-slate-50 text-slate-700">
+                          <GripVertical className="h-6 w-6" />
                         </div>
-                      )}
-
-                      <div className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-1 text-xs font-black text-white">
-                        {review.images.length}장
                       </div>
-                    </div>
 
-                    <div className="min-w-0">
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">
-                              {review.userId}
-                            </span>
-                            <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-black text-cyan-800">
-                              {review.program}
-                            </span>
-                            <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-black text-slate-800">
-                              정렬 {review.sortOrder}
-                            </span>
-                            {review.isVisible ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800">
-                                <Eye className="h-3 w-3" />
-                                노출
+                      <div className="relative h-36 overflow-hidden rounded-2xl bg-slate-200">
+                        {review.images[0] ? (
+                          <Image
+                            src={review.images[0]}
+                            alt={`${review.program} 리뷰 대표 이미지`}
+                            fill
+                            sizes="180px"
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center">
+                            <ImageIcon className="h-8 w-8 text-slate-500" />
+                          </div>
+                        )}
+
+                        <div className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-1 text-xs font-black text-white">
+                          {review.images.length}장
+                        </div>
+
+                        <div className="absolute bottom-2 left-2 rounded-full bg-cyan-600 px-2 py-1 text-xs font-black text-white">
+                          #{index + 1}
+                        </div>
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">
+                                {review.userId}
                               </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-3 py-1 text-xs font-black text-rose-800">
-                                <EyeOff className="h-3 w-3" />
-                                숨김
+                              <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-black text-cyan-800">
+                                {review.program}
                               </span>
-                            )}
+                              <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-black text-slate-800">
+                                정렬 {review.sortOrder}
+                              </span>
+                              {review.isVisible ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800">
+                                  <Eye className="h-3 w-3" />
+                                  노출
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-3 py-1 text-xs font-black text-rose-800">
+                                  <EyeOff className="h-3 w-3" />
+                                  숨김
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="mt-3 line-clamp-3 text-sm font-semibold leading-6 text-slate-800">
+                              {review.comment}
+                            </p>
+
+                            <p className="mt-3 text-xs font-semibold text-slate-600">
+                              수정일: {review.updatedAt || "-"}
+                            </p>
                           </div>
 
-                          <p className="mt-3 line-clamp-3 text-sm font-semibold leading-6 text-slate-800">
-                            {review.comment}
-                          </p>
+                          <div className="flex shrink-0 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startEdit(review)}
+                              disabled={isOrdering}
+                              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-800 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <Edit3 className="h-4 w-4" />
+                              수정
+                            </button>
 
-                          <p className="mt-3 text-xs font-semibold text-slate-600">
-                            수정일: {review.updatedAt || "-"}
-                          </p>
-                        </div>
-
-                        <div className="flex shrink-0 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => startEdit(review)}
-                            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-800 hover:bg-slate-100"
-                          >
-                            <Edit3 className="h-4 w-4" />
-                            수정
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => void handleDelete(review)}
-                            className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-black text-rose-800 hover:bg-rose-100"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            삭제
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleDelete(review)}
+                              disabled={isOrdering}
+                              className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-black text-rose-800 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              삭제
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>
