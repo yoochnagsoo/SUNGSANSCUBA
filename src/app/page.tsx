@@ -39,9 +39,7 @@ export default function Home() {
         <Reviews />
       </section>
 
-      <section id="instagram" className="scroll-mt-24">
-        <InstagramSection />
-      </section>
+    
 
       <section id="faq" className="scroll-mt-24">
         <FAQ />
