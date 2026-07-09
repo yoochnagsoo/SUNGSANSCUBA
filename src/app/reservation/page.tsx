@@ -127,10 +127,6 @@ function ReservationPageContent() {
         throw new Error("연락처는 010-1234-5678 형식으로 입력해주세요.");
       }
 
-      if (!trimmedEmail) {
-        throw new Error("이메일을 입력해주세요.");
-      }
-
       if (!trimmedReservationDate) {
         throw new Error("예약 희망일을 선택해주세요.");
       }
@@ -162,7 +158,7 @@ function ReservationPageContent() {
       }
 
       setSuccessMessage(
-        "예약이 접수되었습니다. 확인 후 예약 확정 안내 메일을 보내드리겠습니다.",
+        "예약이 접수되었습니다. 확인 후 예약 확정 안내를 보내드리겠습니다.",
       );
 
       setName("");
@@ -417,6 +413,7 @@ function ReservationPageContent() {
                     value={phone}
                     onChange={(event) => {
                       setPhone(formatKoreanMobilePhone(event.target.value));
+
                       if (errorMessage.includes("연락처")) {
                         setErrorMessage("");
                       }
@@ -434,7 +431,7 @@ function ReservationPageContent() {
                 </FormField>
 
                 <div className="sm:col-span-2">
-                  <FormField label="이메일" required>
+                  <FormField label="이메일">
                     <input
                       type="email"
                       value={email}
@@ -445,7 +442,7 @@ function ReservationPageContent() {
                   </FormField>
 
                   <p className="mt-2 text-xs leading-5 text-slate-500">
-                    예약 확정 및 취소 안내를 받을 이메일 주소입니다.
+                    이메일을 입력하면 예약 확정 및 취소 안내를 받을 수 있습니다.
                   </p>
                 </div>
 

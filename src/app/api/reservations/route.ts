@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
         ok: false,
         message: "예약 목록을 불러오지 못했습니다.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     const program = String(body.program ?? "").trim();
 
     const reservationDate = String(
-      body.reservationDate ?? body.date ?? ""
+      body.reservationDate ?? body.date ?? "",
     ).trim();
 
     const experienceTime = String(body.experienceTime ?? "").trim();
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
 
     const message = String(body.message ?? "").trim();
 
-    if (!name || !email || !phone || !program || !reservationDate) {
+    if (!name || !phone || !program || !reservationDate) {
       return NextResponse.json(
         {
           ok: false,
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
             people,
           },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
             people: peopleValue,
           },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -148,19 +148,21 @@ export async function POST(request: Request) {
       status: "PENDING",
     });
 
-    try {
-      const customerEmail = customerReservationReceivedEmail(reservation);
+    if (email) {
+      try {
+        const customerEmail = customerReservationReceivedEmail(reservation);
 
-      await sendEmail({
-        to: email,
-        subject: customerEmail.subject,
-        html: customerEmail.html,
-      });
-    } catch (customerEmailError) {
-      console.error(
-        "[POST /api/reservations] customer email error:",
-        customerEmailError
-      );
+        await sendEmail({
+          to: email,
+          subject: customerEmail.subject,
+          html: customerEmail.html,
+        });
+      } catch (customerEmailError) {
+        console.error(
+          "[POST /api/reservations] customer email error:",
+          customerEmailError,
+        );
+      }
     }
 
     try {
@@ -180,7 +182,7 @@ export async function POST(request: Request) {
     } catch (adminEmailError) {
       console.error(
         "[POST /api/reservations] admin email error:",
-        adminEmailError
+        adminEmailError,
       );
     }
 
@@ -189,7 +191,7 @@ export async function POST(request: Request) {
         ok: true,
         reservation,
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error("[POST /api/reservations]", error);
@@ -199,7 +201,7 @@ export async function POST(request: Request) {
         ok: false,
         message: "예약 생성 중 오류가 발생했습니다.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
