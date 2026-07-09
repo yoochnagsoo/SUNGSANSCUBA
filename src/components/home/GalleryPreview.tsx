@@ -22,7 +22,7 @@ type GalleryResponse = {
   message?: string;
 };
 
-export default function Gallery() {
+export default function GalleryPreview() {
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -63,7 +63,7 @@ export default function Gallery() {
   }, []);
 
   return (
-    <div className="relative overflow-hidden bg-slate-950 px-6 py-24 text-white sm:px-8 lg:px-16">
+    <section className="relative overflow-hidden bg-slate-950 px-6 py-24 text-white sm:px-8 lg:px-16">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(14,165,233,0.22),transparent_32%),radial-gradient(circle_at_85%_70%,rgba(34,211,238,0.16),transparent_30%)]" />
       <div className="absolute left-1/2 top-0 h-80 w-80 -translate-x-1/2 rounded-full bg-cyan-400/10 blur-3xl" />
 
@@ -170,6 +170,6 @@ export default function Gallery() {
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 }

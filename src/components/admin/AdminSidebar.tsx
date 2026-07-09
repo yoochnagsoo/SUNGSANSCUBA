@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   CalendarDays,
   ClipboardList,
+  ImageIcon,
   LayoutDashboard,
   Settings,
   TrendingUp,
@@ -36,6 +37,11 @@ const menuItems = [
     name: "매출 관리",
     href: "/admin/sales",
     icon: TrendingUp,
+  },
+  {
+    name: "갤러리 관리",
+    href: "/admin/gallery",
+    icon: ImageIcon,
   },
   {
     name: "설정",
