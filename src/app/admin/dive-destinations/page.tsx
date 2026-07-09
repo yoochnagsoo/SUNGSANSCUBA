@@ -10,12 +10,11 @@ import {
   useState,
 } from "react";
 import {
-  ArrowDown,
   ArrowLeft,
   ArrowRight,
-  ArrowUp,
   Eye,
   EyeOff,
+  GripVertical,
   ImageIcon,
   Loader2,
   Pencil,
@@ -161,6 +160,16 @@ function normalizeDestination(item: Partial<DiveDestination>): DiveDestination {
   };
 }
 
+function sortDestinations(items: DiveDestination[]) {
+  return [...items].sort((a, b) => {
+    if (a.sortOrder !== b.sortOrder) {
+      return a.sortOrder - b.sortOrder;
+    }
+
+    return a.title.localeCompare(b.title);
+  });
+}
+
 function toFormState(destination: DiveDestination): FormState {
   return {
     title: destination.title,
@@ -242,18 +251,19 @@ export default function AdminDiveDestinationsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSorting, setIsSorting] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [draggingDestinationId, setDraggingDestinationId] = useState<
+    string | null
+  >(null);
+  const [dragOverDestinationId, setDragOverDestinationId] = useState<
+    string | null
+  >(null);
   const [message, setMessage] = useState("");
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   const sortedDestinations = useMemo(() => {
-    return [...destinations].sort((a, b) => {
-      if (a.sortOrder !== b.sortOrder) {
-        return a.sortOrder - b.sortOrder;
-      }
-
-      return a.title.localeCompare(b.title);
-    });
+    return sortDestinations(destinations);
   }, [destinations]);
 
   const editingDestination = useMemo(() => {
@@ -667,19 +677,38 @@ export default function AdminDiveDestinationsPage() {
     }
   }
 
-  async function moveSortOrder(
-    destination: DiveDestination,
-    direction: "up" | "down"
+  function handleDestinationDragStart(
+    event: DragEvent<HTMLElement>,
+    destinationId: string
   ) {
-    const nextSortOrder =
-      direction === "up"
-        ? destination.sortOrder - 1
-        : destination.sortOrder + 1;
+    setDraggingDestinationId(destinationId);
+    setDragOverDestinationId(destinationId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", destinationId);
+  }
+
+  function handleDestinationDragOver(
+    event: DragEvent<HTMLElement>,
+    targetDestinationId: string
+  ) {
+    event.preventDefault();
+
+    if (!draggingDestinationId || draggingDestinationId === targetDestinationId) {
+      return;
+    }
+
+    setDragOverDestinationId(targetDestinationId);
+  }
+
+  async function persistDestinationOrder(orderedItems: DiveDestination[]) {
+    setIsSorting(true);
+    setMessage("");
 
     try {
-      const response = await fetch(
-        `/api/admin/dive-destinations/${destination.id}`,
-        {
+      const updates = orderedItems.map((destination, index) => {
+        const nextSortOrder = index + 1;
+
+        return fetch(`/api/admin/dive-destinations/${destination.id}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -688,28 +717,91 @@ export default function AdminDiveDestinationsPage() {
             ...destination,
             sortOrder: nextSortOrder,
           }),
-        }
-      );
+        });
+      });
 
-      const data = await response.json().catch(() => null);
+      const responses = await Promise.all(updates);
 
-      if (!response.ok) {
+      const failedResponse = responses.find((response) => !response.ok);
+
+      if (failedResponse) {
+        const data = await failedResponse.json().catch(() => null);
+
         throw new Error(
           data?.message ??
             data?.error ??
-            "정렬 순서 변경 중 오류가 발생했습니다."
+            "정렬 순서 저장 중 오류가 발생했습니다."
         );
       }
 
-      await loadDestinations();
+      setDestinations(
+        orderedItems.map((destination, index) => ({
+          ...destination,
+          sortOrder: index + 1,
+        }))
+      );
+
+      setMessage("다이빙 포인트 순서가 저장되었습니다.");
     } catch (error) {
       console.error(error);
       setMessage(
         error instanceof Error
           ? error.message
-          : "정렬 순서 변경 중 오류가 발생했습니다."
+          : "정렬 순서 저장 중 오류가 발생했습니다."
       );
+
+      await loadDestinations();
+    } finally {
+      setIsSorting(false);
+      setDraggingDestinationId(null);
+      setDragOverDestinationId(null);
     }
+  }
+
+  async function handleDestinationDrop(
+    event: DragEvent<HTMLElement>,
+    targetDestinationId: string
+  ) {
+    event.preventDefault();
+
+    const sourceDestinationId =
+      draggingDestinationId || event.dataTransfer.getData("text/plain");
+
+    setDraggingDestinationId(null);
+    setDragOverDestinationId(null);
+
+    if (!sourceDestinationId || sourceDestinationId === targetDestinationId) {
+      return;
+    }
+
+    const orderedItems = sortDestinations(destinations);
+    const sourceIndex = orderedItems.findIndex(
+      (item) => item.id === sourceDestinationId
+    );
+    const targetIndex = orderedItems.findIndex(
+      (item) => item.id === targetDestinationId
+    );
+
+    if (sourceIndex < 0 || targetIndex < 0) {
+      return;
+    }
+
+    const nextItems = [...orderedItems];
+    const [movedItem] = nextItems.splice(sourceIndex, 1);
+    nextItems.splice(targetIndex, 0, movedItem);
+
+    const nextDestinations = nextItems.map((destination, index) => ({
+      ...destination,
+      sortOrder: index + 1,
+    }));
+
+    setDestinations(nextDestinations);
+    await persistDestinationOrder(nextDestinations);
+  }
+
+  function handleDestinationDragEnd() {
+    setDraggingDestinationId(null);
+    setDragOverDestinationId(null);
   }
 
   return (
@@ -1124,9 +1216,15 @@ export default function AdminDiveDestinationsPage() {
               </p>
             </div>
             <p className="text-xs font-semibold text-slate-400">
-              정렬 순서가 낮을수록 먼저 노출됩니다.
+              카드를 드래그해서 노출 순서를 변경할 수 있습니다.
             </p>
           </div>
+
+          {isSorting ? (
+            <div className="mb-4 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-xs font-bold text-cyan-800">
+              순서를 저장하는 중입니다.
+            </div>
+          ) : null}
 
           {isLoading ? (
             <div className="flex min-h-80 items-center justify-center rounded-3xl bg-slate-50">
@@ -1151,14 +1249,33 @@ export default function AdminDiveDestinationsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {sortedDestinations.map((destination) => {
+              {sortedDestinations.map((destination, index) => {
                 const mainImageUrl = destination.imageUrls[0];
+                const isDragging = draggingDestinationId === destination.id;
+                const isDragOver = dragOverDestinationId === destination.id;
 
                 return (
                   <article
                     key={destination.id}
+                    draggable={!isSorting}
+                    onDragStart={(event) =>
+                      handleDestinationDragStart(event, destination.id)
+                    }
+                    onDragOver={(event) =>
+                      handleDestinationDragOver(event, destination.id)
+                    }
+                    onDrop={(event) =>
+                      handleDestinationDrop(event, destination.id)
+                    }
+                    onDragEnd={handleDestinationDragEnd}
                     className={[
                       "overflow-hidden rounded-3xl border bg-white transition",
+                      isDragging
+                        ? "scale-[0.99] cursor-grabbing border-cyan-400 opacity-60 shadow-xl"
+                        : "cursor-grab",
+                      isDragOver && !isDragging
+                        ? "border-cyan-400 ring-4 ring-cyan-100"
+                        : "",
                       editingId === destination.id
                         ? "border-cyan-300 ring-4 ring-cyan-100"
                         : "border-slate-200 hover:border-slate-300",
@@ -1198,6 +1315,11 @@ export default function AdminDiveDestinationsPage() {
                           {destination.isActive ? "노출" : "숨김"}
                         </span>
 
+                        <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-700 shadow-sm">
+                          <GripVertical className="h-3.5 w-3.5" />
+                          {index + 1}
+                        </span>
+
                         {destination.imageUrls.length > 1 ? (
                           <span className="absolute bottom-3 right-3 rounded-full bg-slate-950/80 px-3 py-1 text-xs font-black text-white">
                             +{destination.imageUrls.length - 1}장
@@ -1209,7 +1331,7 @@ export default function AdminDiveDestinationsPage() {
                         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                           <div className="min-w-0">
                             <p className="text-xs font-black text-cyan-600">
-                              SORT {destination.sortOrder}
+                              DRAG ORDER {index + 1}
                             </p>
                             <h3 className="mt-1 truncate text-xl font-black text-slate-950">
                               {destination.title}
@@ -1222,22 +1344,6 @@ export default function AdminDiveDestinationsPage() {
                           </div>
 
                           <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => moveSortOrder(destination, "up")}
-                              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                            >
-                              <ArrowUp className="h-3.5 w-3.5" />
-                              위
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => moveSortOrder(destination, "down")}
-                              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                            >
-                              <ArrowDown className="h-3.5 w-3.5" />
-                              아래
-                            </button>
                             <button
                               type="button"
                               onClick={() => toggleActive(destination)}
@@ -1284,21 +1390,23 @@ export default function AdminDiveDestinationsPage() {
                               수온 {destination.waterTemperatures.length}개
                             </span>
                           ) : null}
-                          {destination.highlights.slice(0, 3).map((highlight) => (
-                            <span
-                              key={highlight}
-                              className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700"
-                            >
-                              {highlight}
-                            </span>
-                          ))}
+                          {destination.highlights
+                            .slice(0, 3)
+                            .map((highlight) => (
+                              <span
+                                key={highlight}
+                                className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700"
+                              >
+                                {highlight}
+                              </span>
+                            ))}
                         </div>
 
                         {destination.imageUrls.length > 1 ? (
                           <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-                            {destination.imageUrls.map((imageUrl, index) => (
+                            {destination.imageUrls.map((imageUrl, imageIndex) => (
                               <button
-                                key={`${imageUrl}-${index}`}
+                                key={`${imageUrl}-${imageIndex}`}
                                 type="button"
                                 onClick={() => setPreviewImageUrl(imageUrl)}
                                 className="relative h-14 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-100"
@@ -1306,7 +1414,7 @@ export default function AdminDiveDestinationsPage() {
                                 <Image
                                   src={imageUrl}
                                   alt={`${destination.title} 썸네일 ${
-                                    index + 1
+                                    imageIndex + 1
                                   }`}
                                   fill
                                   className="object-cover"
