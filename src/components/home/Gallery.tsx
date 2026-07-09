@@ -22,12 +22,38 @@ type GalleryResponse = {
   message?: string;
 };
 
+function getCardAspectClass(index: number) {
+  const pattern = index % 6;
+
+  if (pattern === 0) {
+    return "aspect-[4/5]";
+  }
+
+  if (pattern === 1) {
+    return "aspect-[4/3]";
+  }
+
+  if (pattern === 2) {
+    return "aspect-square";
+  }
+
+  if (pattern === 3) {
+    return "aspect-[16/9]";
+  }
+
+  if (pattern === 4) {
+    return "aspect-[4/3]";
+  }
+
+  return "aspect-[5/4]";
+}
+
 export default function Gallery() {
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
 
-  const previewImages = useMemo(() => images.slice(0, 6), [images]);
+  const previewImages = useMemo(() => images.slice(0, 9), [images]);
 
   async function loadGalleryImages() {
     setIsLoading(true);
@@ -131,39 +157,37 @@ export default function Gallery() {
             </div>
           </div>
         ) : (
-          <div className="grid auto-rows-[220px] gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:auto-rows-[250px]">
+          <div className="columns-1 gap-5 sm:columns-2 lg:columns-3">
             {previewImages.map((image, index) => (
               <Link
                 key={image.id}
                 href="/gallery"
-                className={[
-                  "group relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-cyan-300/50",
-                  index === 0 ? "sm:col-span-2 sm:row-span-2" : "",
-                  index === 3 ? "lg:col-span-2" : "",
-                ].join(" ")}
+                className="group mb-5 block w-full break-inside-avoid overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-cyan-300/50"
               >
-                <Image
-                  src={image.imageUrl}
-                  alt={image.title}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 25vw"
-                  className="object-cover transition duration-700 group-hover:scale-105"
-                  unoptimized
-                />
+                <div className={`relative ${getCardAspectClass(index)}`}>
+                  <Image
+                    src={image.imageUrl}
+                    alt={image.title}
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    className="object-cover transition duration-700 group-hover:scale-105"
+                    unoptimized
+                  />
 
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/10 to-transparent opacity-90 transition group-hover:opacity-100" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/10 to-transparent opacity-90 transition group-hover:opacity-100" />
 
-                <div className="absolute left-5 top-5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black text-white backdrop-blur">
-                  {String(index + 1).padStart(2, "0")}
-                </div>
+                  <div className="absolute left-5 top-5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black text-white backdrop-blur">
+                    {String(index + 1).padStart(2, "0")}
+                  </div>
 
-                <div className="absolute inset-x-0 bottom-0 p-5">
-                  <p className="text-lg font-black text-white">
-                    {image.title}
-                  </p>
-                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-300">
-                    {image.description || "SUNG SAN SCUBA Gallery"}
-                  </p>
+                  <div className="absolute inset-x-0 bottom-0 p-5">
+                    <p className="line-clamp-1 text-lg font-black text-white">
+                      {image.title}
+                    </p>
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-300">
+                      {image.description || "SUNG SAN SCUBA Gallery"}
+                    </p>
+                  </div>
                 </div>
               </Link>
             ))}
