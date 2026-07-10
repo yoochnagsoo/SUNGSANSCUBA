@@ -1715,9 +1715,7 @@ export default function AdminCalendarPage() {
                                 </p>
                               </div>
 
-                              <span className="shrink-0 rounded-full bg-white/80 px-2 py-1 text-[10px] font-black">
-                                프로그램별 묶음
-                              </span>
+                              
                             </div>
 
                             <div className="mt-2 flex flex-wrap gap-1">
@@ -1967,9 +1965,7 @@ export default function AdminCalendarPage() {
                                       </p>
                                     </div>
 
-                                    <span className="shrink-0 rounded-full bg-white/80 px-1.5 py-0.5 text-[9px] font-black">
-                                      묶음
-                                    </span>
+                                  
                                   </div>
 
                                   <div className="mt-1.5 flex flex-wrap gap-1">

@@ -193,6 +193,8 @@ export async function POST(
       date: normalizeText(body.date),
       startTime: normalizeText(body.startTime),
 
+      boatScheduleId: normalizeText(body.boatScheduleId),
+
       plannedPointName: normalizeText(
         body.plannedPointName,
       ),
@@ -371,6 +373,8 @@ export async function POST(
 
       date: input.date,
       startTime: input.startTime,
+
+      boatScheduleId: input.boatScheduleId ?? "",
 
       plannedPointName: input.plannedPointName,
       actualPointName:

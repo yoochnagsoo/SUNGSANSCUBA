@@ -69,7 +69,18 @@ export type GroupDiveTrip = {
   groupDiveId: string;
 
   date: string;
+
+  /*
+   * 다이빙 회차의 실제 출항 시간입니다.
+   * 보트 운항 슬롯에 배정되면 해당 슬롯의 departureTime으로 갱신됩니다.
+   */
   startTime: string;
+
+  /*
+   * 배정되지 않은 회차는 빈 문자열 또는 undefined입니다.
+   * 기존 DynamoDB 데이터와의 호환을 위해 선택 필드로 둡니다.
+   */
+  boatScheduleId?: string;
 
   plannedPointName: string;
   actualPointName: string;
@@ -92,31 +103,14 @@ export type GroupDivePayment = {
   id: string;
   groupDiveId: string;
 
-  /*
-   * 실제 수납한 금액입니다.
-   */
   amount: number;
-
   paymentMethod: GroupDivePaymentMethod;
-
-  /*
-   * 실제 결제일입니다.
-   * 관리자가 과거 결제를 등록할 수 있도록 별도 필드로 둡니다.
-   */
   paidAt: string;
 
-  /*
-   * 결제를 등록한 관리자 정보입니다.
-   * 관리자 계정 식별 정보가 없으면 이름만 저장할 수 있습니다.
-   */
   processedById: string;
   processedByName: string;
 
   memo: string;
-
-  /*
-   * 결제 취소 시 데이터는 삭제하지 않고 상태만 변경합니다.
-   */
   status: GroupDivePaymentStatus;
 
   cancelledAt: string;
@@ -129,30 +123,11 @@ export type GroupDivePayment = {
 };
 
 export type GroupDiveSettlement = {
-  /*
-   * 기본 다이빙 금액 외 추가로 받을 금액입니다.
-   * 장비 대여, 나이트록스, 보트 추가비 등을 합산해 입력합니다.
-   */
   additionalAmount: number;
-
-  /*
-   * 전체 정산 금액에서 차감할 할인 금액입니다.
-   */
   discountAmount: number;
-
-  /*
-   * 결제 이력 도입 이후에는 활성 결제 이력 합계로 계산합니다.
-   * 기존 데이터 호환을 위해 필드는 유지합니다.
-   */
   paidAmount: number;
 
   status: GroupDiveSettlementStatus;
-
-  /*
-   * 기존 단일 결제 방식 호환용입니다.
-   * 여러 결제 방식이 섞일 수 있으므로 결제 이력 도입 후에는
-   * 각 payment의 paymentMethod를 우선 사용합니다.
-   */
   paymentMethod?: GroupDivePaymentMethod;
 
   settledAt: string;
@@ -184,10 +159,6 @@ export type GroupDive = {
   trips: GroupDiveTrip[];
 
   settlement: GroupDiveSettlement;
-
-  /*
-   * 결제 등록 및 취소 이력입니다.
-   */
   payments: GroupDivePayment[];
 
   createdAt: string;
@@ -264,6 +235,8 @@ export type GroupDiveTripInput = {
   date: string;
   startTime: string;
 
+  boatScheduleId?: string;
+
   plannedPointName: string;
   actualPointName?: string;
 
@@ -281,6 +254,8 @@ export type GroupDiveTripInput = {
 export type GroupDiveTripUpdateInput = {
   date?: string;
   startTime?: string;
+
+  boatScheduleId?: string;
 
   plannedPointName?: string;
   actualPointName?: string;
@@ -300,10 +275,6 @@ export type GroupDiveSettlementUpdateInput = {
   additionalAmount?: number;
   discountAmount?: number;
 
-  /*
-   * 기존 정산 API 호환을 위해 유지합니다.
-   * 결제 이력 API가 적용된 후에는 payments 합계로 자동 계산합니다.
-   */
   paidAmount?: number;
 
   status?: GroupDiveSettlementStatus;

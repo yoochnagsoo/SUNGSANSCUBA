@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Anchor,
   BarChart3,
   CalendarDays,
   ClipboardList,
@@ -52,6 +53,16 @@ const menuItems: Array<{
     name: "그룹 다이빙",
     href: "/admin/group-dives",
     icon: Ship,
+  },
+  {
+    /*
+     * 보트 운항 스케줄은 그룹 다이빙 권한을 함께 사용합니다.
+     * 별도의 AdminMenuKey 추가가 필요하지 않습니다.
+     */
+    key: "GROUP_DIVES",
+    name: "보트 운항 스케줄",
+    href: "/admin/boat-schedules",
+    icon: Anchor,
   },
   {
     key: "CALENDAR",

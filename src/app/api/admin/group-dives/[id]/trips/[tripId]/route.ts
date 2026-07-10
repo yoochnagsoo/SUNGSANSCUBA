@@ -512,6 +512,12 @@ export async function PATCH(
       );
     }
 
+    if (typeof body.boatScheduleId !== "undefined") {
+      input.boatScheduleId = normalizeText(
+        body.boatScheduleId,
+      );
+    }
+
     if (
       typeof body.plannedPointName !== "undefined"
     ) {
@@ -653,6 +659,11 @@ export async function PATCH(
       date: input.date ?? previous.date,
       startTime:
         input.startTime ?? previous.startTime,
+
+      boatScheduleId:
+        input.boatScheduleId ??
+        previous.boatScheduleId ??
+        "",
 
       plannedPointName:
         input.plannedPointName ??
