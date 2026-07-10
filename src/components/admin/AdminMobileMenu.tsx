@@ -27,6 +27,7 @@ import {
 type AdminMobileMenuProps = {
   adminRole: AdminRole;
   adminName: string;
+  menuPermissions: AdminMenuKey[];
 };
 
 const menuItems: Array<{
@@ -108,12 +109,17 @@ function isActivePath(pathname: string, href: string) {
 export default function AdminMobileMenu({
   adminRole,
   adminName,
+  menuPermissions,
 }: AdminMobileMenuProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   const accessibleMenuItems = menuItems.filter((item) =>
-    canAccessAdminMenu(adminRole, item.key),
+    canAccessAdminMenu(
+      adminRole,
+      menuPermissions,
+      item.key,
+    ),
   );
 
   function closeMenu() {

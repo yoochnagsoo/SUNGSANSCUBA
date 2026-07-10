@@ -4,17 +4,20 @@ import {
   ADMIN_ROLE_LABEL,
   type AdminRole,
 } from "@/lib/adminAccounts";
+import type { AdminMenuKey } from "@/lib/adminPermissions";
 
 type AdminHeaderProps = {
   adminId: string;
   adminName: string;
   adminRole: AdminRole;
+  menuPermissions: AdminMenuKey[];
 };
 
 export default function AdminHeader({
   adminId,
   adminName,
   adminRole,
+  menuPermissions,
 }: AdminHeaderProps) {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
@@ -23,6 +26,7 @@ export default function AdminHeader({
           <AdminMobileMenu
             adminRole={adminRole}
             adminName={adminName}
+            menuPermissions={menuPermissions}
           />
 
           <div className="min-w-0">
