@@ -11,6 +11,16 @@ function createId() {
   return crypto.randomUUID();
 }
 
+function normalizeOptionalText(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+
+  return normalized || undefined;
+}
+
 function sortStaffSchedules(items: StaffSchedule[]) {
   return [...items].sort((a, b) => {
     const dateCompare = a.date.localeCompare(b.date);
@@ -30,6 +40,10 @@ function sortStaffSchedules(items: StaffSchedule[]) {
 }
 
 export const memoryStaffScheduleRepository: StaffScheduleRepository = {
+  async list(): Promise<StaffSchedule[]> {
+    return sortStaffSchedules(staffSchedules);
+  },
+
   async create(input: StaffScheduleInput): Promise<StaffSchedule> {
     const now = new Date().toISOString();
 
@@ -38,23 +52,15 @@ export const memoryStaffScheduleRepository: StaffScheduleRepository = {
       staffName: input.staffName,
       type: input.type,
       date: input.date,
-      endDate: input.endDate || undefined,
+      endDate: normalizeOptionalText(input.endDate),
       memo: input.memo ?? "",
       createdAt: now,
       updatedAt: now,
     };
 
-    staffSchedules.unshift(staffSchedule);
+    staffSchedules.push(staffSchedule);
 
     return staffSchedule;
-  },
-
-  async findAll(): Promise<StaffSchedule[]> {
-    return sortStaffSchedules(staffSchedules);
-  },
-
-  async findById(id: string): Promise<StaffSchedule | null> {
-    return staffSchedules.find((schedule) => schedule.id === id) ?? null;
   },
 
   async update(
@@ -67,11 +73,18 @@ export const memoryStaffScheduleRepository: StaffScheduleRepository = {
       return null;
     }
 
+    const current = staffSchedules[index];
+
     const updated: StaffSchedule = {
-      ...staffSchedules[index],
-      ...input,
-      endDate: input.endDate || undefined,
-      memo: input.memo ?? staffSchedules[index].memo,
+      ...current,
+      staffName: input.staffName ?? current.staffName,
+      type: input.type ?? current.type,
+      date: input.date ?? current.date,
+      endDate:
+        typeof input.endDate === "string"
+          ? normalizeOptionalText(input.endDate)
+          : current.endDate,
+      memo: typeof input.memo === "string" ? input.memo : current.memo,
       updatedAt: new Date().toISOString(),
     };
 

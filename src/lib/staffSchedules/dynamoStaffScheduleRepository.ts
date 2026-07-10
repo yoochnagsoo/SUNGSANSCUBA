@@ -1,6 +1,5 @@
 import {
   DeleteCommand,
-  GetCommand,
   PutCommand,
   ScanCommand,
   UpdateCommand,
@@ -52,7 +51,80 @@ function removeUndefinedValues(input: Record<string, unknown>) {
   );
 }
 
+function normalizeStaffSchedule(item: StaffSchedule): StaffSchedule {
+  return {
+    id: item.id,
+    staffName: item.staffName,
+    type: item.type,
+    date: item.date,
+    endDate: item.endDate || undefined,
+    memo: item.memo ?? "",
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
+}
+
+async function scanStaffScheduleById(
+  id: string,
+): Promise<StaffSchedule | null> {
+  let lastEvaluatedKey: Record<string, unknown> | undefined;
+
+  do {
+    const result = await dynamoDb.send(
+      new ScanCommand({
+        TableName: getTableName(),
+        FilterExpression: "#id = :id",
+        ExpressionAttributeNames: {
+          "#id": "id",
+        },
+        ExpressionAttributeValues: {
+          ":id": id,
+        },
+        ExclusiveStartKey: lastEvaluatedKey,
+      }),
+    );
+
+    const item = result.Items?.[0] as StaffSchedule | undefined;
+
+    if (item) {
+      return normalizeStaffSchedule(item);
+    }
+
+    lastEvaluatedKey = result.LastEvaluatedKey as
+      | Record<string, unknown>
+      | undefined;
+  } while (lastEvaluatedKey);
+
+  return null;
+}
+
 export const dynamoStaffScheduleRepository: StaffScheduleRepository = {
+  async list(): Promise<StaffSchedule[]> {
+    const staffSchedules: StaffSchedule[] = [];
+    let lastEvaluatedKey: Record<string, unknown> | undefined;
+
+    do {
+      const result = await dynamoDb.send(
+        new ScanCommand({
+          TableName: getTableName(),
+          ExclusiveStartKey: lastEvaluatedKey,
+        }),
+      );
+
+      const items = ((result.Items ?? []) as StaffSchedule[]).map(
+        normalizeStaffSchedule,
+      );
+
+      staffSchedules.push(...items);
+
+      lastEvaluatedKey = result.LastEvaluatedKey as
+        | Record<string, unknown>
+        | undefined;
+    } while (lastEvaluatedKey);
+
+    return sortStaffSchedules(staffSchedules);
+  },
+
   async create(input: StaffScheduleInput): Promise<StaffSchedule> {
     const now = new Date().toISOString();
 
@@ -81,40 +153,11 @@ export const dynamoStaffScheduleRepository: StaffScheduleRepository = {
     return staffSchedule;
   },
 
-  async findAll(): Promise<StaffSchedule[]> {
-    const result = await dynamoDb.send(
-      new ScanCommand({
-        TableName: getTableName(),
-      }),
-    );
-
-    const staffSchedules = (result.Items ?? []) as StaffSchedule[];
-
-    return sortStaffSchedules(staffSchedules);
-  },
-
-  async findById(id: string): Promise<StaffSchedule | null> {
-    const result = await dynamoDb.send(
-      new GetCommand({
-        TableName: getTableName(),
-        Key: {
-          id,
-        },
-      }),
-    );
-
-    if (!result.Item) {
-      return null;
-    }
-
-    return result.Item as StaffSchedule;
-  },
-
   async update(
     id: string,
     input: StaffScheduleUpdateInput,
   ): Promise<StaffSchedule | null> {
-    const current = await this.findById(id);
+    const current = await scanStaffScheduleById(id);
 
     if (!current) {
       return null;
@@ -126,7 +169,10 @@ export const dynamoStaffScheduleRepository: StaffScheduleRepository = {
       staffName: input.staffName,
       type: input.type,
       date: input.date,
-      endDate: input.endDate || undefined,
+      endDate:
+        typeof input.endDate === "string" && input.endDate.trim() !== ""
+          ? input.endDate
+          : undefined,
       memo: typeof input.memo === "string" ? input.memo : current.memo,
       updatedAt,
     });
@@ -158,6 +204,10 @@ export const dynamoStaffScheduleRepository: StaffScheduleRepository = {
       .filter(Boolean)
       .join(" ");
 
+    if (!updateExpression) {
+      return current;
+    }
+
     const result = await dynamoDb.send(
       new UpdateCommand({
         TableName: getTableName(),
@@ -165,8 +215,14 @@ export const dynamoStaffScheduleRepository: StaffScheduleRepository = {
           id,
         },
         UpdateExpression: updateExpression,
-        ExpressionAttributeNames: expressionAttributeNames,
-        ExpressionAttributeValues: expressionAttributeValues,
+        ExpressionAttributeNames:
+          Object.keys(expressionAttributeNames).length > 0
+            ? expressionAttributeNames
+            : undefined,
+        ExpressionAttributeValues:
+          Object.keys(expressionAttributeValues).length > 0
+            ? expressionAttributeValues
+            : undefined,
         ReturnValues: "ALL_NEW",
       }),
     );
@@ -175,10 +231,16 @@ export const dynamoStaffScheduleRepository: StaffScheduleRepository = {
       return null;
     }
 
-    return result.Attributes as StaffSchedule;
+    return normalizeStaffSchedule(result.Attributes as StaffSchedule);
   },
 
   async delete(id: string): Promise<boolean> {
+    const current = await scanStaffScheduleById(id);
+
+    if (!current) {
+      return false;
+    }
+
     await dynamoDb.send(
       new DeleteCommand({
         TableName: getTableName(),

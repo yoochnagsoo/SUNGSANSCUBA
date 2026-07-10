@@ -60,6 +60,12 @@ type StaffScheduleCreateResponse = {
   message?: string;
 };
 
+type StaffScheduleUpdateResponse = {
+  ok: boolean;
+  staffSchedule?: StaffSchedule;
+  message?: string;
+};
+
 type ReservationCreateResponse = {
   ok: boolean;
   reservation?: Reservation;
@@ -280,6 +286,7 @@ export default function AdminCalendarPage() {
   const [staffLoading, setStaffLoading] = useState(true);
   const [savingStaffSchedule, setSavingStaffSchedule] = useState(false);
   const [savingReservation, setSavingReservation] = useState(false);
+  const [deletingStaffScheduleId, setDeletingStaffScheduleId] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
   const [showStaffPanel, setShowStaffPanel] = useState(false);
@@ -299,6 +306,7 @@ export default function AdminCalendarPage() {
   const [reservationMemo, setReservationMemo] = useState("");
   const [reservationFormError, setReservationFormError] = useState("");
 
+  const [editingStaffScheduleId, setEditingStaffScheduleId] = useState("");
   const [staffName, setStaffName] = useState("");
   const [staffScheduleType, setStaffScheduleType] =
     useState<StaffScheduleType>("VACATION");
@@ -308,6 +316,8 @@ export default function AdminCalendarPage() {
   const [staffScheduleEndDate, setStaffScheduleEndDate] = useState("");
   const [staffScheduleMemo, setStaffScheduleMemo] = useState("");
   const [staffFormError, setStaffFormError] = useState("");
+
+  const isEditingStaffSchedule = Boolean(editingStaffScheduleId);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -528,6 +538,16 @@ export default function AdminCalendarPage() {
     setSelectedDateKey(toDateKey(today));
   }
 
+  function resetStaffScheduleForm(dateKey?: string) {
+    setEditingStaffScheduleId("");
+    setStaffName("");
+    setStaffScheduleType("VACATION");
+    setStaffScheduleDate(dateKey || selectedDateKey || toDateKey(new Date()));
+    setStaffScheduleEndDate("");
+    setStaffScheduleMemo("");
+    setStaffFormError("");
+  }
+
   function openReservationPanel(dateKey?: string) {
     const nextDateKey = dateKey || selectedDateKey || toDateKey(new Date());
 
@@ -539,7 +559,10 @@ export default function AdminCalendarPage() {
   function openStaffPanel(dateKey?: string) {
     const nextDateKey = dateKey || selectedDateKey || toDateKey(new Date());
 
-    setStaffScheduleDate(nextDateKey);
+    if (!isEditingStaffSchedule) {
+      setStaffScheduleDate(nextDateKey);
+    }
+
     setSelectedDateKey(nextDateKey);
     setShowStaffPanel(true);
   }
@@ -556,10 +579,27 @@ export default function AdminCalendarPage() {
   function toggleStaffPanel() {
     if (showStaffPanel) {
       setShowStaffPanel(false);
+      resetStaffScheduleForm();
       return;
     }
 
     openStaffPanel();
+  }
+
+  function handleEditStaffSchedule(schedule: StaffSchedule) {
+    setEditingStaffScheduleId(schedule.id);
+    setStaffName(schedule.staffName);
+    setStaffScheduleType(schedule.type);
+    setStaffScheduleDate(schedule.date);
+    setStaffScheduleEndDate(schedule.endDate || "");
+    setStaffScheduleMemo(schedule.memo || "");
+    setStaffFormError("");
+    setSelectedDateKey(schedule.date);
+    setShowStaffPanel(true);
+  }
+
+  function handleCancelEditStaffSchedule() {
+    resetStaffScheduleForm();
   }
 
   async function handleAddReservation(event: FormEvent<HTMLFormElement>) {
@@ -655,42 +695,44 @@ export default function AdminCalendarPage() {
     }
   }
 
-  async function handleAddStaffSchedule(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleSaveStaffSchedule(event: FormEvent<HTMLFormElement>) {
+  event.preventDefault();
 
-    const nextStaffName = staffName.trim();
-    const nextMemo = staffScheduleMemo.trim();
+  const nextStaffName = staffName.trim();
+  const nextMemo = staffScheduleMemo.trim();
 
-    if (!nextStaffName) {
-      setStaffFormError("직원명을 입력해주세요.");
-      return;
-    }
+  if (!nextStaffName) {
+    setStaffFormError("직원명을 입력해주세요.");
+    return;
+  }
 
-    if (!staffScheduleDate) {
-      setStaffFormError("시작일을 선택해주세요.");
-      return;
-    }
+  if (!staffScheduleDate) {
+    setStaffFormError("시작일을 선택해주세요.");
+    return;
+  }
 
-    if (
-      staffScheduleEndDate &&
-      new Date(`${staffScheduleEndDate}T00:00:00`) <
-        new Date(`${staffScheduleDate}T00:00:00`)
-    ) {
-      setStaffFormError("종료일은 시작일보다 빠를 수 없습니다.");
-      return;
-    }
+  if (
+    staffScheduleEndDate &&
+    new Date(`${staffScheduleEndDate}T00:00:00`) <
+      new Date(`${staffScheduleDate}T00:00:00`)
+  ) {
+    setStaffFormError("종료일은 시작일보다 빠를 수 없습니다.");
+    return;
+  }
 
-    try {
-      setSavingStaffSchedule(true);
-      setStaffFormError("");
+  try {
+    setSavingStaffSchedule(true);
+    setStaffFormError("");
 
+    if (editingStaffScheduleId) {
       const res = await fetch("/api/staff-schedules", {
-        method: "POST",
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         cache: "no-store",
         body: JSON.stringify({
+          id: editingStaffScheduleId,
           staffName: nextStaffName,
           type: staffScheduleType,
           date: staffScheduleDate,
@@ -699,41 +741,84 @@ export default function AdminCalendarPage() {
         }),
       });
 
-      const data = (await res.json()) as StaffScheduleCreateResponse;
+      const data = (await res.json()) as StaffScheduleUpdateResponse;
 
       if (!res.ok || !data.ok || !data.staffSchedule) {
-        throw new Error(data.message || "직원 일정을 등록하지 못했습니다.");
+        throw new Error(data.message || "직원 일정을 수정하지 못했습니다.");
       }
 
-      setStaffSchedules((prev) =>
-        sortStaffSchedules([...prev, data.staffSchedule as StaffSchedule]),
-      );
+      await fetchStaffSchedules();
 
-      setSelectedDateKey(staffScheduleDate);
-      setStaffName("");
-      setStaffScheduleType("VACATION");
-      setStaffScheduleDate(toDateKey(new Date()));
-      setStaffScheduleEndDate("");
-      setStaffScheduleMemo("");
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
+      setSelectedDateKey(data.staffSchedule.date);
+      resetStaffScheduleForm(data.staffSchedule.date);
+
+      return;
+    }
+
+    const res = await fetch("/api/staff-schedules", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+      body: JSON.stringify({
+        staffName: nextStaffName,
+        type: staffScheduleType,
+        date: staffScheduleDate,
+        endDate: staffScheduleEndDate || undefined,
+        memo: nextMemo,
+      }),
+    });
+
+    const data = (await res.json()) as StaffScheduleCreateResponse;
+
+    if (!res.ok || !data.ok || !data.staffSchedule) {
+      throw new Error(data.message || "직원 일정을 등록하지 못했습니다.");
+    }
+
+    await fetchStaffSchedules();
+
+    setSelectedDateKey(data.staffSchedule.date);
+    resetStaffScheduleForm(data.staffSchedule.date);
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : editingStaffScheduleId
+          ? "직원 일정을 수정하지 못했습니다."
           : "직원 일정을 등록하지 못했습니다.";
 
-      setStaffFormError(message);
-    } finally {
-      setSavingStaffSchedule(false);
-    }
+    setStaffFormError(message);
+  } finally {
+    setSavingStaffSchedule(false);
   }
+}
 
   async function handleDeleteStaffSchedule(id: string) {
+    if (deletingStaffScheduleId) {
+      return;
+    }
+
+    const target = staffSchedules.find((schedule) => schedule.id === id);
+    const targetName = target?.staffName ? ` (${target.staffName})` : "";
+
+    if (!window.confirm(`직원 일정${targetName}을 삭제하시겠습니까?`)) {
+      return;
+    }
+
     try {
+      setDeletingStaffScheduleId(id);
       setStaffFormError("");
 
-      const res = await fetch(`/api/staff-schedules/${id}`, {
+      const res = await fetch("/api/staff-schedules", {
         method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
         cache: "no-store",
+        body: JSON.stringify({
+          id,
+        }),
       });
 
       const data = await res.json();
@@ -745,6 +830,10 @@ export default function AdminCalendarPage() {
       setStaffSchedules((prev) =>
         prev.filter((schedule) => schedule.id !== id),
       );
+
+      if (editingStaffScheduleId === id) {
+        resetStaffScheduleForm();
+      }
     } catch (error) {
       const message =
         error instanceof Error
@@ -752,6 +841,8 @@ export default function AdminCalendarPage() {
           : "직원 일정을 삭제하지 못했습니다.";
 
       setStaffFormError(message);
+    } finally {
+      setDeletingStaffScheduleId("");
     }
   }
 
@@ -858,7 +949,7 @@ export default function AdminCalendarPage() {
               </div>
 
               <div className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-bold text-purple-800">
-                직원 휴가
+                직원 일정
               </div>
             </div>
           </div>
@@ -887,27 +978,28 @@ export default function AdminCalendarPage() {
               </div>
 
               <div className="mt-3 flex flex-wrap gap-2">
-                {currentMonthStaffSchedules.slice(0, 8).map((schedule) => (
-                  <button
-                    type="button"
-                    key={schedule.id}
-                    onClick={() => setSelectedDateKey(schedule.date)}
-                    className={`rounded-full border px-3 py-1 text-xs font-bold ${
-                      STAFF_SCHEDULE_STYLE[schedule.type]
-                    }`}
-                  >
-                    {schedule.date}
-                    {schedule.endDate ? `~${schedule.endDate}` : ""} ·{" "}
-                    {schedule.staffName} · {STAFF_SCHEDULE_LABEL[schedule.type]}
-                  </button>
-                ))}
+  {currentMonthStaffSchedules.slice(0, 8).map((schedule) => (
+    <button
+      type="button"
+      key={schedule.id}
+      onClick={() => handleEditStaffSchedule(schedule)}
+      className={`rounded-full border px-3 py-1 text-xs font-bold transition hover:scale-[1.02] hover:shadow-sm ${
+        STAFF_SCHEDULE_STYLE[schedule.type]
+      }`}
+      title="클릭하면 직원 일정을 수정합니다."
+    >
+      {schedule.date}
+      {schedule.endDate ? `~${schedule.endDate}` : ""} ·{" "}
+      {schedule.staffName} · {STAFF_SCHEDULE_LABEL[schedule.type]}
+    </button>
+  ))}
 
-                {currentMonthStaffSchedules.length > 8 ? (
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-purple-700">
-                    +{currentMonthStaffSchedules.length - 8}건 더보기
-                  </span>
-                ) : null}
-              </div>
+  {currentMonthStaffSchedules.length > 8 ? (
+    <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-purple-700">
+      +{currentMonthStaffSchedules.length - 8}건 더보기
+    </span>
+  ) : null}
+</div>
             </div>
           ) : null}
 
@@ -1485,16 +1577,23 @@ export default function AdminCalendarPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-lg font-bold text-slate-900">
-                        직원 휴가 등록
+                        {isEditingStaffSchedule
+                          ? "직원 일정 수정"
+                          : "직원 휴가 등록"}
                       </h2>
                       <p className="mt-1 text-sm text-slate-500">
-                        휴가/반차/근무불가 직원을 표시합니다.
+                        {isEditingStaffSchedule
+                          ? "선택한 직원 일정을 수정합니다."
+                          : "휴가/반차/근무불가 직원을 표시합니다."}
                       </p>
                     </div>
 
                     <button
                       type="button"
-                      onClick={() => setShowStaffPanel(false)}
+                      onClick={() => {
+                        setShowStaffPanel(false);
+                        resetStaffScheduleForm();
+                      }}
                       className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200"
                     >
                       닫기
@@ -1508,7 +1607,7 @@ export default function AdminCalendarPage() {
                   ) : null}
 
                   <form
-                    onSubmit={handleAddStaffSchedule}
+                    onSubmit={handleSaveStaffSchedule}
                     className="mt-5 space-y-4"
                   >
                     <div>
@@ -1589,13 +1688,32 @@ export default function AdminCalendarPage() {
                       />
                     </div>
 
-                    <button
-                      type="submit"
-                      disabled={savingStaffSchedule}
-                      className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {savingStaffSchedule ? "등록 중..." : "직원 일정 등록"}
-                    </button>
+                    <div className="space-y-2">
+                      <button
+                        type="submit"
+                        disabled={savingStaffSchedule}
+                        className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {savingStaffSchedule
+                          ? isEditingStaffSchedule
+                            ? "수정 중..."
+                            : "등록 중..."
+                          : isEditingStaffSchedule
+                            ? "수정 저장"
+                            : "직원 일정 등록"}
+                      </button>
+
+                      {isEditingStaffSchedule ? (
+                        <button
+                          type="button"
+                          onClick={handleCancelEditStaffSchedule}
+                          disabled={savingStaffSchedule}
+                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          수정 취소
+                        </button>
+                      ) : null}
+                    </div>
                   </form>
                 </div>
 
@@ -1621,51 +1739,75 @@ export default function AdminCalendarPage() {
                         이번 달 등록된 직원 일정이 없습니다.
                       </div>
                     ) : (
-                      currentMonthStaffSchedules.map((schedule) => (
-                        <div
-                          key={schedule.id}
-                          className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate font-black text-slate-900">
-                                {schedule.staffName}
-                              </p>
+                      currentMonthStaffSchedules.map((schedule) => {
+                        const deleting =
+                          deletingStaffScheduleId === schedule.id;
+                        const editing =
+                          editingStaffScheduleId === schedule.id;
 
-                              <p className="mt-1 text-sm font-semibold text-slate-600">
-                                {schedule.date}
-                                {schedule.endDate
-                                  ? ` ~ ${schedule.endDate}`
-                                  : ""}
-                              </p>
+                        return (
+                          <div
+                            key={schedule.id}
+                            className={[
+                              "rounded-xl border bg-white p-4 shadow-sm",
+                              editing
+                                ? "border-purple-400 ring-4 ring-purple-100"
+                                : "border-slate-200",
+                            ].join(" ")}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate font-black text-slate-900">
+                                  {schedule.staffName}
+                                </p>
+
+                                <p className="mt-1 text-sm font-semibold text-slate-600">
+                                  {schedule.date}
+                                  {schedule.endDate
+                                    ? ` ~ ${schedule.endDate}`
+                                    : ""}
+                                </p>
+                              </div>
+
+                              <span
+                                className={`shrink-0 rounded-full border px-3 py-1 text-xs font-black ${
+                                  STAFF_SCHEDULE_STYLE[schedule.type]
+                                }`}
+                              >
+                                {STAFF_SCHEDULE_LABEL[schedule.type]}
+                              </span>
                             </div>
 
-                            <span
-                              className={`shrink-0 rounded-full border px-3 py-1 text-xs font-black ${
-                                STAFF_SCHEDULE_STYLE[schedule.type]
-                              }`}
-                            >
-                              {STAFF_SCHEDULE_LABEL[schedule.type]}
-                            </span>
+                            {schedule.memo ? (
+                              <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+                                {schedule.memo}
+                              </p>
+                            ) : null}
+
+                            <div className="mt-3 flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleEditStaffSchedule(schedule)}
+                                disabled={savingStaffSchedule || deleting}
+                                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                수정
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDeleteStaffSchedule(schedule.id)
+                                }
+                                disabled={deletingStaffScheduleId !== ""}
+                                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {deleting ? "삭제중..." : "삭제"}
+                              </button>
+                            </div>
                           </div>
-
-                          {schedule.memo ? (
-                            <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
-                              {schedule.memo}
-                            </p>
-                          ) : null}
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDeleteStaffSchedule(schedule.id)
-                            }
-                            className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100"
-                          >
-                            삭제
-                          </button>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>

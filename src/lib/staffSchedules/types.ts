@@ -13,7 +13,7 @@ export type StaffSchedule = {
   type: StaffScheduleType;
   date: string;
   endDate?: string;
-  memo: string;
+  memo?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -35,16 +35,11 @@ export type StaffScheduleUpdateInput = {
 };
 
 export type StaffScheduleRepository = {
-  create(input: StaffScheduleInput): Promise<StaffSchedule>;
-
-  findAll(): Promise<StaffSchedule[]>;
-
-  findById(id: string): Promise<StaffSchedule | null>;
-
-  update(
+  list: () => Promise<StaffSchedule[]>;
+  create: (input: StaffScheduleInput) => Promise<StaffSchedule>;
+  update: (
     id: string,
     input: StaffScheduleUpdateInput,
-  ): Promise<StaffSchedule | null>;
-
-  delete(id: string): Promise<boolean>;
+  ) => Promise<StaffSchedule | null>;
+  delete: (id: string) => Promise<boolean>;
 };
