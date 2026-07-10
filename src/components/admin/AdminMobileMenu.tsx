@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
+  BarChart3,
   CalendarDays,
   ClipboardList,
   ImageIcon,
@@ -17,48 +18,79 @@ import {
   X,
 } from "lucide-react";
 
-const menuItems = [
+import type { AdminRole } from "@/lib/adminAccounts";
+import {
+  canAccessAdminMenu,
+  type AdminMenuKey,
+} from "@/lib/adminPermissions";
+
+type AdminMobileMenuProps = {
+  adminRole: AdminRole;
+  adminName: string;
+};
+
+const menuItems: Array<{
+  key: AdminMenuKey;
+  name: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+}> = [
   {
+    key: "DASHBOARD",
     name: "Dashboard",
     href: "/admin",
     icon: LayoutDashboard,
   },
   {
+    key: "RESERVATIONS",
     name: "예약 관리",
     href: "/admin/reservations",
     icon: ClipboardList,
   },
   {
+    key: "CALENDAR",
     name: "캘린더",
     href: "/admin/calendar",
     icon: CalendarDays,
   },
   {
+    key: "CUSTOMERS",
     name: "고객 관리",
     href: "/admin/customers",
     icon: Users,
   },
   {
+    key: "VISITOR_LOGS",
+    name: "방문 로그",
+    href: "/admin/visitor-logs",
+    icon: BarChart3,
+  },
+  {
+    key: "SALES",
     name: "매출 관리",
     href: "/admin/sales",
     icon: TrendingUp,
   },
   {
+    key: "GALLERY",
     name: "갤러리 관리",
     href: "/admin/gallery",
     icon: ImageIcon,
   },
   {
+    key: "REVIEWS",
     name: "리뷰 관리",
     href: "/admin/reviews",
     icon: MessageCircle,
   },
   {
+    key: "DIVE_DESTINATIONS",
     name: "다이빙 포인트 관리",
     href: "/admin/dive-destinations",
     icon: MapPin,
   },
   {
+    key: "SETTINGS",
     name: "설정",
     href: "/admin/settings",
     icon: Settings,
@@ -73,9 +105,16 @@ function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export default function AdminMobileMenu() {
+export default function AdminMobileMenu({
+  adminRole,
+  adminName,
+}: AdminMobileMenuProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
+  const accessibleMenuItems = menuItems.filter((item) =>
+    canAccessAdminMenu(adminRole, item.key),
+  );
 
   function closeMenu() {
     setOpen(false);
@@ -103,10 +142,15 @@ export default function AdminMobileMenu() {
 
           <aside className="absolute left-0 top-0 z-[10000] flex h-dvh w-[84vw] max-w-[320px] flex-col overflow-hidden border-r border-slate-200 bg-white text-slate-900 shadow-2xl">
             <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
-              <Link href="/admin" onClick={closeMenu} className="min-w-0">
+              <Link
+                href="/admin"
+                onClick={closeMenu}
+                className="min-w-0"
+              >
                 <p className="truncate text-xs font-black uppercase tracking-[0.12em] text-cyan-600">
                   SUNGSAN SCUBA
                 </p>
+
                 <h1 className="truncate text-base font-black text-slate-950">
                   Admin
                 </h1>
@@ -124,9 +168,12 @@ export default function AdminMobileMenu() {
 
             <nav className="min-h-0 flex-1 overflow-y-auto bg-white px-3 py-4">
               <div className="space-y-1">
-                {menuItems.map((item) => {
+                {accessibleMenuItems.map((item) => {
                   const Icon = item.icon;
-                  const active = isActivePath(pathname, item.href);
+                  const active = isActivePath(
+                    pathname,
+                    item.href,
+                  );
 
                   return (
                     <Link
@@ -143,10 +190,15 @@ export default function AdminMobileMenu() {
                       <Icon
                         className={[
                           "h-5 w-5 shrink-0",
-                          active ? "text-white" : "text-slate-400",
+                          active
+                            ? "text-white"
+                            : "text-slate-400",
                         ].join(" ")}
                       />
-                      <span className="min-w-0 truncate">{item.name}</span>
+
+                      <span className="min-w-0 truncate">
+                        {item.name}
+                      </span>
                     </Link>
                   );
                 })}
@@ -156,10 +208,15 @@ export default function AdminMobileMenu() {
             <div className="shrink-0 border-t border-slate-200 bg-white p-4">
               <div className="rounded-2xl bg-slate-50 p-4">
                 <p className="text-xs font-semibold text-slate-500">
-                  관리자 모드
+                  로그인 관리자
                 </p>
+
                 <p className="mt-1 truncate text-sm font-bold text-slate-900">
-                  SUNGSAN SCUBA Dive Center
+                  {adminName}
+                </p>
+
+                <p className="mt-1 text-xs font-semibold text-cyan-700">
+                  {adminRole}
                 </p>
               </div>
             </div>

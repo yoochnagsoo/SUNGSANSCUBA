@@ -35,6 +35,11 @@ export type Reservation = {
   status: ReservationStatus;
   adminMemo: string;
 
+  primaryStaffId?: string;
+  primaryStaffName?: string;
+  assistantStaffIds?: string[];
+  assistantStaffNames?: string[];
+
   paymentAmount?: number;
   paymentMethod?: PaymentMethod;
   paymentMemo?: string;
@@ -63,6 +68,11 @@ export type ReservationInput = {
   status?: ReservationStatus;
   adminMemo?: string;
 
+  primaryStaffId?: string;
+  primaryStaffName?: string;
+  assistantStaffIds?: string[];
+  assistantStaffNames?: string[];
+
   paymentAmount?: number;
   paymentMethod?: PaymentMethod;
   paymentMemo?: string;
@@ -87,6 +97,11 @@ export type ReservationUpdateInput = {
 
   status?: ReservationStatus;
   adminMemo?: string;
+
+  primaryStaffId?: string;
+  primaryStaffName?: string;
+  assistantStaffIds?: string[];
+  assistantStaffNames?: string[];
 
   paymentAmount?: number;
   paymentMethod?: PaymentMethod;

@@ -96,6 +96,8 @@ function filterReservations(
           reservation.program,
           reservation.message,
           reservation.adminMemo,
+          reservation.primaryStaffName,
+          ...(reservation.assistantStaffNames || []),
           reservation.source,
         ]
           .filter(Boolean)
@@ -132,6 +134,11 @@ export const memoryReservationRepository: ReservationRepository = {
 
       status: input.status || "PENDING",
       adminMemo: input.adminMemo || "",
+
+      primaryStaffId: input.primaryStaffId || "",
+      primaryStaffName: input.primaryStaffName || "",
+      assistantStaffIds: input.assistantStaffIds || [],
+      assistantStaffNames: input.assistantStaffNames || [],
 
       paymentAmount: input.paymentAmount,
       paymentMethod: input.paymentMethod,
@@ -217,6 +224,23 @@ export const memoryReservationRepository: ReservationRepository = {
 
       status: input.status ?? prev.status,
       adminMemo: input.adminMemo ?? prev.adminMemo,
+
+      primaryStaffId:
+        input.primaryStaffId !== undefined
+          ? input.primaryStaffId
+          : prev.primaryStaffId,
+      primaryStaffName:
+        input.primaryStaffName !== undefined
+          ? input.primaryStaffName
+          : prev.primaryStaffName,
+      assistantStaffIds:
+        input.assistantStaffIds !== undefined
+          ? input.assistantStaffIds
+          : prev.assistantStaffIds,
+      assistantStaffNames:
+        input.assistantStaffNames !== undefined
+          ? input.assistantStaffNames
+          : prev.assistantStaffNames,
 
       paymentAmount: input.paymentAmount ?? prev.paymentAmount,
       paymentMethod: input.paymentMethod ?? prev.paymentMethod,

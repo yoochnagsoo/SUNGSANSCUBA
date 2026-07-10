@@ -9,6 +9,7 @@ export type StaffScheduleType =
 
 export type StaffSchedule = {
   id: string;
+  staffId?: string;
   staffName: string;
   type: StaffScheduleType;
   date: string;
@@ -19,6 +20,7 @@ export type StaffSchedule = {
 };
 
 export type StaffScheduleInput = {
+  staffId: string;
   staffName: string;
   type: StaffScheduleType;
   date: string;
@@ -27,6 +29,7 @@ export type StaffScheduleInput = {
 };
 
 export type StaffScheduleUpdateInput = {
+  staffId?: string;
   staffName?: string;
   type?: StaffScheduleType;
   date?: string;
@@ -36,7 +39,9 @@ export type StaffScheduleUpdateInput = {
 
 export type StaffScheduleRepository = {
   list: () => Promise<StaffSchedule[]>;
-  create: (input: StaffScheduleInput) => Promise<StaffSchedule>;
+  create: (
+    input: StaffScheduleInput,
+  ) => Promise<StaffSchedule>;
   update: (
     id: string,
     input: StaffScheduleUpdateInput,

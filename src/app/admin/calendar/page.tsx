@@ -2,12 +2,18 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 import {
   PROGRAM_OPTIONS,
   getProgramOption,
   normalizeProgramValue,
 } from "@/lib/programs";
+import {
+  DEFAULT_EXPERIENCE_TIME,
+  EXPERIENCE_TIME_OPTIONS,
+} from "@/lib/experienceTimes";
+import { normalizeSearchText } from "@/lib/search";
 
 type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
 
@@ -24,6 +30,10 @@ type Reservation = {
   status: ReservationStatus;
   adminMemo?: string;
   experienceTime?: string;
+  primaryStaffId?: string;
+  primaryStaffName?: string;
+  assistantStaffIds?: string[];
+  assistantStaffNames?: string[];
   createdAt?: string;
   updatedAt?: string;
 };
@@ -39,6 +49,7 @@ type StaffScheduleType =
 
 type StaffSchedule = {
   id: string;
+  staffId?: string;
   staffName: string;
   type: StaffScheduleType;
   date: string;
@@ -46,6 +57,19 @@ type StaffSchedule = {
   memo?: string;
   createdAt: string;
   updatedAt: string;
+};
+
+type StaffOption = {
+  id: string;
+  name: string;
+  role: "OWNER" | "MANAGER" | "STAFF";
+  roleLabel: string;
+};
+
+type StaffOptionsResponse = {
+  ok: boolean;
+  staffOptions?: StaffOption[];
+  message?: string;
 };
 
 type StaffScheduleListResponse = {
@@ -134,28 +158,6 @@ const STAFF_SCHEDULE_OPTIONS: StaffScheduleType[] = [
 ];
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
-
-const RESERVATION_TIME_OPTIONS = [
-  "09:00",
-  "09:30",
-  "10:00",
-  "10:30",
-  "11:00",
-  "11:30",
-  "12:00",
-  "12:30",
-  "13:00",
-  "13:30",
-  "14:00",
-  "14:30",
-  "15:00",
-  "15:30",
-  "16:00",
-  "16:30",
-  "17:00",
-  "17:30",
-  "18:00",
-];
 
 function toDateKey(date: Date) {
   const year = date.getFullYear();
@@ -273,9 +275,23 @@ function getKoreanDateLabel(dateKey: string) {
   }요일`;
 }
 
+function getAssignedStaffNames(reservation: Reservation) {
+  return Array.from(
+    new Set(
+      [reservation.primaryStaffName, ...(reservation.assistantStaffNames || [])]
+        .map((name) => String(name || "").trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
 export default function AdminCalendarPage() {
+  const searchParams = useSearchParams();
+  const isTabletDisplay = searchParams.get("display") === "tablet";
+
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [staffSchedules, setStaffSchedules] = useState<StaffSchedule[]>([]);
+  const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
 
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [selectedDateKey, setSelectedDateKey] = useState(() =>
@@ -288,6 +304,10 @@ export default function AdminCalendarPage() {
   const [savingReservation, setSavingReservation] = useState(false);
   const [deletingStaffScheduleId, setDeletingStaffScheduleId] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [reservationNameKeyword, setReservationNameKeyword] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
   const [showStaffPanel, setShowStaffPanel] = useState(false);
   const [showReservationPanel, setShowReservationPanel] = useState(false);
@@ -299,7 +319,9 @@ export default function AdminCalendarPage() {
   const [reservationDate, setReservationDate] = useState(() =>
     toDateKey(new Date()),
   );
-  const [reservationTime, setReservationTime] = useState("09:00");
+  const [reservationTime, setReservationTime] = useState(
+    DEFAULT_EXPERIENCE_TIME,
+  );
   const [reservationPeople, setReservationPeople] = useState("1");
   const [reservationStatus, setReservationStatus] =
     useState<ReservationStatus>("CONFIRMED");
@@ -307,7 +329,7 @@ export default function AdminCalendarPage() {
   const [reservationFormError, setReservationFormError] = useState("");
 
   const [editingStaffScheduleId, setEditingStaffScheduleId] = useState("");
-  const [staffName, setStaffName] = useState("");
+  const [staffId, setStaffId] = useState("");
   const [staffScheduleType, setStaffScheduleType] =
     useState<StaffScheduleType>("VACATION");
   const [staffScheduleDate, setStaffScheduleDate] = useState(() =>
@@ -380,10 +402,22 @@ export default function AdminCalendarPage() {
     return days;
   }, [year, month]);
 
+  const filteredReservations = useMemo(() => {
+    const normalizedKeyword = normalizeSearchText(reservationNameKeyword);
+
+    if (!normalizedKeyword) {
+      return reservations;
+    }
+
+    return reservations.filter((reservation) =>
+      normalizeSearchText(reservation.name).includes(normalizedKeyword),
+    );
+  }, [reservationNameKeyword, reservations]);
+
   const reservationsByDate = useMemo(() => {
     const map = new Map<string, Reservation[]>();
 
-    for (const reservation of reservations) {
+    for (const reservation of filteredReservations) {
       const dateKey = reservation.reservationDate;
 
       if (!dateKey) {
@@ -402,7 +436,7 @@ export default function AdminCalendarPage() {
     }
 
     return map;
-  }, [reservations]);
+  }, [filteredReservations]);
 
   const staffSchedulesByDate = useMemo(() => {
     const map = new Map<string, StaffSchedule[]>();
@@ -486,6 +520,29 @@ export default function AdminCalendarPage() {
     }
   }
 
+  async function fetchStaffOptions() {
+    try {
+      const res = await fetch("/api/admin/staff-options", {
+        cache: "no-store",
+      });
+
+      const data = (await res.json()) as StaffOptionsResponse;
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.message || "직원 목록을 불러오지 못했습니다.");
+      }
+
+      setStaffOptions(data.staffOptions || []);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "직원 목록을 불러오지 못했습니다.";
+
+      setStaffFormError(message);
+    }
+  }
+
   async function fetchStaffSchedules() {
     try {
       setStaffLoading(true);
@@ -514,10 +571,70 @@ export default function AdminCalendarPage() {
     }
   }
 
+  async function refreshCalendarData(options?: { silent?: boolean }) {
+    if (!options?.silent) {
+      setIsRefreshing(true);
+    }
+
+    try {
+      await Promise.all([
+        fetchReservations(),
+        fetchStaffOptions(),
+        fetchStaffSchedules(),
+      ]);
+
+      setLastUpdatedAt(new Date());
+    } finally {
+      if (!options?.silent) {
+        setIsRefreshing(false);
+      }
+    }
+  }
+
   useEffect(() => {
-    fetchReservations();
-    fetchStaffSchedules();
+    refreshCalendarData();
   }, []);
+
+  useEffect(() => {
+    if (!isTabletDisplay) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      refreshCalendarData({ silent: true });
+    }, 60_000);
+
+    return () => window.clearInterval(intervalId);
+  }, [isTabletDisplay]);
+
+  useEffect(() => {
+    function handleFullscreenChange() {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    }
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  async function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+
+      await document.documentElement.requestFullscreen();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "전체화면 모드로 전환하지 못했습니다.",
+      );
+    }
+  }
 
   function goPrevMonth() {
     setCurrentDate(
@@ -540,7 +657,7 @@ export default function AdminCalendarPage() {
 
   function resetStaffScheduleForm(dateKey?: string) {
     setEditingStaffScheduleId("");
-    setStaffName("");
+    setStaffId("");
     setStaffScheduleType("VACATION");
     setStaffScheduleDate(dateKey || selectedDateKey || toDateKey(new Date()));
     setStaffScheduleEndDate("");
@@ -588,7 +705,12 @@ export default function AdminCalendarPage() {
 
   function handleEditStaffSchedule(schedule: StaffSchedule) {
     setEditingStaffScheduleId(schedule.id);
-    setStaffName(schedule.staffName);
+
+    const matchedStaff =
+      staffOptions.find((staff) => staff.id === schedule.staffId) ||
+      staffOptions.find((staff) => staff.name === schedule.staffName);
+
+    setStaffId(matchedStaff?.id || schedule.staffId || "");
     setStaffScheduleType(schedule.type);
     setStaffScheduleDate(schedule.date);
     setStaffScheduleEndDate(schedule.endDate || "");
@@ -645,7 +767,7 @@ export default function AdminCalendarPage() {
       setSavingReservation(true);
       setReservationFormError("");
 
-      const res = await fetch("/api/admin/calendar-reservations", {
+      const res = await fetch("/api/admin/reservations", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -656,11 +778,11 @@ export default function AdminCalendarPage() {
           phone: nextPhone,
           email: nextEmail,
           program: nextProgram,
-          title: nextProgram,
           reservationDate,
           experienceTime: reservationTime,
           people: Number(reservationPeople || 1),
-          memo: nextMemo,
+          message: nextMemo,
+          adminMemo: nextMemo,
           status: reservationStatus,
         }),
       });
@@ -681,7 +803,7 @@ export default function AdminCalendarPage() {
       setReservationEmail("");
       setReservationProgram("");
       setReservationDate(toDateKey(new Date()));
-      setReservationTime("09:00");
+      setReservationTime(DEFAULT_EXPERIENCE_TIME);
       setReservationPeople("1");
       setReservationStatus("CONFIRMED");
       setReservationMemo("");
@@ -696,44 +818,75 @@ export default function AdminCalendarPage() {
   }
 
   async function handleSaveStaffSchedule(event: FormEvent<HTMLFormElement>) {
-  event.preventDefault();
+    event.preventDefault();
 
-  const nextStaffName = staffName.trim();
-  const nextMemo = staffScheduleMemo.trim();
+    const selectedStaff = staffOptions.find((staff) => staff.id === staffId);
+    const nextMemo = staffScheduleMemo.trim();
 
-  if (!nextStaffName) {
-    setStaffFormError("직원명을 입력해주세요.");
-    return;
-  }
+    if (!selectedStaff) {
+      setStaffFormError("직원을 선택해주세요.");
+      return;
+    }
 
-  if (!staffScheduleDate) {
-    setStaffFormError("시작일을 선택해주세요.");
-    return;
-  }
+    if (!staffScheduleDate) {
+      setStaffFormError("시작일을 선택해주세요.");
+      return;
+    }
 
-  if (
-    staffScheduleEndDate &&
-    new Date(`${staffScheduleEndDate}T00:00:00`) <
-      new Date(`${staffScheduleDate}T00:00:00`)
-  ) {
-    setStaffFormError("종료일은 시작일보다 빠를 수 없습니다.");
-    return;
-  }
+    if (
+      staffScheduleEndDate &&
+      new Date(`${staffScheduleEndDate}T00:00:00`) <
+        new Date(`${staffScheduleDate}T00:00:00`)
+    ) {
+      setStaffFormError("종료일은 시작일보다 빠를 수 없습니다.");
+      return;
+    }
 
-  try {
-    setSavingStaffSchedule(true);
-    setStaffFormError("");
+    try {
+      setSavingStaffSchedule(true);
+      setStaffFormError("");
 
-    if (editingStaffScheduleId) {
+      if (editingStaffScheduleId) {
+        const res = await fetch("/api/staff-schedules", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+          body: JSON.stringify({
+            id: editingStaffScheduleId,
+            staffId: selectedStaff.id,
+            staffName: selectedStaff.name,
+            type: staffScheduleType,
+            date: staffScheduleDate,
+            endDate: staffScheduleEndDate || undefined,
+            memo: nextMemo,
+          }),
+        });
+
+        const data = (await res.json()) as StaffScheduleUpdateResponse;
+
+        if (!res.ok || !data.ok || !data.staffSchedule) {
+          throw new Error(data.message || "직원 일정을 수정하지 못했습니다.");
+        }
+
+        await fetchStaffSchedules();
+
+        setSelectedDateKey(data.staffSchedule.date);
+        resetStaffScheduleForm(data.staffSchedule.date);
+
+        return;
+      }
+
       const res = await fetch("/api/staff-schedules", {
-        method: "PUT",
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         cache: "no-store",
         body: JSON.stringify({
-          id: editingStaffScheduleId,
-          staffName: nextStaffName,
+          staffId: selectedStaff.id,
+          staffName: selectedStaff.name,
           type: staffScheduleType,
           date: staffScheduleDate,
           endDate: staffScheduleEndDate || undefined,
@@ -741,58 +894,29 @@ export default function AdminCalendarPage() {
         }),
       });
 
-      const data = (await res.json()) as StaffScheduleUpdateResponse;
+      const data = (await res.json()) as StaffScheduleCreateResponse;
 
       if (!res.ok || !data.ok || !data.staffSchedule) {
-        throw new Error(data.message || "직원 일정을 수정하지 못했습니다.");
+        throw new Error(data.message || "직원 일정을 등록하지 못했습니다.");
       }
 
       await fetchStaffSchedules();
 
       setSelectedDateKey(data.staffSchedule.date);
       resetStaffScheduleForm(data.staffSchedule.date);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : editingStaffScheduleId
+            ? "직원 일정을 수정하지 못했습니다."
+            : "직원 일정을 등록하지 못했습니다.";
 
-      return;
+      setStaffFormError(message);
+    } finally {
+      setSavingStaffSchedule(false);
     }
-
-    const res = await fetch("/api/staff-schedules", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      cache: "no-store",
-      body: JSON.stringify({
-        staffName: nextStaffName,
-        type: staffScheduleType,
-        date: staffScheduleDate,
-        endDate: staffScheduleEndDate || undefined,
-        memo: nextMemo,
-      }),
-    });
-
-    const data = (await res.json()) as StaffScheduleCreateResponse;
-
-    if (!res.ok || !data.ok || !data.staffSchedule) {
-      throw new Error(data.message || "직원 일정을 등록하지 못했습니다.");
-    }
-
-    await fetchStaffSchedules();
-
-    setSelectedDateKey(data.staffSchedule.date);
-    resetStaffScheduleForm(data.staffSchedule.date);
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : editingStaffScheduleId
-          ? "직원 일정을 수정하지 못했습니다."
-          : "직원 일정을 등록하지 못했습니다.";
-
-    setStaffFormError(message);
-  } finally {
-    setSavingStaffSchedule(false);
   }
-}
 
   async function handleDeleteStaffSchedule(id: string) {
     if (deletingStaffScheduleId) {
@@ -846,13 +970,21 @@ export default function AdminCalendarPage() {
     }
   }
 
-  const calendarMinWidth =
-    showStaffPanel || showReservationPanel
+  const calendarMinWidth = isTabletDisplay
+    ? "min-w-[980px] xl:min-w-0"
+    : showStaffPanel || showReservationPanel
       ? "min-w-[760px] xl:min-w-0"
       : "min-w-[760px] lg:min-w-0";
 
   return (
-    <div className="max-w-full space-y-4 overflow-hidden p-3 sm:space-y-6 sm:p-6 lg:p-8">
+    <div
+      className={[
+        "max-w-full space-y-4 overflow-hidden p-3 sm:space-y-6 sm:p-6 lg:p-8",
+        isTabletDisplay
+          ? "fixed inset-0 z-[100] overflow-y-auto bg-slate-100 lg:p-5"
+          : "",
+      ].join(" ")}
+    >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
           <p className="text-sm font-medium text-slate-500">관리자</p>
@@ -892,36 +1024,131 @@ export default function AdminCalendarPage() {
 
           <button
             type="button"
-            onClick={toggleReservationPanel}
-            className={[
-              "w-full rounded-xl px-4 py-2 text-sm font-black transition sm:w-auto",
-              showReservationPanel
-                ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
-                : "bg-blue-600 text-white hover:bg-blue-700",
-            ].join(" ")}
+            onClick={() => refreshCalendarData()}
+            disabled={isRefreshing}
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
-            {showReservationPanel ? "예약 등록 닫기" : "예약 직접 등록"}
+            {isRefreshing ? "새로고침 중" : "새로고침"}
           </button>
 
-          <button
-            type="button"
-            onClick={toggleStaffPanel}
-            className={[
-              "w-full rounded-xl px-4 py-2 text-sm font-black transition sm:w-auto",
-              showStaffPanel
-                ? "bg-purple-100 text-purple-800 hover:bg-purple-200"
-                : "bg-slate-900 text-white hover:bg-slate-700",
-            ].join(" ")}
-          >
-            {showStaffPanel ? "직원 일정 닫기" : "직원 일정 등록"}
-          </button>
+          {isTabletDisplay ? (
+            <>
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                className="w-full rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white hover:bg-slate-700 sm:w-auto"
+              >
+                {isFullscreen ? "전체화면 종료" : "전체화면"}
+              </button>
+
+              <Link
+                href="/admin/calendar"
+                className="flex w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50 sm:w-auto"
+              >
+                관리자 화면
+              </Link>
+            </>
+          ) : (
+            <Link
+              href="/admin/calendar?display=tablet"
+              className="flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white hover:bg-slate-700 sm:w-auto"
+            >
+              태블릿 전체화면
+            </Link>
+          )}
+
+          {!isTabletDisplay ? (
+            <>
+              <button
+                type="button"
+                onClick={toggleReservationPanel}
+                className={[
+                  "w-full rounded-xl px-4 py-2 text-sm font-black transition sm:w-auto",
+                  showReservationPanel
+                    ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
+                    : "bg-blue-600 text-white hover:bg-blue-700",
+                ].join(" ")}
+              >
+                {showReservationPanel ? "예약 등록 닫기" : "예약 직접 등록"}
+              </button>
+
+              <button
+                type="button"
+                onClick={toggleStaffPanel}
+                className={[
+                  "w-full rounded-xl px-4 py-2 text-sm font-black transition sm:w-auto",
+                  showStaffPanel
+                    ? "bg-purple-100 text-purple-800 hover:bg-purple-200"
+                    : "bg-slate-900 text-white hover:bg-slate-700",
+                ].join(" ")}
+              >
+                {showStaffPanel ? "직원 일정 닫기" : "직원 일정 등록"}
+              </button>
+            </>
+          ) : null}
         </div>
       </div>
+
+      {!isTabletDisplay ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="min-w-0 flex-1">
+              <label
+                htmlFor="calendar-reservation-name-search"
+                className="text-sm font-black text-slate-800"
+              >
+                고객 이름 검색
+              </label>
+              <p className="mt-1 text-xs font-medium text-slate-500">
+                입력한 이름과 일치하는 예약만 캘린더에 표시됩니다.
+              </p>
+            </div>
+
+            <div className="flex w-full gap-2 sm:w-auto sm:min-w-[360px]">
+              <input
+                id="calendar-reservation-name-search"
+                type="search"
+                value={reservationNameKeyword}
+                onChange={(event) =>
+                  setReservationNameKeyword(event.target.value)
+                }
+                placeholder="고객 이름 입력"
+                className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+              />
+
+              {reservationNameKeyword ? (
+                <button
+                  type="button"
+                  onClick={() => setReservationNameKeyword("")}
+                  className="shrink-0 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
+                >
+                  초기화
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {reservationNameKeyword.trim() ? (
+            <div className="mt-3 rounded-xl bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800">
+              “{reservationNameKeyword.trim()}” 검색 결과{" "}
+              {filteredReservations.length}건
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800">
+          <span>태블릿 표시 모드 · 60초마다 자동 새로고침</span>
+          <span>
+            마지막 업데이트:{" "}
+            {lastUpdatedAt ? lastUpdatedAt.toLocaleTimeString("ko-KR") : "-"}
+          </span>
+        </div>
+      )}
 
       <section
         className={[
           "grid max-w-full grid-cols-1 gap-4 overflow-hidden sm:gap-6",
-          showStaffPanel || showReservationPanel
+          !isTabletDisplay && (showStaffPanel || showReservationPanel)
             ? "lg:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]"
             : "",
         ].join(" ")}
@@ -978,28 +1205,28 @@ export default function AdminCalendarPage() {
               </div>
 
               <div className="mt-3 flex flex-wrap gap-2">
-  {currentMonthStaffSchedules.slice(0, 8).map((schedule) => (
-    <button
-      type="button"
-      key={schedule.id}
-      onClick={() => handleEditStaffSchedule(schedule)}
-      className={`rounded-full border px-3 py-1 text-xs font-bold transition hover:scale-[1.02] hover:shadow-sm ${
-        STAFF_SCHEDULE_STYLE[schedule.type]
-      }`}
-      title="클릭하면 직원 일정을 수정합니다."
-    >
-      {schedule.date}
-      {schedule.endDate ? `~${schedule.endDate}` : ""} ·{" "}
-      {schedule.staffName} · {STAFF_SCHEDULE_LABEL[schedule.type]}
-    </button>
-  ))}
+                {currentMonthStaffSchedules.slice(0, 8).map((schedule) => (
+                  <button
+                    type="button"
+                    key={schedule.id}
+                    onClick={() => handleEditStaffSchedule(schedule)}
+                    className={`rounded-full border px-3 py-1 text-xs font-bold transition hover:scale-[1.02] hover:shadow-sm ${
+                      STAFF_SCHEDULE_STYLE[schedule.type]
+                    }`}
+                    title="클릭하면 직원 일정을 수정합니다."
+                  >
+                    {schedule.date}
+                    {schedule.endDate ? `~${schedule.endDate}` : ""} ·{" "}
+                    {schedule.staffName} · {STAFF_SCHEDULE_LABEL[schedule.type]}
+                  </button>
+                ))}
 
-  {currentMonthStaffSchedules.length > 8 ? (
-    <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-purple-700">
-      +{currentMonthStaffSchedules.length - 8}건 더보기
-    </span>
-  ) : null}
-</div>
+                {currentMonthStaffSchedules.length > 8 ? (
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-purple-700">
+                    +{currentMonthStaffSchedules.length - 8}건 더보기
+                  </span>
+                ) : null}
+              </div>
             </div>
           ) : null}
 
@@ -1185,6 +1412,15 @@ export default function AdminCalendarPage() {
                                   {reservation.people}명 ·{" "}
                                   {getProgramLabel(reservation.program)}
                                 </p>
+
+                                <p className="mt-1 truncate text-[11px] font-black text-indigo-700">
+                                  담당{" "}
+                                  {getAssignedStaffNames(reservation).length > 0
+                                    ? getAssignedStaffNames(reservation).join(
+                                        " · ",
+                                      )
+                                    : "미배정"}
+                                </p>
                               </div>
 
                               <span
@@ -1354,6 +1590,16 @@ export default function AdminCalendarPage() {
                                   <div className="mt-0.5 truncate opacity-80">
                                     {STATUS_LABEL[reservation.status]}
                                   </div>
+
+                                  <div className="mt-1 truncate text-[10px] font-black text-indigo-700">
+                                    담당{" "}
+                                    {getAssignedStaffNames(reservation).length >
+                                    0
+                                      ? getAssignedStaffNames(reservation).join(
+                                          " · ",
+                                        )
+                                      : "미배정"}
+                                  </div>
                                 </Link>
                               );
                             })}
@@ -1368,7 +1614,7 @@ export default function AdminCalendarPage() {
           )}
         </div>
 
-        {showReservationPanel || showStaffPanel ? (
+        {!isTabletDisplay && (showReservationPanel || showStaffPanel) ? (
           <aside className="min-w-0 space-y-4 sm:space-y-6 lg:sticky lg:top-20 lg:self-start">
             {showReservationPanel ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -1397,7 +1643,10 @@ export default function AdminCalendarPage() {
                   </div>
                 ) : null}
 
-                <form onSubmit={handleAddReservation} className="mt-5 space-y-4">
+                <form
+                  onSubmit={handleAddReservation}
+                  className="mt-5 space-y-4"
+                >
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label className="text-sm font-bold text-slate-700">
@@ -1483,7 +1732,9 @@ export default function AdminCalendarPage() {
                     <input
                       type="date"
                       value={reservationDate}
-                      onChange={(event) => setReservationDate(event.target.value)}
+                      onChange={(event) =>
+                        setReservationDate(event.target.value)
+                      }
                       className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                     />
                   </div>
@@ -1499,7 +1750,7 @@ export default function AdminCalendarPage() {
                       }
                       className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                     >
-                      {RESERVATION_TIME_OPTIONS.map((time) => (
+                      {EXPERIENCE_TIME_OPTIONS.map((time) => (
                         <option key={time} value={time}>
                           {time}
                         </option>
@@ -1553,7 +1804,9 @@ export default function AdminCalendarPage() {
                     </label>
                     <textarea
                       value={reservationMemo}
-                      onChange={(event) => setReservationMemo(event.target.value)}
+                      onChange={(event) =>
+                        setReservationMemo(event.target.value)
+                      }
                       placeholder="예: 장비 준비, 강사 배정, 고객 요청사항"
                       rows={3}
                       className="mt-2 w-full resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
@@ -1612,14 +1865,27 @@ export default function AdminCalendarPage() {
                   >
                     <div>
                       <label className="text-sm font-bold text-slate-700">
-                        직원명
+                        직원
                       </label>
-                      <input
-                        value={staffName}
-                        onChange={(event) => setStaffName(event.target.value)}
-                        placeholder="예: 김강사"
-                        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                      />
+                      <select
+                        value={staffId}
+                        onChange={(event) => setStaffId(event.target.value)}
+                        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      >
+                        <option value="">직원 선택</option>
+
+                        {staffOptions.map((staff) => (
+                          <option key={staff.id} value={staff.id}>
+                            {staff.name} · {staff.roleLabel}
+                          </option>
+                        ))}
+                      </select>
+
+                      {staffOptions.length === 0 ? (
+                        <p className="mt-2 text-xs font-semibold text-amber-700">
+                          선택 가능한 활성 직원 계정이 없습니다.
+                        </p>
+                      ) : null}
                     </div>
 
                     <div>
@@ -1742,8 +2008,7 @@ export default function AdminCalendarPage() {
                       currentMonthStaffSchedules.map((schedule) => {
                         const deleting =
                           deletingStaffScheduleId === schedule.id;
-                        const editing =
-                          editingStaffScheduleId === schedule.id;
+                        const editing = editingStaffScheduleId === schedule.id;
 
                         return (
                           <div
@@ -1787,7 +2052,9 @@ export default function AdminCalendarPage() {
                             <div className="mt-3 flex gap-2">
                               <button
                                 type="button"
-                                onClick={() => handleEditStaffSchedule(schedule)}
+                                onClick={() =>
+                                  handleEditStaffSchedule(schedule)
+                                }
                                 disabled={savingStaffSchedule || deleting}
                                 className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                               >

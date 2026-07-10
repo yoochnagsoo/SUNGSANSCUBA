@@ -71,6 +71,15 @@ function normalizeReservation(item: Partial<Reservation>): Reservation {
     status: item.status ?? "PENDING",
     adminMemo: String(item.adminMemo ?? ""),
 
+    primaryStaffId: String(item.primaryStaffId ?? ""),
+    primaryStaffName: String(item.primaryStaffName ?? ""),
+    assistantStaffIds: Array.isArray(item.assistantStaffIds)
+      ? item.assistantStaffIds.map((value) => String(value))
+      : [],
+    assistantStaffNames: Array.isArray(item.assistantStaffNames)
+      ? item.assistantStaffNames.map((value) => String(value))
+      : [],
+
     paymentAmount:
       typeof item.paymentAmount === "number"
         ? item.paymentAmount
@@ -149,7 +158,7 @@ function buildFilter(options: ReservationListOptions) {
 
   if (keyword) {
     expressions.push(
-      "(contains(#name, :keyword) OR contains(#email, :keyword) OR contains(#phone, :keyword) OR contains(#program, :keyword) OR contains(#reservationDate, :keyword) OR contains(#date, :keyword) OR contains(#experienceTime, :keyword) OR contains(#paymentMethod, :keyword) OR contains(#paymentMemo, :keyword) OR contains(#source, :keyword))",
+      "(contains(#name, :keyword) OR contains(#email, :keyword) OR contains(#phone, :keyword) OR contains(#program, :keyword) OR contains(#reservationDate, :keyword) OR contains(#date, :keyword) OR contains(#experienceTime, :keyword) OR contains(#paymentMethod, :keyword) OR contains(#paymentMemo, :keyword) OR contains(#source, :keyword) OR contains(#primaryStaffName, :keyword))",
     );
 
     expressionAttributeNames["#name"] = "name";
@@ -162,6 +171,7 @@ function buildFilter(options: ReservationListOptions) {
     expressionAttributeNames["#paymentMethod"] = "paymentMethod";
     expressionAttributeNames["#paymentMemo"] = "paymentMemo";
     expressionAttributeNames["#source"] = "source";
+    expressionAttributeNames["#primaryStaffName"] = "primaryStaffName";
     expressionAttributeValues[":keyword"] = keyword;
   }
 
@@ -209,6 +219,11 @@ export const dynamoReservationRepository = {
 
       status,
       adminMemo: input.adminMemo ?? "",
+
+      primaryStaffId: input.primaryStaffId ?? "",
+      primaryStaffName: input.primaryStaffName ?? "",
+      assistantStaffIds: input.assistantStaffIds ?? [],
+      assistantStaffNames: input.assistantStaffNames ?? [],
 
       paymentAmount: status === "COMPLETED" ? input.paymentAmount : undefined,
       paymentMethod: status === "COMPLETED" ? input.paymentMethod : undefined,
@@ -336,6 +351,16 @@ export const dynamoReservationRepository = {
       status: nextStatus,
       adminMemo: input.adminMemo ?? current.adminMemo ?? "",
       experienceTime: input.experienceTime ?? current.experienceTime ?? "",
+
+      primaryStaffId:
+        input.primaryStaffId ?? current.primaryStaffId ?? "",
+      primaryStaffName:
+        input.primaryStaffName ?? current.primaryStaffName ?? "",
+      assistantStaffIds:
+        input.assistantStaffIds ?? current.assistantStaffIds ?? [],
+      assistantStaffNames:
+        input.assistantStaffNames ?? current.assistantStaffNames ?? [],
+
       updatedAt,
     });
 

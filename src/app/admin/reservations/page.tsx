@@ -1,13 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
-type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
+import {
+  includesPhoneNumber,
+  matchesSearchValues,
+  normalizePhoneNumber,
+  normalizeSearchText,
+} from "@/lib/search";
+
+type ReservationStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "CANCELLED"
+  | "COMPLETED";
+
+type ReservationSource = "CUSTOMER" | "ADMIN";
 
 type Reservation = {
   id: string;
+  source?: ReservationSource;
   name: string;
+  email?: string;
   phone: string;
   program: string;
   reservationDate: string;
@@ -34,10 +49,22 @@ const STATUS_STYLE: Record<ReservationStatus, string> = {
   COMPLETED: "bg-emerald-50 text-emerald-700 ring-emerald-200",
 };
 
+const SOURCE_LABEL: Record<ReservationSource, string> = {
+  CUSTOMER: "고객 예약",
+  ADMIN: "관리자 등록",
+};
+
+const SOURCE_STYLE: Record<ReservationSource, string> = {
+  CUSTOMER: "bg-slate-50 text-slate-700 ring-slate-200",
+  ADMIN: "bg-violet-50 text-violet-700 ring-violet-200",
+};
+
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 function formatDateTime(value?: string) {
-  if (!value) return "-";
+  if (!value) {
+    return "-";
+  }
 
   const date = new Date(value);
 
@@ -49,17 +76,53 @@ function formatDateTime(value?: string) {
 }
 
 function getCreatedAtTime(value?: string) {
-  if (!value) return 0;
+  if (!value) {
+    return 0;
+  }
 
   const time = new Date(value).getTime();
 
-  if (Number.isNaN(time)) return 0;
+  if (Number.isNaN(time)) {
+    return 0;
+  }
 
   return time;
 }
 
-function normalizePhone(phone: string) {
-  return phone.replace(/[^0-9]/g, "");
+function normalizeSource(source?: ReservationSource): ReservationSource {
+  if (source === "ADMIN") {
+    return "ADMIN";
+  }
+
+  return "CUSTOMER";
+}
+
+function getSourceSearchText(source?: ReservationSource) {
+  const normalizedSource = normalizeSource(source);
+
+  if (normalizedSource === "ADMIN") {
+    return "admin 관리자 등록 관리자등록";
+  }
+
+  return "customer 고객 예약 고객예약";
+}
+
+function getStatusSearchText(status: ReservationStatus) {
+  return `${status.toLowerCase()} ${STATUS_LABEL[status]}`;
+}
+
+function SourceBadge({ source }: { source?: ReservationSource }) {
+  const normalizedSource = normalizeSource(source);
+
+  return (
+    <span
+      className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ring-1 ${
+        SOURCE_STYLE[normalizedSource]
+      }`}
+    >
+      {SOURCE_LABEL[normalizedSource]}
+    </span>
+  );
 }
 
 export default function AdminReservationsPage() {
@@ -67,9 +130,9 @@ export default function AdminReservationsPage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [keyword, setKeyword] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | ReservationStatus>(
-    "ALL",
-  );
+  const [statusFilter, setStatusFilter] = useState<
+    "ALL" | ReservationStatus
+  >("ALL");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
@@ -86,10 +149,14 @@ export default function AdminReservationsPage() {
         const data = await res.json();
 
         if (!res.ok || !data.ok) {
-          throw new Error(data.message || "예약 목록을 불러오지 못했습니다.");
+          throw new Error(
+            data.message || "예약 목록을 불러오지 못했습니다.",
+          );
         }
 
-        setReservations(data.reservations || []);
+        setReservations(
+          Array.isArray(data.reservations) ? data.reservations : [],
+        );
       } catch (error) {
         const message =
           error instanceof Error
@@ -110,35 +177,49 @@ export default function AdminReservationsPage() {
   }, [keyword, statusFilter, pageSize]);
 
   const filteredReservations = useMemo(() => {
-    const trimmedKeyword = keyword.trim().toLowerCase();
-    const normalizedKeywordPhone = normalizePhone(trimmedKeyword);
+    const normalizedKeyword = normalizeSearchText(keyword);
+    const normalizedPhoneKeyword = normalizePhoneNumber(keyword);
 
     return reservations
       .filter((reservation) => {
-        if (statusFilter !== "ALL" && reservation.status !== statusFilter) {
+        if (
+          statusFilter !== "ALL" &&
+          reservation.status !== statusFilter
+        ) {
           return false;
         }
 
-        if (!trimmedKeyword) {
+        if (!normalizedKeyword) {
           return true;
         }
 
-        const name = reservation.name.toLowerCase();
-        const phone = reservation.phone.toLowerCase();
-        const normalizedPhone = normalizePhone(reservation.phone);
-        const program = reservation.program.toLowerCase();
-        const reservationDate = reservation.reservationDate.toLowerCase();
-
-        return (
-          name.includes(trimmedKeyword) ||
-          phone.includes(trimmedKeyword) ||
-          program.includes(trimmedKeyword) ||
-          reservationDate.includes(trimmedKeyword) ||
-          normalizedPhone.includes(normalizedKeywordPhone)
+        const matchesText = matchesSearchValues(
+          [
+            reservation.name,
+            reservation.email,
+            reservation.phone,
+            reservation.program,
+            reservation.reservationDate,
+            reservation.experienceTime,
+            reservation.message,
+            reservation.adminMemo,
+            getSourceSearchText(reservation.source),
+            getStatusSearchText(reservation.status),
+          ],
+          normalizedKeyword,
         );
+
+        const matchesPhone = includesPhoneNumber(
+          reservation.phone,
+          normalizedPhoneKeyword,
+        );
+
+        return matchesText || matchesPhone;
       })
       .sort(
-        (a, b) => getCreatedAtTime(b.createdAt) - getCreatedAtTime(a.createdAt),
+        (a, b) =>
+          getCreatedAtTime(b.createdAt) -
+          getCreatedAtTime(a.createdAt),
       );
   }, [reservations, keyword, statusFilter]);
 
@@ -157,7 +238,9 @@ export default function AdminReservationsPage() {
   }, [filteredReservations, safePage, pageSize]);
 
   const startNumber =
-    filteredReservations.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
+    filteredReservations.length === 0
+      ? 0
+      : (safePage - 1) * pageSize + 1;
 
   const endNumber = Math.min(
     safePage * pageSize,
@@ -165,9 +248,11 @@ export default function AdminReservationsPage() {
   );
 
   const totalCount = reservations.length;
+
   const pendingCount = reservations.filter(
     (item) => item.status === "PENDING",
   ).length;
+
   const confirmedCount = reservations.filter(
     (item) => item.status === "CONFIRMED",
   ).length;
@@ -180,12 +265,24 @@ export default function AdminReservationsPage() {
     setPage((prev) => Math.min(totalPages, prev + 1));
   }
 
+  function resetSearch() {
+    setKeyword("");
+    setStatusFilter("ALL");
+    setPage(1);
+  }
+
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-medium text-slate-500">관리자</p>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">예약관리</h1>
+          <p className="text-sm font-medium text-slate-500">
+            관리자
+          </p>
+
+          <h1 className="mt-1 text-2xl font-bold text-slate-900">
+            예약관리
+          </h1>
+
           <p className="mt-2 text-sm text-slate-500">
             접수일시 기준 최신 예약부터 표시됩니다.
           </p>
@@ -199,18 +296,22 @@ export default function AdminReservationsPage() {
       </div>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="grid gap-3 lg:grid-cols-[1fr_220px_160px]">
+        <div className="grid gap-3 lg:grid-cols-[1fr_220px_160px_auto]">
           <input
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
-            placeholder="이름, 연락처, 프로그램, 예약일로 검색"
+            placeholder="이름, 연락처, 이메일, 프로그램, 예약일, 시간, 상태로 검색"
             className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
           />
 
           <select
             value={statusFilter}
             onChange={(event) =>
-              setStatusFilter(event.target.value as "ALL" | ReservationStatus)
+              setStatusFilter(
+                event.target.value as
+                  | "ALL"
+                  | ReservationStatus,
+              )
             }
             className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
           >
@@ -223,7 +324,9 @@ export default function AdminReservationsPage() {
 
           <select
             value={pageSize}
-            onChange={(event) => setPageSize(Number(event.target.value))}
+            onChange={(event) =>
+              setPageSize(Number(event.target.value))
+            }
             className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
           >
             {PAGE_SIZE_OPTIONS.map((size) => (
@@ -232,15 +335,30 @@ export default function AdminReservationsPage() {
               </option>
             ))}
           </select>
+
+          <button
+            type="button"
+            onClick={resetSearch}
+            className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
+          >
+            초기화
+          </button>
         </div>
 
         <div className="mt-4 flex flex-col gap-2 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <p>
-            총 <span className="font-bold text-slate-900">{filteredReservations.length}</span>
+            총{" "}
+            <span className="font-bold text-slate-900">
+              {filteredReservations.length}
+            </span>
             건 중{" "}
-            <span className="font-bold text-slate-900">{startNumber}</span>
+            <span className="font-bold text-slate-900">
+              {startNumber}
+            </span>
             {" - "}
-            <span className="font-bold text-slate-900">{endNumber}</span>
+            <span className="font-bold text-slate-900">
+              {endNumber}
+            </span>
             건 표시
           </p>
 
@@ -265,6 +383,7 @@ export default function AdminReservationsPage() {
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
                   <tr>
+                    <th className="px-4 py-3">구분</th>
                     <th className="px-4 py-3">접수일시</th>
                     <th className="px-4 py-3">예약일</th>
                     <th className="px-4 py-3">체험시간</th>
@@ -278,7 +397,14 @@ export default function AdminReservationsPage() {
 
                 <tbody className="divide-y divide-slate-200">
                   {pagedReservations.map((reservation) => (
-                    <tr key={reservation.id} className="hover:bg-slate-50">
+                    <tr
+                      key={reservation.id}
+                      className="hover:bg-slate-50"
+                    >
+                      <td className="whitespace-nowrap px-4 py-4">
+                        <SourceBadge source={reservation.source} />
+                      </td>
+
                       <td className="whitespace-nowrap px-4 py-4 text-slate-600">
                         {formatDateTime(reservation.createdAt)}
                       </td>
@@ -295,9 +421,16 @@ export default function AdminReservationsPage() {
                         <div className="font-bold text-slate-900">
                           {reservation.name}
                         </div>
+
                         <div className="mt-1 text-xs text-slate-500">
                           {reservation.phone}
                         </div>
+
+                        {reservation.email ? (
+                          <div className="mt-1 text-xs text-slate-400">
+                            {reservation.email}
+                          </div>
+                        ) : null}
                       </td>
 
                       <td className="px-4 py-4 text-slate-700">
@@ -332,10 +465,10 @@ export default function AdminReservationsPage() {
                   {pagedReservations.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={8}
+                        colSpan={9}
                         className="px-4 py-10 text-center text-sm text-slate-500"
                       >
-                        표시할 예약이 없습니다.
+                        검색 조건에 맞는 예약이 없습니다.
                       </td>
                     </tr>
                   ) : null}
@@ -352,41 +485,66 @@ export default function AdminReservationsPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs text-slate-500">
-                        접수일시 {formatDateTime(reservation.createdAt)}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <SourceBadge source={reservation.source} />
+
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${
+                            STATUS_STYLE[reservation.status]
+                          }`}
+                        >
+                          {STATUS_LABEL[reservation.status]}
+                        </span>
+                      </div>
+
+                      <p className="mt-3 text-xs text-slate-500">
+                        접수일시{" "}
+                        {formatDateTime(reservation.createdAt)}
                       </p>
+
                       <p className="mt-1 text-lg font-bold text-slate-900">
                         {reservation.name}
                       </p>
+
                       <p className="mt-1 text-sm text-slate-500">
                         {reservation.phone}
                       </p>
-                    </div>
 
-                    <span
-                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ring-1 ${
-                        STATUS_STYLE[reservation.status]
-                      }`}
-                    >
-                      {STATUS_LABEL[reservation.status]}
-                    </span>
+                      {reservation.email ? (
+                        <p className="mt-1 break-all text-xs text-slate-400">
+                          {reservation.email}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-                    <MobileInfo label="예약일" value={reservation.reservationDate} />
+                    <MobileInfo
+                      label="예약일"
+                      value={reservation.reservationDate}
+                    />
+
                     <MobileInfo
                       label="체험시간"
                       value={reservation.experienceTime || "미정"}
                     />
-                    <MobileInfo label="프로그램" value={reservation.program} />
-                    <MobileInfo label="인원" value={`${reservation.people}명`} />
+
+                    <MobileInfo
+                      label="프로그램"
+                      value={reservation.program}
+                    />
+
+                    <MobileInfo
+                      label="인원"
+                      value={`${reservation.people}명`}
+                    />
                   </div>
                 </Link>
               ))}
 
               {pagedReservations.length === 0 ? (
                 <div className="rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500">
-                  표시할 예약이 없습니다.
+                  검색 조건에 맞는 예약이 없습니다.
                 </div>
               ) : null}
             </div>
@@ -445,20 +603,42 @@ export default function AdminReservationsPage() {
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: number }) {
+function SummaryCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
-      <p className="text-xs font-semibold text-slate-500">{label}</p>
-      <p className="mt-1 text-xl font-black text-slate-900">{value}</p>
+      <p className="text-xs font-semibold text-slate-500">
+        {label}
+      </p>
+
+      <p className="mt-1 text-xl font-black text-slate-900">
+        {value}
+      </p>
     </div>
   );
 }
 
-function MobileInfo({ label, value }: { label: string; value: string }) {
+function MobileInfo({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
   return (
     <div className="rounded-xl bg-slate-50 p-3">
-      <p className="text-xs font-semibold text-slate-500">{label}</p>
-      <p className="mt-1 font-bold text-slate-900">{value}</p>
+      <p className="text-xs font-semibold text-slate-500">
+        {label}
+      </p>
+
+      <p className="mt-1 break-words font-bold text-slate-900">
+        {value}
+      </p>
     </div>
   );
 }

@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getReservationRepository } from "@/lib/reservations/reservationRepository";
+
+import { requireAdmin } from "@/lib/adminAuth";
 import { sendEmail } from "@/lib/email/sesEmailService";
 import {
   adminReservationReceivedEmail,
   customerReservationReceivedEmail,
 } from "@/lib/email/reservationEmailTemplates";
-import type { ReservationStatus } from "@/lib/reservations/types";
+import {
+  checkRateLimit,
+  getClientIp,
+} from "@/lib/rateLimit";
+import { getReservationRepository } from "@/lib/reservations/reservationRepository";
+import type {
+  Reservation,
+  ReservationStatus,
+} from "@/lib/reservations/types";
 
 const allowedStatuses: ReservationStatus[] = [
   "PENDING",
@@ -13,6 +22,9 @@ const allowedStatuses: ReservationStatus[] = [
   "CANCELLED",
   "COMPLETED",
 ];
+
+const CUSTOMER_RESERVATION_RATE_LIMIT = 20;
+const CUSTOMER_RESERVATION_RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
 
 function isReservationStatus(value: string): value is ReservationStatus {
   return allowedStatuses.includes(value as ReservationStatus);
@@ -32,7 +44,101 @@ function parseLimit(value: string | null) {
   return Math.min(Math.max(Math.floor(parsed), 1), 100);
 }
 
+function normalizeCompareText(value: unknown) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function createRateLimitResponse(retryAfterSeconds: number) {
+  return NextResponse.json(
+    {
+      ok: false,
+      message: "예약 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
+      retryAfterSeconds,
+    },
+    {
+      status: 429,
+      headers: {
+        "Retry-After": String(retryAfterSeconds),
+      },
+    },
+  );
+}
+
+function createHoneypotSuccessResponse() {
+  return NextResponse.json(
+    {
+      ok: true,
+      reservation: null,
+    },
+    {
+      status: 201,
+    },
+  );
+}
+
+function checkCustomerReservationRateLimit(request: Request) {
+  const clientIp = getClientIp(request);
+
+  return checkRateLimit({
+    key: `customer-reservation:${clientIp}`,
+    limit: CUSTOMER_RESERVATION_RATE_LIMIT,
+    windowMs: CUSTOMER_RESERVATION_RATE_LIMIT_WINDOW_MS,
+  });
+}
+
+function isDuplicateReservation(
+  reservation: Reservation,
+  input: {
+    name: string;
+    phone: string;
+    program: string;
+    reservationDate: string;
+    people: number;
+  },
+) {
+  const reservationDate = reservation.reservationDate || reservation.date || "";
+
+  const targetStatuses: ReservationStatus[] = ["PENDING", "CONFIRMED"];
+
+  if (!targetStatuses.includes(reservation.status)) {
+    return false;
+  }
+
+  return (
+    normalizeCompareText(reservation.name) === normalizeCompareText(input.name) &&
+    normalizeCompareText(reservation.phone) === normalizeCompareText(input.phone) &&
+    normalizeCompareText(reservation.program) ===
+      normalizeCompareText(input.program) &&
+    normalizeCompareText(reservationDate) ===
+      normalizeCompareText(input.reservationDate) &&
+    Number(reservation.people) === Number(input.people)
+  );
+}
+
+async function findDuplicateReservation(input: {
+  name: string;
+  phone: string;
+  program: string;
+  reservationDate: string;
+  people: number;
+}) {
+  const repository = getReservationRepository();
+  const reservations = await repository.findAll();
+
+  return (
+    reservations.find((reservation) =>
+      isDuplicateReservation(reservation, input),
+    ) ?? null
+  );
+}
+
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin(request);
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   try {
     const repository = getReservationRepository();
     const searchParams = request.nextUrl.searchParams;
@@ -82,8 +188,28 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: Request) {
+  const rateLimit = checkCustomerReservationRateLimit(request);
+
+  if (!rateLimit.ok) {
+    return createRateLimitResponse(rateLimit.retryAfterSeconds);
+  }
+
   try {
     const body = await request.json();
+
+    const company = String(body.company ?? "").trim();
+
+    /*
+     * Honeypot check
+     *
+     * 정상 사용자는 company 필드를 보거나 입력하지 않습니다.
+     * 봇이 숨김 필드를 채운 경우 실제 저장/이메일 발송 없이 성공 응답처럼 반환합니다.
+     */
+    if (company) {
+      console.warn("[POST /api/reservations] honeypot blocked request");
+
+      return createHoneypotSuccessResponse();
+    }
 
     const name = String(body.name ?? "").trim();
     const email = String(body.email ?? "").trim();
@@ -133,9 +259,30 @@ export async function POST(request: Request) {
       );
     }
 
+    const duplicateReservation = await findDuplicateReservation({
+      name,
+      phone,
+      program,
+      reservationDate,
+      people,
+    });
+
+    if (duplicateReservation) {
+      return NextResponse.json(
+        {
+          ok: true,
+          duplicated: true,
+          message: "이미 같은 예약이 접수되어 있습니다.",
+          reservation: duplicateReservation,
+        },
+        { status: 200 },
+      );
+    }
+
     const repository = getReservationRepository();
 
     const reservation = await repository.create({
+      source: "CUSTOMER",
       name,
       email,
       phone,
@@ -189,6 +336,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: true,
+        duplicated: false,
         reservation,
       },
       { status: 201 },

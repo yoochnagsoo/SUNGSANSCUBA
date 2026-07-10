@@ -38,6 +38,7 @@ function ReservationPageContent() {
   const [reservationDate, setReservationDate] = useState("");
   const [people, setPeople] = useState(1);
   const [message, setMessage] = useState("");
+  const [company, setCompany] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -97,6 +98,17 @@ function ReservationPageContent() {
     }, 300);
   }
 
+  function clearForm() {
+    setName("");
+    setPhone("");
+    setEmail("");
+    setProgram(PROGRAM_OPTIONS[0].value);
+    setReservationDate("");
+    setPeople(1);
+    setMessage("");
+    setCompany("");
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -104,6 +116,16 @@ function ReservationPageContent() {
       setSubmitting(true);
       setSuccessMessage("");
       setErrorMessage("");
+
+      if (company.trim()) {
+        setSuccessMessage(
+          "예약이 접수되었습니다. 확인 후 예약 확정 안내를 보내드리겠습니다.",
+        );
+
+        clearForm();
+
+        return;
+      }
 
       const trimmedName = name.trim();
       const formattedPhone = formatKoreanMobilePhone(phone);
@@ -148,6 +170,7 @@ function ReservationPageContent() {
           reservationDate: trimmedReservationDate,
           people,
           message: trimmedMessage,
+          company,
         }),
       });
 
@@ -157,17 +180,18 @@ function ReservationPageContent() {
         throw new Error(data.message || "예약 접수 중 오류가 발생했습니다.");
       }
 
-      setSuccessMessage(
-        "예약이 접수되었습니다. 확인 후 예약 확정 안내를 보내드리겠습니다.",
-      );
+      if (data.duplicated) {
+        setSuccessMessage(
+          data.message ||
+            "이미 같은 예약이 접수되어 있습니다. 기존 접수 내역을 확인 후 안내드리겠습니다.",
+        );
+      } else {
+        setSuccessMessage(
+          "예약이 접수되었습니다. 확인 후 예약 확정 안내를 보내드리겠습니다.",
+        );
+      }
 
-      setName("");
-      setPhone("");
-      setEmail("");
-      setProgram(PROGRAM_OPTIONS[0].value);
-      setReservationDate("");
-      setPeople(1);
-      setMessage("");
+      clearForm();
     } catch (error) {
       const message =
         error instanceof Error
@@ -306,6 +330,22 @@ function ReservationPageContent() {
             </div>
 
             <div className="p-5 sm:p-8">
+              <div
+                className="absolute left-[-9999px] top-auto h-px w-px overflow-hidden"
+                aria-hidden="true"
+              >
+                <label htmlFor="company">회사명</label>
+                <input
+                  id="company"
+                  name="company"
+                  type="text"
+                  tabIndex={-1}
+                  autoComplete="organization"
+                  value={company}
+                  onChange={(event) => setCompany(event.target.value)}
+                />
+              </div>
+
               <div>
                 <label className="text-sm font-black text-slate-800">
                   프로그램 선택 <span className="text-red-500">*</span>

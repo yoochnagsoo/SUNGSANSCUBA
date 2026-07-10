@@ -5,8 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { PROGRAM_OPTIONS, normalizeProgramValue } from "@/lib/programs";
+import { EXPERIENCE_TIME_OPTIONS } from "@/lib/experienceTimes";
 
 type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
+type ReservationSource = "CUSTOMER" | "ADMIN";
 
 type PaymentMethod =
   | "CASH"
@@ -18,6 +20,7 @@ type PaymentMethod =
 
 type Reservation = {
   id: string;
+  source?: ReservationSource;
   name: string;
   phone: string;
   email?: string;
@@ -33,8 +36,45 @@ type Reservation = {
   paymentMethod?: PaymentMethod;
   paymentMemo?: string;
   completedAt?: string;
+  primaryStaffId?: string;
+  primaryStaffName?: string;
+  assistantStaffIds?: string[];
+  assistantStaffNames?: string[];
   createdAt?: string;
   updatedAt?: string;
+};
+
+type StaffOption = {
+  id: string;
+  name: string;
+  role: "OWNER" | "MANAGER" | "STAFF";
+  roleLabel: string;
+};
+
+type StaffOptionsResponse = {
+  ok: boolean;
+  staffOptions?: StaffOption[];
+  message?: string;
+};
+
+type StaffSchedule = {
+  id: string;
+  staffName: string;
+  type: string;
+  date: string;
+  endDate?: string;
+};
+
+type ReservationListResponse = {
+  ok: boolean;
+  reservations?: Reservation[];
+  message?: string;
+};
+
+type StaffScheduleListResponse = {
+  ok: boolean;
+  staffSchedules?: StaffSchedule[];
+  message?: string;
 };
 
 type SaveResponse = {
@@ -67,6 +107,12 @@ type SendPhotosResponse = {
   zipSize?: number;
 };
 
+type DeleteResponse = {
+  ok: boolean;
+  message?: string;
+  reservationId?: string;
+};
+
 const STATUS_LABEL: Record<ReservationStatus, string> = {
   PENDING: "접수대기",
   CONFIRMED: "예약확정",
@@ -80,6 +126,16 @@ const STATUS_OPTIONS: ReservationStatus[] = [
   "CANCELLED",
   "COMPLETED",
 ];
+
+const SOURCE_LABEL: Record<ReservationSource, string> = {
+  CUSTOMER: "고객 예약",
+  ADMIN: "관리자 등록",
+};
+
+const SOURCE_STYLE: Record<ReservationSource, string> = {
+  CUSTOMER: "bg-slate-50 text-slate-700 ring-slate-200",
+  ADMIN: "bg-violet-50 text-violet-700 ring-violet-200",
+};
 
 const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   CASH: "현금",
@@ -99,29 +155,15 @@ const PAYMENT_METHOD_OPTIONS: PaymentMethod[] = [
   "ETC",
 ];
 
-const EXPERIENCE_TIME_OPTIONS = [
-  "09:00",
-  "09:30",
-  "10:00",
-  "10:30",
-  "11:00",
-  "11:30",
-  "12:00",
-  "12:30",
-  "13:00",
-  "13:30",
-  "14:00",
-  "14:30",
-  "15:00",
-  "15:30",
-  "16:00",
-  "16:30",
-  "17:00",
-  "17:30",
-  "18:00",
-];
-
 const MAX_PHOTO_TOTAL_SIZE = 25 * 1024 * 1024;
+
+function normalizeSource(source?: ReservationSource): ReservationSource {
+  if (source === "ADMIN") {
+    return "ADMIN";
+  }
+
+  return "CUSTOMER";
+}
 
 function formatBytes(bytes: number) {
   if (bytes === 0) {
@@ -166,6 +208,13 @@ export default function AdminReservationDetailPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
   const [paymentMemo, setPaymentMemo] = useState("");
 
+  const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
+  const [primaryStaffId, setPrimaryStaffId] = useState("");
+  const [assistantStaffIds, setAssistantStaffIds] = useState<string[]>([]);
+  const [allReservations, setAllReservations] = useState<Reservation[]>([]);
+  const [staffSchedules, setStaffSchedules] = useState<StaffSchedule[]>([]);
+  const [staffLoading, setStaffLoading] = useState(true);
+
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [isPhotoDragging, setIsPhotoDragging] = useState(false);
   const [sendingPhotos, setSendingPhotos] = useState(false);
@@ -177,6 +226,7 @@ export default function AdminReservationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resending, setResending] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -184,6 +234,8 @@ export default function AdminReservationDetailPage() {
   const [emailMessageType, setEmailMessageType] = useState<
     "success" | "warning" | "error" | ""
   >("");
+
+  const normalizedSource = normalizeSource(reservation?.source);
 
   const createdAtText = useMemo(() => {
     if (!reservation?.createdAt) return "-";
@@ -225,6 +277,84 @@ export default function AdminReservationDetailPage() {
     () => photoFiles.reduce((total, file) => total + file.size, 0),
     [photoFiles],
   );
+
+  const selectedStaffIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [primaryStaffId, ...assistantStaffIds].filter(Boolean),
+        ),
+      ),
+    [assistantStaffIds, primaryStaffId],
+  );
+
+  const staffWarnings = useMemo(() => {
+    if (!reservationDate || selectedStaffIds.length === 0) {
+      return [];
+    }
+
+    const selectedNames = new Map(
+      staffOptions.map((staff) => [staff.id, staff.name]),
+    );
+
+    const warnings: string[] = [];
+
+    for (const staffId of selectedStaffIds) {
+      const staffName = selectedNames.get(staffId) || staffId;
+
+      const scheduleConflict = staffSchedules.some((schedule) => {
+        if (schedule.staffName !== staffName) {
+          return false;
+        }
+
+        const endDate = schedule.endDate || schedule.date;
+
+        return reservationDate >= schedule.date && reservationDate <= endDate;
+      });
+
+      if (scheduleConflict) {
+        warnings.push(
+          `${staffName} 직원은 선택한 예약일에 휴가/근무불가 일정이 있습니다.`,
+        );
+      }
+
+      const reservationConflict = allReservations.some((item) => {
+        if (item.id === reservationId) {
+          return false;
+        }
+
+        if (
+          item.reservationDate !== reservationDate ||
+          (item.experienceTime || "") !== (experienceTime || "")
+        ) {
+          return false;
+        }
+
+        const assignedIds = [
+          item.primaryStaffId,
+          ...(item.assistantStaffIds || []),
+        ].filter(Boolean);
+
+        return assignedIds.includes(staffId);
+      });
+
+      if (reservationConflict) {
+        warnings.push(
+          `${staffName} 직원은 같은 날짜와 시간의 다른 예약에 이미 배정되어 있습니다.`,
+        );
+      }
+    }
+
+    return warnings;
+  }, [
+    allReservations,
+    experienceTime,
+    reservationDate,
+    reservationId,
+    selectedStaffIds,
+    staffOptions,
+    staffSchedules,
+  ]);
 
   const canResendEmail =
     reservation?.status === "CONFIRMED" || reservation?.status === "CANCELLED";
@@ -280,12 +410,61 @@ export default function AdminReservationDetailPage() {
     }
   }, [reservationId]);
 
+  useEffect(() => {
+    async function fetchStaffAssignmentData() {
+      try {
+        setStaffLoading(true);
+
+        const [staffResponse, reservationsResponse, schedulesResponse] =
+          await Promise.all([
+            fetch("/api/admin/staff-options", { cache: "no-store" }),
+            fetch("/api/reservations", { cache: "no-store" }),
+            fetch("/api/staff-schedules", { cache: "no-store" }),
+          ]);
+
+        const staffData =
+          (await staffResponse.json()) as StaffOptionsResponse;
+        const reservationsData =
+          (await reservationsResponse.json()) as ReservationListResponse;
+        const schedulesData =
+          (await schedulesResponse.json()) as StaffScheduleListResponse;
+
+        if (!staffResponse.ok || !staffData.ok) {
+          throw new Error(
+            staffData.message || "직원 목록을 불러오지 못했습니다.",
+          );
+        }
+
+        setStaffOptions(staffData.staffOptions || []);
+
+        if (reservationsResponse.ok && reservationsData.ok) {
+          setAllReservations(reservationsData.reservations || []);
+        }
+
+        if (schedulesResponse.ok && schedulesData.ok) {
+          setStaffSchedules(schedulesData.staffSchedules || []);
+        }
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "직원 배정 정보를 불러오지 못했습니다.",
+        );
+      } finally {
+        setStaffLoading(false);
+      }
+    }
+
+    fetchStaffAssignmentData();
+  }, []);
+
   function applyReservationToForm(item: Reservation) {
     const nextReservationDate = item.reservationDate || item.date || "";
     const nextProgram = normalizeProgramValue(item.program);
 
     setReservation({
       ...item,
+      source: normalizeSource(item.source),
       program: nextProgram,
     });
 
@@ -299,6 +478,8 @@ export default function AdminReservationDetailPage() {
     setStatus(item.status || "PENDING");
     setAdminMemo(item.adminMemo || "");
     setExperienceTime(item.experienceTime || "");
+    setPrimaryStaffId(item.primaryStaffId || "");
+    setAssistantStaffIds(item.assistantStaffIds || []);
 
     setPaymentAmount(
       typeof item.paymentAmount === "number" ? String(item.paymentAmount) : "",
@@ -453,6 +634,8 @@ export default function AdminReservationDetailPage() {
           status,
           adminMemo,
           experienceTime: experienceTime || "",
+          primaryStaffId,
+          assistantStaffIds,
 
           paymentAmount: nextPaymentAmount,
           paymentMethod: paymentMethod || undefined,
@@ -613,6 +796,59 @@ export default function AdminReservationDetailPage() {
     }
   }
 
+  async function handleDeleteReservation() {
+    if (!reservation) {
+      return;
+    }
+
+    const firstConfirmed = window.confirm(
+      `"${reservation.name}" 예약을 삭제할까요?\n\n삭제된 예약은 복구할 수 없습니다.`,
+    );
+
+    if (!firstConfirmed) {
+      return;
+    }
+
+    const secondConfirmed = window.confirm(
+      "정말 삭제하시겠습니까?\n\n실수로 삭제하면 복구할 수 없습니다.",
+    );
+
+    if (!secondConfirmed) {
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      setErrorMessage("");
+      setSuccessMessage("");
+      setEmailMessage("");
+      setEmailMessageType("");
+      setPhotoMessage("");
+      setPhotoMessageType("");
+
+      const res = await fetch(`/api/reservations/${reservationId}`, {
+        method: "DELETE",
+      });
+
+      const data = (await res.json()) as DeleteResponse;
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.message || "예약 정보를 삭제하지 못했습니다.");
+      }
+
+      router.push("/admin/reservations");
+      router.refresh();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "예약 정보를 삭제하지 못했습니다.";
+
+      setErrorMessage(message);
+      setDeleting(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-6">
@@ -651,7 +887,10 @@ export default function AdminReservationDetailPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-medium text-slate-500">예약 상세</p>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">{name}</h1>
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900">{name}</h1>
+            <SourceBadge source={normalizedSource} />
+          </div>
         </div>
 
         <button
@@ -788,6 +1027,130 @@ export default function AdminReservationDetailPage() {
                   : "요청사항이 없습니다."}
               </div>
             </div>
+          </div>
+
+          <div className="rounded-2xl border border-indigo-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  담당 직원 배정
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  주 담당 직원 1명과 보조 직원을 여러 명 선택할 수 있습니다.
+                </p>
+              </div>
+
+              <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-700">
+                {selectedStaffIds.length}명 배정
+              </span>
+            </div>
+
+            {staffLoading ? (
+              <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
+                직원 목록을 불러오는 중입니다.
+              </div>
+            ) : (
+              <>
+                <div className="mt-5">
+                  <FormField label="주 담당 직원">
+                    <select
+                      value={primaryStaffId}
+                      onChange={(event) => {
+                        const nextPrimaryStaffId = event.target.value;
+
+                        setPrimaryStaffId(nextPrimaryStaffId);
+                        setAssistantStaffIds((current) =>
+                          current.filter((id) => id !== nextPrimaryStaffId),
+                        );
+                      }}
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                    >
+                      <option value="">담당 직원 미배정</option>
+
+                      {staffOptions.map((staff) => (
+                        <option key={staff.id} value={staff.id}>
+                          {staff.name} 
+                        </option>
+                      ))}
+                    </select>
+                  </FormField>
+                </div>
+
+                <div className="mt-5">
+                  <p className="text-sm font-bold text-slate-700">
+                    보조 직원
+                  </p>
+
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {staffOptions
+                      .filter((staff) => staff.id !== primaryStaffId)
+                      .map((staff) => {
+                        const checked = assistantStaffIds.includes(staff.id);
+
+                        return (
+                          <label
+                            key={staff.id}
+                            className={[
+                              "flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition",
+                              checked
+                                ? "border-indigo-300 bg-indigo-50"
+                                : "border-slate-200 bg-white hover:bg-slate-50",
+                            ].join(" ")}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(event) =>
+                                setAssistantStaffIds((current) =>
+                                  event.target.checked
+                                    ? [...current, staff.id]
+                                    : current.filter((id) => id !== staff.id),
+                                )
+                              }
+                              className="h-4 w-4 rounded border-slate-300"
+                            />
+
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-bold text-slate-900">
+                                {staff.name}
+                              </span>
+                              
+                            </span>
+                          </label>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                {staffWarnings.length > 0 ? (
+                  <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                    <p className="text-sm font-black text-amber-800">
+                      배정 경고
+                    </p>
+
+                    <div className="mt-2 space-y-1">
+                      {staffWarnings.map((warning) => (
+                        <p
+                          key={warning}
+                          className="text-sm font-semibold text-amber-700"
+                        >
+                          · {warning}
+                        </p>
+                      ))}
+                    </div>
+
+                    <p className="mt-3 text-xs font-medium text-amber-700">
+                      경고가 있어도 저장할 수 있으므로 실제 근무 가능 여부를
+                      확인해주세요.
+                    </p>
+                  </div>
+                ) : selectedStaffIds.length > 0 ? (
+                  <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">
+                    현재 확인된 휴가 또는 같은 시간대 중복 배정이 없습니다.
+                  </div>
+                ) : null}
+              </>
+            )}
           </div>
 
           <div className="rounded-2xl border border-cyan-200 bg-white p-5 shadow-sm">
@@ -1101,7 +1464,7 @@ export default function AdminReservationDetailPage() {
             <button
               type="button"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || deleting}
               className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               {saving ? "저장 중..." : "저장하기"}
@@ -1110,7 +1473,7 @@ export default function AdminReservationDetailPage() {
             <button
               type="button"
               onClick={handleResendEmail}
-              disabled={!canResendEmail || resending}
+              disabled={!canResendEmail || resending || deleting}
               className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {resending ? "메일 발송 중..." : resendEmailButtonText}
@@ -1121,10 +1484,41 @@ export default function AdminReservationDetailPage() {
                 메일 재발송은 예약확정 또는 취소 상태에서만 가능합니다.
               </p>
             ) : null}
+
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+              <p className="text-sm font-bold text-red-800">위험 구역</p>
+              <p className="mt-1 text-xs leading-5 text-red-700">
+                예약을 삭제하면 목록과 캘린더에서 사라지며 복구할 수 없습니다.
+                테스트 예약이나 잘못 등록된 예약만 삭제하세요.
+              </p>
+
+              <button
+                type="button"
+                onClick={handleDeleteReservation}
+                disabled={deleting || saving || resending || sendingPhotos}
+                className="mt-4 w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
+                {deleting ? "삭제 중..." : "예약 삭제"}
+              </button>
+            </div>
           </div>
         </aside>
       </div>
     </div>
+  );
+}
+
+function SourceBadge({ source }: { source?: ReservationSource }) {
+  const normalizedSource = normalizeSource(source);
+
+  return (
+    <span
+      className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ring-1 ${
+        SOURCE_STYLE[normalizedSource]
+      }`}
+    >
+      {SOURCE_LABEL[normalizedSource]}
+    </span>
   );
 }
 

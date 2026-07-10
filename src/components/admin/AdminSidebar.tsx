@@ -12,56 +12,90 @@ import {
   MessageCircle,
   Settings,
   TrendingUp,
+  UserCog,
   Users,
 } from "lucide-react";
 
-const menuItems = [
+import type { AdminRole } from "@/lib/adminAccounts";
+import {
+  canAccessAdminMenu,
+  type AdminMenuKey,
+} from "@/lib/adminPermissions";
+
+type AdminSidebarProps = {
+  adminRole: AdminRole;
+  adminName: string;
+  menuPermissions: AdminMenuKey[];
+};
+
+const menuItems: Array<{
+  key: AdminMenuKey;
+  name: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+}> = [
   {
+    key: "DASHBOARD",
     name: "Dashboard",
     href: "/admin",
     icon: LayoutDashboard,
   },
   {
+    key: "RESERVATIONS",
     name: "예약 관리",
     href: "/admin/reservations",
     icon: ClipboardList,
   },
   {
+    key: "CALENDAR",
     name: "캘린더",
     href: "/admin/calendar",
     icon: CalendarDays,
   },
   {
+    key: "CUSTOMERS",
     name: "고객 관리",
     href: "/admin/customers",
     icon: Users,
   },
   {
+    key: "VISITOR_LOGS",
     name: "방문 로그",
     href: "/admin/visitor-logs",
     icon: BarChart3,
   },
   {
+    key: "SALES",
     name: "매출 관리",
     href: "/admin/sales",
     icon: TrendingUp,
   },
   {
+    key: "GALLERY",
     name: "갤러리 관리",
     href: "/admin/gallery",
     icon: ImageIcon,
   },
   {
+    key: "REVIEWS",
     name: "리뷰 관리",
     href: "/admin/reviews",
     icon: MessageCircle,
   },
   {
+    key: "DIVE_DESTINATIONS",
     name: "다이빙 포인트 관리",
     href: "/admin/dive-destinations",
     icon: MapPin,
   },
   {
+    key: "ACCOUNTS",
+    name: "관리자 계정",
+    href: "/admin/accounts",
+    icon: UserCog,
+  },
+  {
+    key: "SETTINGS",
     name: "설정",
     href: "/admin/settings",
     icon: Settings,
@@ -73,11 +107,26 @@ function isActivePath(pathname: string, href: string) {
     return pathname === "/admin";
   }
 
-  return pathname === href || pathname.startsWith(`${href}/`);
+  return (
+    pathname === href ||
+    pathname.startsWith(`${href}/`)
+  );
 }
 
-export default function AdminSidebar() {
+export default function AdminSidebar({
+  adminRole,
+  adminName,
+  menuPermissions,
+}: AdminSidebarProps) {
   const pathname = usePathname();
+
+  const accessibleMenuItems = menuItems.filter((item) =>
+    canAccessAdminMenu(
+      adminRole,
+      menuPermissions,
+      item.key,
+    ),
+  );
 
   return (
     <aside className="fixed left-0 top-0 z-40 hidden h-dvh w-72 shrink-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">
@@ -86,15 +135,21 @@ export default function AdminSidebar() {
           <p className="truncate text-sm font-semibold text-cyan-600">
             SUNGSAN SCUBA
           </p>
-          <h1 className="truncate text-lg font-bold text-slate-900">Admin</h1>
+
+          <h1 className="truncate text-lg font-bold text-slate-900">
+            Admin
+          </h1>
         </Link>
       </div>
 
       <nav className="min-h-0 flex-1 overflow-y-auto p-4">
         <div className="space-y-1">
-          {menuItems.map((item) => {
+          {accessibleMenuItems.map((item) => {
             const Icon = item.icon;
-            const active = isActivePath(pathname, item.href);
+            const active = isActivePath(
+              pathname,
+              item.href,
+            );
 
             return (
               <Link
@@ -108,7 +163,10 @@ export default function AdminSidebar() {
                 ].join(" ")}
               >
                 <Icon className="h-5 w-5 shrink-0" />
-                <span className="min-w-0 truncate">{item.name}</span>
+
+                <span className="min-w-0 truncate">
+                  {item.name}
+                </span>
               </Link>
             );
           })}
@@ -117,9 +175,16 @@ export default function AdminSidebar() {
 
       <div className="shrink-0 border-t border-slate-200 p-4">
         <div className="rounded-2xl bg-slate-50 p-4">
-          <p className="text-xs font-semibold text-slate-500">관리자 모드</p>
+          <p className="text-xs font-semibold text-slate-500">
+            로그인 관리자
+          </p>
+
           <p className="mt-1 truncate text-sm font-bold text-slate-900">
-            SUNGSAN SCUBA Dive Center
+            {adminName}
+          </p>
+
+          <p className="mt-1 text-xs font-semibold text-cyan-700">
+            {adminRole}
           </p>
         </div>
       </div>
