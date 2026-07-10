@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BarChart3,
   CalendarDays,
   ClipboardList,
   ImageIcon,
@@ -34,6 +35,11 @@ const menuItems = [
     name: "고객 관리",
     href: "/admin/customers",
     icon: Users,
+  },
+  {
+    name: "방문 로그",
+    href: "/admin/visitor-logs",
+    icon: BarChart3,
   },
   {
     name: "매출 관리",

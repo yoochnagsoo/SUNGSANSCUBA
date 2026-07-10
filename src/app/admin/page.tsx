@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
+import VisitorSummaryCards from "@/components/admin/VisitorSummaryCards";
+
 type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
 
 type Reservation = {
@@ -85,7 +87,8 @@ function sortByDateAndExperienceTime(a: Reservation, b: Reservation) {
     return dateDiff;
   }
 
-  const timeDiff = getTimeValue(a.experienceTime) - getTimeValue(b.experienceTime);
+  const timeDiff =
+    getTimeValue(a.experienceTime) - getTimeValue(b.experienceTime);
 
   if (timeDiff !== 0) {
     return timeDiff;
@@ -95,7 +98,8 @@ function sortByDateAndExperienceTime(a: Reservation, b: Reservation) {
 }
 
 function sortTodayByExperienceTime(a: Reservation, b: Reservation) {
-  const timeDiff = getTimeValue(a.experienceTime) - getTimeValue(b.experienceTime);
+  const timeDiff =
+    getTimeValue(a.experienceTime) - getTimeValue(b.experienceTime);
 
   if (timeDiff !== 0) {
     return timeDiff;
@@ -255,6 +259,8 @@ export default function AdminDashboardPage() {
           description="취소 제외, 오늘 이후"
         />
       </section>
+
+      <VisitorSummaryCards />
 
       {loading ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">

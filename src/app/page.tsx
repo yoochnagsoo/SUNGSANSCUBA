@@ -5,7 +5,7 @@ import DiveDestinations from "@/components/home/DiveDestinations";
 import PadiCourses from "@/components/home/PadiCourses";
 import Gallery from "@/components/home/Gallery";
 import Reviews from "@/components/home/Reviews";
-import InstagramSection from "@/components/home/InstagramSection";
+
 import FAQ from "@/components/home/FAQ";
 import ReservationCTA from "@/components/home/ReservationCTA";
 import Footer from "@/components/layout/Footer";
