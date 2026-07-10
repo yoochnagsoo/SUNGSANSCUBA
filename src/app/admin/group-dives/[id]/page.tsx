@@ -175,7 +175,7 @@ const tripStatusLabels: Record<GroupDiveTripStatus, string> = {
 
 const tripStatusClasses: Record<GroupDiveTripStatus, string> = {
   SCHEDULED:
-    "border-slate-200 bg-slate-50 text-slate-700",
+    "border-slate-300 bg-slate-50 text-slate-700",
   BOARDING:
     "border-amber-200 bg-amber-50 text-amber-700",
   DEPARTED:
@@ -1737,7 +1737,7 @@ export default function AdminGroupDiveDetailPage() {
       <div className="flex min-h-[60dvh] items-center justify-center">
         <div className="text-center">
           <Loader2 className="mx-auto h-8 w-8 animate-spin text-cyan-600" />
-          <p className="mt-3 text-sm font-semibold text-slate-500">
+          <p className="mt-3 text-sm font-semibold text-slate-700">
             그룹 다이빙 정보를 불러오는 중입니다.
           </p>
         </div>
@@ -1771,7 +1771,7 @@ export default function AdminGroupDiveDetailPage() {
         <div>
           <Link
             href="/admin/group-dives"
-            className="inline-flex items-center gap-1 text-sm font-bold text-slate-500 transition hover:text-cyan-600"
+            className="inline-flex items-center gap-1 text-sm font-bold text-slate-700 transition hover:text-cyan-600"
           >
             <ArrowLeft className="h-4 w-4" />
             그룹 다이빙 목록
@@ -1797,7 +1797,7 @@ export default function AdminGroupDiveDetailPage() {
             {groupDive.groupName}
           </h1>
 
-          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-slate-500">
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-slate-700">
             <span className="inline-flex items-center gap-1.5">
               <UserRound className="h-4 w-4" />
               {groupDive.representativeName}
@@ -1858,7 +1858,7 @@ export default function AdminGroupDiveDetailPage() {
               void loadPayments();
             }}
             disabled={refreshing}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
           >
             <RefreshCw
               className={[
@@ -1894,8 +1894,8 @@ export default function AdminGroupDiveDetailPage() {
       ) : null}
 
       <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-bold text-slate-500">
+        <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">
+          <p className="text-xs font-bold text-slate-700">
             예상 인원
           </p>
           <p className="mt-2 text-2xl font-black text-slate-950">
@@ -1903,8 +1903,8 @@ export default function AdminGroupDiveDetailPage() {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-bold text-slate-500">
+        <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">
+          <p className="text-xs font-bold text-slate-700">
             등록 참가자
           </p>
           <p className="mt-2 text-2xl font-black text-slate-950">
@@ -1912,8 +1912,8 @@ export default function AdminGroupDiveDetailPage() {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-bold text-slate-500">
+        <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">
+          <p className="text-xs font-bold text-slate-700">
             등록 회차
           </p>
           <p className="mt-2 text-2xl font-black text-slate-950">
@@ -1921,8 +1921,8 @@ export default function AdminGroupDiveDetailPage() {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-bold text-slate-500">
+        <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">
+          <p className="text-xs font-bold text-slate-700">
             누적 승선
           </p>
           <p className="mt-2 text-2xl font-black text-cyan-600">
@@ -1930,8 +1930,8 @@ export default function AdminGroupDiveDetailPage() {
           </p>
         </div>
 
-        <div className="col-span-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-1">
-          <p className="text-xs font-bold text-slate-500">
+        <div className="col-span-2 rounded-2xl border border-slate-300 bg-white p-4 shadow-sm lg:col-span-1">
+          <p className="text-xs font-bold text-slate-700">
             예상 정산액
           </p>
           <p className="mt-2 text-xl font-black text-emerald-600">
@@ -1940,8 +1940,8 @@ export default function AdminGroupDiveDetailPage() {
         </div>
       </section>
 
-      <section className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <section className="mt-6 overflow-hidden rounded-3xl border border-slate-300 bg-white shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-slate-300 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-black text-slate-950">
@@ -1964,7 +1964,7 @@ export default function AdminGroupDiveDetailPage() {
               </span>
             </div>
 
-            <p className="mt-1 text-xs font-semibold text-slate-500">
+            <p className="mt-1 text-xs font-semibold text-slate-700">
               승선 인원과 참가자별 단가를 기준으로 계산합니다.
             </p>
           </div>
@@ -1988,7 +1988,7 @@ export default function AdminGroupDiveDetailPage() {
           <>
             <div className="grid grid-cols-2 gap-px bg-slate-200 sm:grid-cols-3 lg:grid-cols-6">
               <div className="bg-white p-4">
-                <p className="text-xs font-bold text-slate-500">
+                <p className="text-xs font-bold text-slate-700">
                   기본 이용금액
                 </p>
                 <p className="mt-2 text-lg font-black text-slate-950">
@@ -1999,7 +1999,7 @@ export default function AdminGroupDiveDetailPage() {
               </div>
 
               <div className="bg-white p-4">
-                <p className="text-xs font-bold text-slate-500">
+                <p className="text-xs font-bold text-slate-700">
                   추가 비용
                 </p>
                 <p className="mt-2 text-lg font-black text-amber-600">
@@ -2011,7 +2011,7 @@ export default function AdminGroupDiveDetailPage() {
               </div>
 
               <div className="bg-white p-4">
-                <p className="text-xs font-bold text-slate-500">
+                <p className="text-xs font-bold text-slate-700">
                   할인
                 </p>
                 <p className="mt-2 text-lg font-black text-blue-600">
@@ -2023,7 +2023,7 @@ export default function AdminGroupDiveDetailPage() {
               </div>
 
               <div className="bg-white p-4">
-                <p className="text-xs font-bold text-slate-500">
+                <p className="text-xs font-bold text-slate-700">
                   최종 정산금액
                 </p>
                 <p className="mt-2 text-lg font-black text-slate-950">
@@ -2034,7 +2034,7 @@ export default function AdminGroupDiveDetailPage() {
               </div>
 
               <div className="bg-white p-4">
-                <p className="text-xs font-bold text-slate-500">
+                <p className="text-xs font-bold text-slate-700">
                   결제 금액
                 </p>
                 <p className="mt-2 text-lg font-black text-emerald-600">
@@ -2045,7 +2045,7 @@ export default function AdminGroupDiveDetailPage() {
               </div>
 
               <div className="bg-white p-4">
-                <p className="text-xs font-bold text-slate-500">
+                <p className="text-xs font-bold text-slate-700">
                   미수금
                 </p>
                 <p
@@ -2063,9 +2063,9 @@ export default function AdminGroupDiveDetailPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 border-t border-slate-200 bg-slate-50 px-5 py-4 text-sm sm:grid-cols-3 sm:px-6">
+            <div className="grid gap-4 border-t border-slate-300 bg-slate-50 px-5 py-4 text-sm sm:grid-cols-3 sm:px-6">
               <div>
-                <p className="text-xs font-bold text-slate-400">
+                <p className="text-xs font-bold text-slate-600">
                   결제 방식
                 </p>
                 <p className="mt-1 font-bold text-slate-700">
@@ -2078,7 +2078,7 @@ export default function AdminGroupDiveDetailPage() {
               </div>
 
               <div>
-                <p className="text-xs font-bold text-slate-400">
+                <p className="text-xs font-bold text-slate-600">
                   정산 완료일
                 </p>
                 <p className="mt-1 font-bold text-slate-700">
@@ -2089,7 +2089,7 @@ export default function AdminGroupDiveDetailPage() {
               </div>
 
               <div>
-                <p className="text-xs font-bold text-slate-400">
+                <p className="text-xs font-bold text-slate-600">
                   정산 메모
                 </p>
                 <p className="mt-1 whitespace-pre-wrap font-semibold text-slate-600">
@@ -2106,13 +2106,13 @@ export default function AdminGroupDiveDetailPage() {
         )}
       </section>
 
-      <section className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <section className="mt-6 overflow-hidden rounded-3xl border border-slate-300 bg-white shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-slate-300 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
             <h2 className="text-lg font-black text-slate-950">
               결제 내역
             </h2>
-            <p className="mt-1 text-xs font-semibold text-slate-500">
+            <p className="mt-1 text-xs font-semibold text-slate-700">
               결제 등록과 취소 이력을 확인합니다.
             </p>
           </div>
@@ -2137,7 +2137,7 @@ export default function AdminGroupDiveDetailPage() {
             {paymentMessage}
           </div>
         ) : payments.length === 0 ? (
-          <div className="px-6 py-10 text-center text-sm font-semibold text-slate-500">
+          <div className="px-6 py-10 text-center text-sm font-semibold text-slate-700">
             등록된 결제 내역이 없습니다.
           </div>
         ) : (
@@ -2159,7 +2159,7 @@ export default function AdminGroupDiveDetailPage() {
                         className={[
                           "text-lg font-black",
                           payment.status === "CANCELLED"
-                            ? "text-slate-500 line-through"
+                            ? "text-slate-700 line-through"
                             : "text-slate-950",
                         ].join(" ")}
                       >
@@ -2185,7 +2185,7 @@ export default function AdminGroupDiveDetailPage() {
                       )}
                     </div>
 
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-slate-500">
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-slate-700">
                       <span>
                         결제일: {formatDateTime(payment.paidAt)}
                       </span>
@@ -2235,13 +2235,13 @@ export default function AdminGroupDiveDetailPage() {
       </section>
 
       <div className="mt-6 grid gap-6 2xl:grid-cols-[0.9fr_1.1fr]">
-        <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-6">
+        <section className="rounded-3xl border border-slate-300 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-300 px-5 py-4 sm:px-6">
             <div>
               <h2 className="text-lg font-black text-slate-950">
                 참가자 명단
               </h2>
-              <p className="mt-1 text-xs font-semibold text-slate-500">
+              <p className="mt-1 text-xs font-semibold text-slate-700">
                 이번 일정에 참여하는 실제 인원만 등록합니다.
               </p>
             </div>
@@ -2259,7 +2259,7 @@ export default function AdminGroupDiveDetailPage() {
 
           {groupDive.participants.length === 0 ? (
             <div className="flex min-h-64 flex-col items-center justify-center px-6 text-center">
-              <Users className="h-10 w-10 text-slate-300" />
+              <Users className="h-10 w-10 text-slate-700" />
               <p className="mt-3 text-sm font-bold text-slate-700">
                 등록된 참가자가 없습니다.
               </p>
@@ -2295,7 +2295,7 @@ export default function AdminGroupDiveDetailPage() {
                         ) : null}
                       </div>
 
-                      <p className="mt-1 text-sm font-semibold text-slate-500">
+                      <p className="mt-1 text-sm font-semibold text-slate-700">
                         {participant.phone || "연락처 없음"}
                       </p>
 
@@ -2307,7 +2307,7 @@ export default function AdminGroupDiveDetailPage() {
                       ) : null}
 
                       {participant.memo ? (
-                        <p className="mt-2 text-xs leading-5 text-slate-500">
+                        <p className="mt-2 text-xs leading-5 text-slate-700">
                           {participant.memo}
                         </p>
                       ) : null}
@@ -2323,7 +2323,7 @@ export default function AdminGroupDiveDetailPage() {
                           )
                         }
                         aria-label="참가자 수정"
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-700 hover:bg-slate-100"
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
@@ -2349,13 +2349,13 @@ export default function AdminGroupDiveDetailPage() {
           )}
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-6">
+        <section className="rounded-3xl border border-slate-300 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-300 px-5 py-4 sm:px-6">
             <div>
               <h2 className="text-lg font-black text-slate-950">
                 다이빙 회차
               </h2>
-              <p className="mt-1 text-xs font-semibold text-slate-500">
+              <p className="mt-1 text-xs font-semibold text-slate-700">
                 포인트별 승선 인원과 정산 대상을 관리합니다.
               </p>
             </div>
@@ -2373,7 +2373,7 @@ export default function AdminGroupDiveDetailPage() {
 
           {groupDive.trips.length === 0 ? (
             <div className="flex min-h-64 flex-col items-center justify-center px-6 text-center">
-              <Ship className="h-10 w-10 text-slate-300" />
+              <Ship className="h-10 w-10 text-slate-700" />
               <p className="mt-3 text-sm font-bold text-slate-700">
                 등록된 다이빙 회차가 없습니다.
               </p>
@@ -2419,13 +2419,13 @@ export default function AdminGroupDiveDetailPage() {
                         {trip.actualPointName &&
                         trip.actualPointName !==
                           trip.plannedPointName ? (
-                          <p className="mt-1 text-xs font-semibold text-slate-400">
+                          <p className="mt-1 text-xs font-semibold text-slate-600">
                             예정 포인트:{" "}
                             {trip.plannedPointName}
                           </p>
                         ) : null}
 
-                        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-slate-500">
+                        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-slate-700">
                           <span>
                             보트: {trip.boatName || "-"}
                           </span>
@@ -2449,7 +2449,7 @@ export default function AdminGroupDiveDetailPage() {
                             openTripEditForm(trip)
                           }
                           aria-label="회차 수정"
-                          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-50"
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
@@ -2480,9 +2480,9 @@ export default function AdminGroupDiveDetailPage() {
                       </div>
                     </div>
 
-                    <div className="mt-4 grid grid-cols-2 divide-x divide-slate-200 rounded-2xl border border-slate-200">
+                    <div className="mt-4 grid grid-cols-2 divide-x divide-slate-200 rounded-2xl border border-slate-300">
                       <div className="px-3 py-3 text-center">
-                        <p className="text-xs font-semibold text-slate-400">
+                        <p className="text-xs font-semibold text-slate-600">
                           배정
                         </p>
                         <p className="mt-1 font-black text-slate-900">
@@ -2491,7 +2491,7 @@ export default function AdminGroupDiveDetailPage() {
                       </div>
 
                       <div className="px-3 py-3 text-center">
-                        <p className="text-xs font-semibold text-slate-400">
+                        <p className="text-xs font-semibold text-slate-600">
                           승선 · 정산 대상
                         </p>
                         <p className="mt-1 font-black text-cyan-600">
@@ -2517,7 +2517,7 @@ export default function AdminGroupDiveDetailPage() {
           />
 
           <div className="relative z-10 max-h-[94dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-6">
+            <div className="flex items-center justify-between border-b border-slate-300 px-5 py-4 sm:px-6">
               <div>
                 <p className="text-xs font-black text-blue-600">
                   PAYMENT
@@ -2554,7 +2554,7 @@ export default function AdminGroupDiveDetailPage() {
                         amount: event.target.value,
                       }))
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none focus:border-blue-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-blue-500"
                   />
                 </label>
 
@@ -2572,7 +2572,7 @@ export default function AdminGroupDiveDetailPage() {
                             .value as GroupDivePaymentMethod,
                       }))
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 outline-none focus:border-blue-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 bg-white px-4 outline-none focus:border-blue-500"
                   >
                     {Object.entries(paymentMethodLabels).map(
                       ([value, label]) => (
@@ -2597,7 +2597,7 @@ export default function AdminGroupDiveDetailPage() {
                         paidAt: event.target.value,
                       }))
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none focus:border-blue-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-blue-500"
                   />
                 </label>
 
@@ -2614,7 +2614,7 @@ export default function AdminGroupDiveDetailPage() {
                         processedByName: event.target.value,
                       }))
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none focus:border-blue-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-blue-500"
                   />
                 </label>
 
@@ -2632,7 +2632,7 @@ export default function AdminGroupDiveDetailPage() {
                       }))
                     }
                     placeholder="예: 예약금, 잔금, 현장 카드 결제"
-                    className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
+                    className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
                   />
                 </label>
 
@@ -2643,12 +2643,12 @@ export default function AdminGroupDiveDetailPage() {
                 ) : null}
               </div>
 
-              <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
+              <div className="flex justify-end gap-2 border-t border-slate-300 bg-slate-50 px-5 py-4 sm:px-6">
                 <button
                   type="button"
                   onClick={closePaymentForm}
                   disabled={paymentSubmitting}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 disabled:opacity-50"
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 disabled:opacity-50"
                 >
                   취소
                 </button>
@@ -2681,7 +2681,7 @@ export default function AdminGroupDiveDetailPage() {
           />
 
           <div className="relative z-10 max-h-[94dvh] w-full max-w-3xl overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-6">
+            <div className="flex items-center justify-between border-b border-slate-300 px-5 py-4 sm:px-6">
               <div>
                 <p className="text-xs font-black text-emerald-600">
                   SETTLEMENT
@@ -2703,10 +2703,10 @@ export default function AdminGroupDiveDetailPage() {
 
             <form onSubmit={handleSettlementSubmit}>
               <div className="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
-                <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="sm:col-span-2 rounded-2xl border border-slate-300 bg-slate-50 p-4">
                   <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                     <div>
-                      <p className="text-xs font-bold text-slate-500">
+                      <p className="text-xs font-bold text-slate-700">
                         기본 이용금액
                       </p>
                       <p className="mt-1 font-black text-slate-950">
@@ -2717,7 +2717,7 @@ export default function AdminGroupDiveDetailPage() {
                     </div>
 
                     <div>
-                      <p className="text-xs font-bold text-slate-500">
+                      <p className="text-xs font-bold text-slate-700">
                         현재 최종 금액
                       </p>
                       <p className="mt-1 font-black text-slate-950">
@@ -2728,7 +2728,7 @@ export default function AdminGroupDiveDetailPage() {
                     </div>
 
                     <div>
-                      <p className="text-xs font-bold text-slate-500">
+                      <p className="text-xs font-bold text-slate-700">
                         현재 결제액
                       </p>
                       <p className="mt-1 font-black text-emerald-600">
@@ -2739,7 +2739,7 @@ export default function AdminGroupDiveDetailPage() {
                     </div>
 
                     <div>
-                      <p className="text-xs font-bold text-slate-500">
+                      <p className="text-xs font-bold text-slate-700">
                         현재 미수금
                       </p>
                       <p className="mt-1 font-black text-rose-600">
@@ -2771,7 +2771,7 @@ export default function AdminGroupDiveDetailPage() {
                           : previous,
                       )
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none focus:border-emerald-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-emerald-500"
                   />
                 </label>
 
@@ -2795,7 +2795,7 @@ export default function AdminGroupDiveDetailPage() {
                           : previous,
                       )
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none focus:border-emerald-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-emerald-500"
                   />
                 </label>
 
@@ -2819,7 +2819,7 @@ export default function AdminGroupDiveDetailPage() {
                           : previous,
                       )
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none focus:border-emerald-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-emerald-500"
                   />
                 </label>
 
@@ -2841,7 +2841,7 @@ export default function AdminGroupDiveDetailPage() {
                           : previous,
                       )
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 outline-none focus:border-emerald-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 bg-white px-4 outline-none focus:border-emerald-500"
                   >
                     <option value="">미설정</option>
                     {Object.entries(paymentMethodLabels).map(
@@ -2872,7 +2872,7 @@ export default function AdminGroupDiveDetailPage() {
                           : previous,
                       )
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 outline-none focus:border-emerald-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 bg-white px-4 outline-none focus:border-emerald-500"
                   >
                     {Object.entries(
                       settlementStatusLabels,
@@ -2882,7 +2882,7 @@ export default function AdminGroupDiveDetailPage() {
                       </option>
                     ))}
                   </select>
-                  <p className="mt-2 text-xs font-semibold text-slate-400">
+                  <p className="mt-2 text-xs font-semibold text-slate-600">
                     결제 금액과 최종 금액에 맞지 않는 상태는 저장되지 않습니다.
                   </p>
                 </label>
@@ -2905,7 +2905,7 @@ export default function AdminGroupDiveDetailPage() {
                       )
                     }
                     placeholder="예: 장비 대여비 포함, 대표자 계좌이체 예정"
-                    className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500"
+                    className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500"
                   />
                 </label>
 
@@ -2916,12 +2916,12 @@ export default function AdminGroupDiveDetailPage() {
                 ) : null}
               </div>
 
-              <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
+              <div className="flex justify-end gap-2 border-t border-slate-300 bg-slate-50 px-5 py-4 sm:px-6">
                 <button
                   type="button"
                   onClick={closeSettlementForm}
                   disabled={settlementSubmitting}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 disabled:opacity-50"
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 disabled:opacity-50"
                 >
                   취소
                 </button>
@@ -2954,7 +2954,7 @@ export default function AdminGroupDiveDetailPage() {
           />
 
           <div className="relative z-10 max-h-[94dvh] w-full max-w-3xl overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-6">
+            <div className="flex items-center justify-between border-b border-slate-300 px-5 py-4 sm:px-6">
               <div>
                 <p className="text-xs font-black text-cyan-600">
                   GROUP INFORMATION
@@ -2993,7 +2993,7 @@ export default function AdminGroupDiveDetailPage() {
                           : previous,
                       )
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
                   />
                 </label>
 
@@ -3015,7 +3015,7 @@ export default function AdminGroupDiveDetailPage() {
                           : previous,
                       )
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
                   />
                 </label>
 
@@ -3043,7 +3043,7 @@ export default function AdminGroupDiveDetailPage() {
                       )
                     }
                     placeholder="010-0000-0000"
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
                   />
                 </label>
 
@@ -3064,7 +3064,7 @@ export default function AdminGroupDiveDetailPage() {
                           : previous,
                       )
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none focus:border-cyan-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-cyan-500"
                   />
                 </label>
 
@@ -3086,7 +3086,7 @@ export default function AdminGroupDiveDetailPage() {
                           : previous,
                       )
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none focus:border-cyan-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-cyan-500"
                   />
                 </label>
 
@@ -3109,7 +3109,7 @@ export default function AdminGroupDiveDetailPage() {
                           : previous,
                       )
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none focus:border-cyan-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-cyan-500"
                   />
                 </label>
 
@@ -3131,7 +3131,7 @@ export default function AdminGroupDiveDetailPage() {
                           : previous,
                       )
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 outline-none focus:border-cyan-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 bg-white px-4 outline-none focus:border-cyan-500"
                   >
                     {Object.entries(groupStatusLabels).map(
                       ([value, label]) => (
@@ -3161,7 +3161,7 @@ export default function AdminGroupDiveDetailPage() {
                           : previous,
                       )
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 outline-none focus:border-cyan-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 bg-white px-4 outline-none focus:border-cyan-500"
                   >
                     <option value="GROUP">
                       팀 대표자 일괄 정산
@@ -3192,7 +3192,7 @@ export default function AdminGroupDiveDetailPage() {
                           : previous,
                       )
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none focus:border-cyan-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-cyan-500"
                   />
                 </label>
 
@@ -3213,7 +3213,7 @@ export default function AdminGroupDiveDetailPage() {
                           : previous,
                       )
                     }
-                    className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-cyan-500"
+                    className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-cyan-500"
                   />
                 </label>
 
@@ -3224,12 +3224,12 @@ export default function AdminGroupDiveDetailPage() {
                 ) : null}
               </div>
 
-              <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
+              <div className="flex justify-end gap-2 border-t border-slate-300 bg-slate-50 px-5 py-4 sm:px-6">
                 <button
                   type="button"
                   onClick={closeGroupEditForm}
                   disabled={groupSubmitting}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 disabled:opacity-50"
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 disabled:opacity-50"
                 >
                   취소
                 </button>
@@ -3262,7 +3262,7 @@ export default function AdminGroupDiveDetailPage() {
           />
 
           <div className="relative z-10 max-h-[94dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+            <div className="flex items-center justify-between border-b border-slate-300 px-5 py-4">
               <h2 className="text-xl font-black text-slate-950">
                 {editingParticipantId
                   ? "참가자 수정"
@@ -3295,7 +3295,7 @@ export default function AdminGroupDiveDetailPage() {
                         }),
                       )
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none focus:border-cyan-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-cyan-500"
                   />
                 </label>
 
@@ -3319,7 +3319,7 @@ export default function AdminGroupDiveDetailPage() {
                       )
                     }
                     placeholder="010-0000-0000"
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none focus:border-cyan-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-cyan-500"
                   />
                 </label>
 
@@ -3342,12 +3342,12 @@ export default function AdminGroupDiveDetailPage() {
                       )
                     }
                     placeholder="예: AOW"
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none focus:border-cyan-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-cyan-500"
                   />
                 </label>
 
                 <label className="flex items-end">
-                  <span className="flex h-12 w-full items-center gap-3 rounded-xl border border-slate-200 px-4">
+                  <span className="flex h-12 w-full items-center gap-3 rounded-xl border border-slate-300 px-4">
                     <input
                       type="checkbox"
                       checked={
@@ -3389,7 +3389,7 @@ export default function AdminGroupDiveDetailPage() {
                       )
                     }
                     placeholder="BCD, 호흡기, 슈트"
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 outline-none focus:border-cyan-500"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-cyan-500"
                   />
                 </label>
 
@@ -3408,7 +3408,7 @@ export default function AdminGroupDiveDetailPage() {
                         }),
                       )
                     }
-                    className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-cyan-500"
+                    className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-cyan-500"
                   />
                 </label>
 
@@ -3419,11 +3419,11 @@ export default function AdminGroupDiveDetailPage() {
                 ) : null}
               </div>
 
-              <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4">
+              <div className="flex justify-end gap-2 border-t border-slate-300 bg-slate-50 px-5 py-4">
                 <button
                   type="button"
                   onClick={closeParticipantForm}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700"
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700"
                 >
                   취소
                 </button>
@@ -3455,7 +3455,7 @@ export default function AdminGroupDiveDetailPage() {
           />
 
           <div className="relative z-10 max-h-[94dvh] w-full max-w-3xl overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+            <div className="flex items-center justify-between border-b border-slate-300 px-5 py-4">
               <h2 className="text-xl font-black text-slate-950">
                 {editingTripId
                   ? "다이빙 회차 수정"
@@ -3488,7 +3488,7 @@ export default function AdminGroupDiveDetailPage() {
                         date: event.target.value,
                       }))
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4"
                   />
                 </label>
 
@@ -3505,7 +3505,7 @@ export default function AdminGroupDiveDetailPage() {
                         startTime: event.target.value,
                       }))
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4"
                   />
                 </label>
 
@@ -3523,7 +3523,8 @@ export default function AdminGroupDiveDetailPage() {
                           event.target.value,
                       }))
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4"
+                    placeholder="예: 자라여"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 bg-white px-4 font-semibold text-slate-900 outline-none placeholder:font-medium placeholder:text-slate-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                   />
                 </label>
 
@@ -3542,7 +3543,7 @@ export default function AdminGroupDiveDetailPage() {
                       }))
                     }
                     placeholder="출항 후 변경 시 입력"
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4"
                   />
                 </label>
 
@@ -3559,7 +3560,7 @@ export default function AdminGroupDiveDetailPage() {
                         guideName: event.target.value,
                       }))
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4"
                   />
                 </label>
 
@@ -3576,7 +3577,7 @@ export default function AdminGroupDiveDetailPage() {
                           .value as GroupDiveTripStatus,
                       }))
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 bg-white px-4"
                   >
                     {Object.entries(
                       tripStatusLabels,
@@ -3604,7 +3605,7 @@ export default function AdminGroupDiveDetailPage() {
                         memo: event.target.value,
                       }))
                     }
-                    className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3"
+                    className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
                   />
                 </label>
 
@@ -3615,11 +3616,11 @@ export default function AdminGroupDiveDetailPage() {
                 ) : null}
               </div>
 
-              <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4">
+              <div className="flex justify-end gap-2 border-t border-slate-300 bg-slate-50 px-5 py-4">
                 <button
                   type="button"
                   onClick={closeTripForm}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700"
+                  className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700"
                 >
                   취소
                 </button>
@@ -3653,12 +3654,12 @@ export default function AdminGroupDiveDetailPage() {
           />
 
           <div className="relative z-10 flex max-h-[94dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
-            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-300 px-5 py-4">
               <div>
                 <h2 className="text-xl font-black text-slate-950">
                   승선 및 정산 관리
                 </h2>
-                <p className="mt-1 text-xs font-semibold text-slate-500">
+                <p className="mt-1 text-xs font-semibold text-slate-700">
                   {formatDate(boardingTrip.date)}{" "}
                   {boardingTrip.startTime} ·{" "}
                   {boardingTrip.actualPointName ||
@@ -3675,7 +3676,7 @@ export default function AdminGroupDiveDetailPage() {
               </button>
             </div>
 
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3">
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-300 bg-slate-50 px-5 py-3">
               <p className="text-sm font-bold text-slate-700">
                 승선{" "}
                 {
@@ -3694,7 +3695,7 @@ export default function AdminGroupDiveDetailPage() {
                 <button
                   type="button"
                   onClick={selectAllBoarding}
-                  className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700"
+                  className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700"
                 >
                   전체 승선
                 </button>
@@ -3702,7 +3703,7 @@ export default function AdminGroupDiveDetailPage() {
                 <button
                   type="button"
                   onClick={clearAllBoarding}
-                  className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700"
+                  className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700"
                 >
                   전체 해제
                 </button>
@@ -3711,7 +3712,7 @@ export default function AdminGroupDiveDetailPage() {
 
             <div className="min-h-0 flex-1 overflow-y-auto">
               {boardingParticipants.length === 0 ? (
-                <div className="flex min-h-64 items-center justify-center text-sm font-semibold text-slate-500">
+                <div className="flex min-h-64 items-center justify-center text-sm font-semibold text-slate-700">
                   등록된 참가자가 없습니다.
                 </div>
               ) : (
@@ -3739,7 +3740,7 @@ export default function AdminGroupDiveDetailPage() {
                               )
                             }
                             placeholder="회차 메모"
-                            className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs"
+                            className="mt-2 h-9 w-full rounded-lg border border-slate-300 px-3 text-xs"
                           />
                         </div>
 
@@ -3763,7 +3764,7 @@ export default function AdminGroupDiveDetailPage() {
 
 
                         <label>
-                          <span className="text-xs font-bold text-slate-500">
+                          <span className="text-xs font-bold text-slate-700">
                             단가
                           </span>
                           <input
@@ -3787,7 +3788,7 @@ export default function AdminGroupDiveDetailPage() {
                                 },
                               )
                             }
-                            className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                            className="mt-1 h-9 w-full rounded-lg border border-slate-300 px-3 text-sm"
                           />
                         </label>
                       </div>
@@ -3803,11 +3804,11 @@ export default function AdminGroupDiveDetailPage() {
               </div>
             ) : null}
 
-            <div className="flex shrink-0 justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4">
+            <div className="flex shrink-0 justify-end gap-2 border-t border-slate-300 bg-slate-50 px-5 py-4">
               <button
                 type="button"
                 onClick={closeBoardingForm}
-                className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700"
+                className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700"
               >
                 취소
               </button>
