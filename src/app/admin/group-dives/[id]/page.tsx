@@ -134,9 +134,7 @@ type TripFormState = {
   startTime: string;
   plannedPointName: string;
   actualPointName: string;
-  boatName: string;
   guideName: string;
-  capacity: string;
   status: GroupDiveTripStatus;
   memo: string;
 };
@@ -155,9 +153,7 @@ const initialTripForm: TripFormState = {
   startTime: "09:00",
   plannedPointName: "",
   actualPointName: "",
-  boatName: "",
   guideName: "",
-  capacity: "",
   status: "SCHEDULED",
   memo: "",
 };
@@ -989,12 +985,6 @@ export default function AdminGroupDiveDetailPage() {
     setTripForm({
       ...initialTripForm,
       date: groupDive.startDate,
-      capacity: String(
-        Math.max(
-          groupDive.expectedPeople,
-          summary.activeParticipants,
-        ),
-      ),
     });
 
     setTripMessage("");
@@ -1009,12 +999,7 @@ export default function AdminGroupDiveDetailPage() {
       startTime: trip.startTime,
       plannedPointName: trip.plannedPointName,
       actualPointName: trip.actualPointName,
-      boatName: trip.boatName,
       guideName: trip.guideName,
-      capacity:
-        trip.capacity > 0
-          ? String(trip.capacity)
-          : "",
       status: trip.status,
       memo: trip.memo,
     });
@@ -1065,20 +1050,6 @@ export default function AdminGroupDiveDetailPage() {
       return;
     }
 
-    const capacity = tripForm.capacity.trim()
-      ? Number(tripForm.capacity)
-      : 0;
-
-    if (
-      !Number.isFinite(capacity) ||
-      capacity < 0
-    ) {
-      setTripMessage(
-        "보트 정원을 올바르게 입력해주세요.",
-      );
-      return;
-    }
-
     setTripSubmitting(true);
 
     try {
@@ -1098,9 +1069,7 @@ export default function AdminGroupDiveDetailPage() {
               tripForm.plannedPointName.trim(),
             actualPointName:
               tripForm.actualPointName.trim(),
-            boatName: tripForm.boatName.trim(),
             guideName: tripForm.guideName.trim(),
-            capacity,
             status: tripForm.status,
             ...(editingTripId
               ? {}
@@ -3579,23 +3548,6 @@ export default function AdminGroupDiveDetailPage() {
 
                 <label>
                   <span className="text-sm font-bold text-slate-700">
-                    보트명
-                  </span>
-                  <input
-                    type="text"
-                    value={tripForm.boatName}
-                    onChange={(event) =>
-                      setTripForm((previous) => ({
-                        ...previous,
-                        boatName: event.target.value,
-                      }))
-                    }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4"
-                  />
-                </label>
-
-                <label>
-                  <span className="text-sm font-bold text-slate-700">
                     가이드
                   </span>
                   <input
@@ -3605,24 +3557,6 @@ export default function AdminGroupDiveDetailPage() {
                       setTripForm((previous) => ({
                         ...previous,
                         guideName: event.target.value,
-                      }))
-                    }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4"
-                  />
-                </label>
-
-                <label>
-                  <span className="text-sm font-bold text-slate-700">
-                    보트 정원
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={tripForm.capacity}
-                    onChange={(event) =>
-                      setTripForm((previous) => ({
-                        ...previous,
-                        capacity: event.target.value,
                       }))
                     }
                     className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4"
