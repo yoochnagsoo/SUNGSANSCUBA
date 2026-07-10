@@ -15,9 +15,7 @@ function normalizeText(value: unknown) {
 }
 
 function getBoardedCount(trip: GroupDiveTrip) {
-  return trip.participants.filter(
-    (participant) => participant.boarded,
-  ).length;
+  return trip.participants.filter((participant) => participant.boarded).length;
 }
 
 function sortTrips(trips: GroupDiveTrip[]) {
@@ -34,32 +32,21 @@ function sortTrips(trips: GroupDiveTrip[]) {
   });
 }
 
-export async function POST(
-  request: NextRequest,
-  context: RouteContext,
-) {
+export async function POST(request: NextRequest, context: RouteContext) {
   try {
-    const { id: boatScheduleId } =
-      await context.params;
+    const { id: boatScheduleId } = await context.params;
 
-    const body = (await request.json()) as Record<
-      string,
-      unknown
-    >;
+    const body = (await request.json()) as Record<string, unknown>;
 
     const groupDiveId = normalizeText(body.groupDiveId);
     const tripId = normalizeText(body.tripId);
-    const action =
-      body.action === "UNASSIGN"
-        ? "UNASSIGN"
-        : "ASSIGN";
+    const action = body.action === "UNASSIGN" ? "UNASSIGN" : "ASSIGN";
 
     if (!groupDiveId || !tripId) {
       return NextResponse.json(
         {
           ok: false,
-          message:
-            "그룹 다이빙과 다이빙 회차 정보가 필요합니다.",
+          message: "그룹 다이빙과 다이빙 회차 정보가 필요합니다.",
         },
         {
           status: 400,
@@ -67,11 +54,9 @@ export async function POST(
       );
     }
 
-    const groupDiveRepository =
-      getGroupDiveRepository();
+    const groupDiveRepository = getGroupDiveRepository();
 
-    const groupDive =
-      await groupDiveRepository.findById(groupDiveId);
+    const groupDive = await groupDiveRepository.findById(groupDiveId);
 
     if (!groupDive) {
       return NextResponse.json(
@@ -85,9 +70,7 @@ export async function POST(
       );
     }
 
-    const tripIndex = groupDive.trips.findIndex(
-      (trip) => trip.id === tripId,
-    );
+    const tripIndex = groupDive.trips.findIndex((trip) => trip.id === tripId);
 
     if (tripIndex === -1) {
       return NextResponse.json(
@@ -113,13 +96,9 @@ export async function POST(
       const trips = [...groupDive.trips];
       trips[tripIndex] = updatedTrip;
 
-      const updatedGroupDive =
-        await groupDiveRepository.update(
-          groupDive.id,
-          {
-            trips: sortTrips(trips),
-          },
-        );
+      const updatedGroupDive = await groupDiveRepository.update(groupDive.id, {
+        trips: sortTrips(trips),
+      });
 
       return NextResponse.json({
         ok: true,
@@ -128,13 +107,9 @@ export async function POST(
       });
     }
 
-    const boatScheduleRepository =
-      getBoatScheduleRepository();
+    const boatScheduleRepository = getBoatScheduleRepository();
 
-    const boatSchedule =
-      await boatScheduleRepository.findById(
-        boatScheduleId,
-      );
+    const boatSchedule = await boatScheduleRepository.findById(boatScheduleId);
 
     if (!boatSchedule) {
       return NextResponse.json(
@@ -156,8 +131,7 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
-          message:
-            "취소 또는 완료된 보트 운항에는 회차를 배정할 수 없습니다.",
+          message: "취소 또는 완료된 보트 운항에는 회차를 배정할 수 없습니다.",
         },
         {
           status: 409,
@@ -169,8 +143,7 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
-          message:
-            "다이빙 회차 날짜와 보트 운항 날짜가 다릅니다.",
+          message: "다이빙 회차 날짜와 보트 운항 날짜가 다릅니다.",
         },
         {
           status: 400,
@@ -186,8 +159,7 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
-          message:
-            "취소 또는 완료된 다이빙 회차는 배정할 수 없습니다.",
+          message: "취소 또는 완료된 다이빙 회차는 배정할 수 없습니다.",
         },
         {
           status: 409,
@@ -195,32 +167,46 @@ export async function POST(
       );
     }
 
-    const allGroupDives =
-      await groupDiveRepository.findAll();
+    const allGroupDives = await groupDiveRepository.findAll();
 
-    const currentlyAssignedPeople =
-      allGroupDives.reduce(
-        (total, currentGroupDive) =>
-          total +
-          currentGroupDive.trips.reduce(
-            (tripTotal, trip) => {
-              if (
-                trip.boatScheduleId !== boatScheduleId ||
-                (currentGroupDive.id === groupDiveId &&
-                  trip.id === tripId)
-              ) {
-                return tripTotal;
-              }
+    /*
+     * 같은 펀다이빙 그룹의 다른 회차를 동일한 보트 출항 슬롯에
+     * 중복 배정할 수 없습니다. 한 팀이 같은 시간에 두 번 다이빙하는
+     * 상황을 서버에서 확실하게 차단합니다.
+     */
+    const sameGroupTripInSchedule = groupDive.trips.find(
+      (trip) => trip.id !== tripId && trip.boatScheduleId === boatScheduleId,
+    );
 
-              return tripTotal + getBoardedCount(trip);
-            },
-            0,
-          ),
-        0,
+    if (sameGroupTripInSchedule) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: `${groupDive.groupName}의 다른 다이빙 회차가 이미 ${boatSchedule.departureTime} 출항에 배정되어 있습니다. 같은 그룹의 여러 회차는 동일한 출항 시간에 배정할 수 없습니다.`,
+        },
+        {
+          status: 409,
+        },
       );
+    }
 
-    const assigningPeople =
-      getBoardedCount(previousTrip);
+    const currentlyAssignedPeople = allGroupDives.reduce(
+      (total, currentGroupDive) =>
+        total +
+        currentGroupDive.trips.reduce((tripTotal, trip) => {
+          if (
+            trip.boatScheduleId !== boatScheduleId ||
+            (currentGroupDive.id === groupDiveId && trip.id === tripId)
+          ) {
+            return tripTotal;
+          }
+
+          return tripTotal + getBoardedCount(trip);
+        }, 0),
+      0,
+    );
+
+    const assigningPeople = getBoardedCount(previousTrip);
 
     if (
       currentlyAssignedPeople + assigningPeople >
@@ -253,36 +239,27 @@ export async function POST(
     const trips = [...groupDive.trips];
     trips[tripIndex] = updatedTrip;
 
-    const updatedGroupDive =
-      await groupDiveRepository.update(
-        groupDive.id,
-        {
-          trips: sortTrips(trips),
-        },
-      );
+    const updatedGroupDive = await groupDiveRepository.update(groupDive.id, {
+      trips: sortTrips(trips),
+    });
 
     return NextResponse.json({
       ok: true,
       trip: updatedTrip,
       groupDive: updatedGroupDive,
-      assignedPeople:
-        currentlyAssignedPeople + assigningPeople,
+      assignedPeople: currentlyAssignedPeople + assigningPeople,
       remainingSeats:
         boatSchedule.passengerCapacity -
         currentlyAssignedPeople -
         assigningPeople,
     });
   } catch (error) {
-    console.error(
-      "Failed to assign group dive trip:",
-      error,
-    );
+    console.error("Failed to assign group dive trip:", error);
 
     return NextResponse.json(
       {
         ok: false,
-        message:
-          "다이빙 회차를 보트 운항에 배정하는 중 오류가 발생했습니다.",
+        message: "다이빙 회차를 보트 운항에 배정하는 중 오류가 발생했습니다.",
       },
       {
         status: 500,
