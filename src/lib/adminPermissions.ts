@@ -3,6 +3,7 @@ import type { AdminRole } from "@/lib/adminAccounts";
 export type AdminMenuKey =
   | "DASHBOARD"
   | "RESERVATIONS"
+  | "GROUP_DIVES"
   | "CALENDAR"
   | "CUSTOMERS"
   | "VISITOR_LOGS"
@@ -34,6 +35,14 @@ export const ADMIN_MENU_DEFINITIONS: AdminMenuDefinition[] = [
     name: "예약 관리",
     href: "/admin/reservations",
     description: "예약 목록을 조회하고 예약 상태를 관리합니다.",
+    assignable: true,
+  },
+  {
+    key: "GROUP_DIVES",
+    name: "그룹 다이빙",
+    href: "/admin/group-dives",
+    description:
+      "펀다이빙 팀의 참가자, 출항 회차, 승선 인원과 정산 내역을 관리합니다.",
     assignable: true,
   },
   {
@@ -112,6 +121,7 @@ export const ASSIGNABLE_ADMIN_MENU_KEYS: AdminMenuKey[] =
 const MANAGER_DEFAULT_MENU_KEYS: AdminMenuKey[] = [
   "DASHBOARD",
   "RESERVATIONS",
+  "GROUP_DIVES",
   "CALENDAR",
   "CUSTOMERS",
   "VISITOR_LOGS",

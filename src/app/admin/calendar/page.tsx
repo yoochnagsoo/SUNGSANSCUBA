@@ -38,6 +38,58 @@ type Reservation = {
   updatedAt?: string;
 };
 
+type GroupDiveTripStatus =
+  | "SCHEDULED"
+  | "BOARDING"
+  | "DEPARTED"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "WEATHER_CANCELLED";
+
+type GroupDiveTripParticipant = {
+  participantId: string;
+  participantName: string;
+  boarded: boolean;
+};
+
+type GroupDiveTrip = {
+  id: string;
+  groupDiveId: string;
+  date: string;
+  startTime: string;
+  plannedPointName: string;
+  actualPointName: string;
+  boatName: string;
+  guideName: string;
+  capacity: number;
+  status: GroupDiveTripStatus;
+  participants: GroupDiveTripParticipant[];
+  memo: string;
+};
+
+type GroupDive = {
+  id: string;
+  groupName: string;
+  representativeName: string;
+  representativePhone: string;
+  startDate: string;
+  endDate: string;
+  expectedPeople: number;
+  status: "ACTIVE" | "COMPLETED" | "CANCELLED";
+  trips: GroupDiveTrip[];
+};
+
+type GroupDiveListResponse = {
+  ok: boolean;
+  groupDives?: GroupDive[];
+  message?: string;
+};
+
+type CalendarGroupDiveTrip = GroupDiveTrip & {
+  groupName: string;
+  groupStatus: GroupDive["status"];
+};
+
 type StaffScheduleType =
   | "VACATION"
   | "HALF_DAY_AM"
@@ -125,6 +177,24 @@ const SOURCE_LABEL: Record<NonNullable<Reservation["source"]>, string> = {
 const SOURCE_STYLE: Record<NonNullable<Reservation["source"]>, string> = {
   CUSTOMER: "bg-slate-100 text-slate-600",
   ADMIN: "bg-blue-100 text-blue-700",
+};
+
+const GROUP_DIVE_TRIP_STATUS_LABEL: Record<GroupDiveTripStatus, string> = {
+  SCHEDULED: "예정",
+  BOARDING: "승선 중",
+  DEPARTED: "출항",
+  COMPLETED: "완료",
+  CANCELLED: "취소",
+  WEATHER_CANCELLED: "기상 취소",
+};
+
+const GROUP_DIVE_TRIP_STYLE: Record<GroupDiveTripStatus, string> = {
+  SCHEDULED: "border-cyan-200 bg-cyan-50 text-cyan-800",
+  BOARDING: "border-amber-200 bg-amber-50 text-amber-800",
+  DEPARTED: "border-blue-200 bg-blue-50 text-blue-800",
+  COMPLETED: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  CANCELLED: "border-rose-200 bg-rose-50 text-rose-800",
+  WEATHER_CANCELLED: "border-violet-200 bg-violet-50 text-violet-800",
 };
 
 const STAFF_SCHEDULE_LABEL: Record<StaffScheduleType, string> = {
@@ -247,6 +317,130 @@ function getDateRange(startDate: string, endDate?: string) {
   return dates;
 }
 
+type ReservationCalendarGroup = {
+  key: string;
+  time: string;
+  program: string;
+  programLabel: string;
+  reservations: Reservation[];
+  totalPeople: number;
+};
+
+type CalendarTimedItem =
+  | {
+      kind: "RESERVATION_GROUP";
+      time: string;
+      group: ReservationCalendarGroup;
+    }
+  | {
+      kind: "GROUP_DIVE";
+      time: string;
+      trip: CalendarGroupDiveTrip;
+    };
+
+function groupReservationsByTimeAndProgram(
+  reservations: Reservation[],
+): ReservationCalendarGroup[] {
+  const groupMap = new Map<string, ReservationCalendarGroup>();
+
+  for (const reservation of sortReservationsByTime(reservations)) {
+    const time = reservation.experienceTime || "";
+    const normalizedProgram = normalizeProgramValue(reservation.program) || reservation.program;
+    const key = `${time}__${normalizedProgram}`;
+    const existing = groupMap.get(key);
+
+    if (existing) {
+      existing.reservations.push(reservation);
+      existing.totalPeople += Number(reservation.people || 0);
+      continue;
+    }
+
+    groupMap.set(key, {
+      key,
+      time,
+      program: normalizedProgram,
+      programLabel: getProgramLabel(normalizedProgram),
+      reservations: [reservation],
+      totalPeople: Number(reservation.people || 0),
+    });
+  }
+
+  return Array.from(groupMap.values()).sort((a, b) => {
+    const timeDiff = getTimeValue(a.time) - getTimeValue(b.time);
+
+    if (timeDiff !== 0) {
+      return timeDiff;
+    }
+
+    return a.programLabel.localeCompare(b.programLabel);
+  });
+}
+
+function getReservationGroupStatusCounts(group: ReservationCalendarGroup) {
+  return group.reservations.reduce<Record<ReservationStatus, number>>(
+    (counts, reservation) => {
+      counts[reservation.status] += 1;
+      return counts;
+    },
+    {
+      PENDING: 0,
+      CONFIRMED: 0,
+      CANCELLED: 0,
+      COMPLETED: 0,
+    },
+  );
+}
+
+function getReservationGroupStyle(group: ReservationCalendarGroup) {
+  const statuses = Array.from(
+    new Set(group.reservations.map((reservation) => reservation.status)),
+  );
+
+  if (statuses.length === 1) {
+    return STATUS_STYLE[statuses[0]];
+  }
+
+  return "border-slate-300 bg-slate-50 text-slate-800";
+}
+
+function sortCalendarTimedItems(items: CalendarTimedItem[]) {
+  return [...items].sort((a, b) => {
+    const timeDiff = getTimeValue(a.time) - getTimeValue(b.time);
+
+    if (timeDiff !== 0) {
+      return timeDiff;
+    }
+
+    if (a.kind !== b.kind) {
+      return a.kind === "GROUP_DIVE" ? -1 : 1;
+    }
+
+    const labelA =
+      a.kind === "RESERVATION_GROUP"
+        ? a.group.programLabel
+        : a.trip.groupName;
+
+    const labelB =
+      b.kind === "RESERVATION_GROUP"
+        ? b.group.programLabel
+        : b.trip.groupName;
+
+    return labelA.localeCompare(labelB);
+  });
+}
+
+function sortGroupDiveTrips(items: CalendarGroupDiveTrip[]) {
+  return [...items].sort((a, b) => {
+    const timeDiff = getTimeValue(a.startTime) - getTimeValue(b.startTime);
+
+    if (timeDiff !== 0) {
+      return timeDiff;
+    }
+
+    return a.groupName.localeCompare(b.groupName);
+  });
+}
+
 function sortStaffSchedules(items: StaffSchedule[]) {
   return [...items].sort((a, b) => {
     const dateDiff = a.date.localeCompare(b.date);
@@ -290,6 +484,7 @@ export default function AdminCalendarPage() {
   const isTabletDisplay = searchParams.get("display") === "tablet";
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [groupDives, setGroupDives] = useState<GroupDive[]>([]);
   const [staffSchedules, setStaffSchedules] = useState<StaffSchedule[]>([]);
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
 
@@ -299,6 +494,7 @@ export default function AdminCalendarPage() {
   );
 
   const [loading, setLoading] = useState(true);
+  const [groupDiveLoading, setGroupDiveLoading] = useState(true);
   const [staffLoading, setStaffLoading] = useState(true);
   const [savingStaffSchedule, setSavingStaffSchedule] = useState(false);
   const [savingReservation, setSavingReservation] = useState(false);
@@ -438,6 +634,34 @@ export default function AdminCalendarPage() {
     return map;
   }, [filteredReservations]);
 
+  const groupDiveTripsByDate = useMemo(() => {
+    const map = new Map<string, CalendarGroupDiveTrip[]>();
+
+    for (const groupDive of groupDives) {
+      for (const trip of groupDive.trips || []) {
+        if (!trip.date) {
+          continue;
+        }
+
+        if (!map.has(trip.date)) {
+          map.set(trip.date, []);
+        }
+
+        map.get(trip.date)?.push({
+          ...trip,
+          groupName: groupDive.groupName,
+          groupStatus: groupDive.status,
+        });
+      }
+    }
+
+    for (const [dateKey, items] of map.entries()) {
+      map.set(dateKey, sortGroupDiveTrips(items));
+    }
+
+    return map;
+  }, [groupDives]);
+
   const staffSchedulesByDate = useMemo(() => {
     const map = new Map<string, StaffSchedule[]>();
 
@@ -475,6 +699,31 @@ export default function AdminCalendarPage() {
   const selectedReservations = useMemo(() => {
     return reservationsByDate.get(selectedDateKey) || [];
   }, [reservationsByDate, selectedDateKey]);
+
+  const selectedGroupDiveTrips = useMemo(() => {
+    return groupDiveTripsByDate.get(selectedDateKey) || [];
+  }, [groupDiveTripsByDate, selectedDateKey]);
+
+  const selectedTimedItems = useMemo(() => {
+    const reservationGroups = groupReservationsByTimeAndProgram(
+      selectedReservations,
+    );
+
+    const items: CalendarTimedItem[] = [
+      ...reservationGroups.map((group) => ({
+        kind: "RESERVATION_GROUP" as const,
+        time: group.time,
+        group,
+      })),
+      ...selectedGroupDiveTrips.map((trip) => ({
+        kind: "GROUP_DIVE" as const,
+        time: trip.startTime || "",
+        trip,
+      })),
+    ];
+
+    return sortCalendarTimedItems(items);
+  }, [selectedGroupDiveTrips, selectedReservations]);
 
   const selectedStaffSchedules = useMemo(() => {
     return staffSchedulesByDate.get(selectedDateKey) || [];
@@ -517,6 +766,36 @@ export default function AdminCalendarPage() {
       setErrorMessage(message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchGroupDives() {
+    try {
+      setGroupDiveLoading(true);
+      setErrorMessage("");
+
+      const res = await fetch("/api/admin/group-dives", {
+        cache: "no-store",
+      });
+
+      const data = (await res.json()) as GroupDiveListResponse;
+
+      if (!res.ok || !data.ok) {
+        throw new Error(
+          data.message || "그룹 다이빙 일정을 불러오지 못했습니다.",
+        );
+      }
+
+      setGroupDives(data.groupDives || []);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "그룹 다이빙 일정을 불러오지 못했습니다.";
+
+      setErrorMessage(message);
+    } finally {
+      setGroupDiveLoading(false);
     }
   }
 
@@ -579,6 +858,7 @@ export default function AdminCalendarPage() {
     try {
       await Promise.all([
         fetchReservations(),
+        fetchGroupDives(),
         fetchStaffOptions(),
         fetchStaffSchedules(),
       ]);
@@ -992,7 +1272,7 @@ export default function AdminCalendarPage() {
             예약 캘린더
           </h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            고객 예약과 관리자가 직접 등록한 예약, 직원 휴가/근무불가 일정을
+            고객 예약, 그룹 다이빙 회차, 직원 휴가/근무불가 일정을
             함께 확인합니다.
           </p>
         </div>
@@ -1175,6 +1455,10 @@ export default function AdminCalendarPage() {
                 관리자 등록
               </div>
 
+              <div className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-800">
+                그룹 다이빙
+              </div>
+
               <div className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-bold text-purple-800">
                 직원 일정
               </div>
@@ -1236,7 +1520,7 @@ export default function AdminCalendarPage() {
             </div>
           ) : null}
 
-          {loading || staffLoading ? (
+          {loading || groupDiveLoading || staffLoading ? (
             <div className="mt-5 rounded-2xl bg-slate-50 p-6 text-sm text-slate-500">
               예약 캘린더를 불러오는 중입니다.
             </div>
@@ -1265,10 +1549,13 @@ export default function AdminCalendarPage() {
                     {calendarDays.map((day) => {
                       const dayReservations =
                         reservationsByDate.get(day.dateKey) || [];
+                      const dayGroupDiveTrips =
+                        groupDiveTripsByDate.get(day.dateKey) || [];
                       const dayStaffSchedules =
                         staffSchedulesByDate.get(day.dateKey) || [];
                       const selected = selectedDateKey === day.dateKey;
                       const hasReservation = dayReservations.length > 0;
+                      const hasGroupDive = dayGroupDiveTrips.length > 0;
                       const hasStaffSchedule = dayStaffSchedules.length > 0;
 
                       return (
@@ -1310,6 +1597,12 @@ export default function AdminCalendarPage() {
                                 </span>
                               ) : null}
 
+                              {hasGroupDive ? (
+                                <span className="rounded-full bg-cyan-100 px-1.5 py-0.5 text-[9px] font-black text-cyan-700">
+                                  G{dayGroupDiveTrips.length}
+                                </span>
+                              ) : null}
+
                               {hasStaffSchedule ? (
                                 <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-[9px] font-black text-purple-700">
                                   휴
@@ -1330,7 +1623,8 @@ export default function AdminCalendarPage() {
                         {getKoreanDateLabel(selectedDateKey)}
                       </p>
                       <p className="mt-1 text-xs font-semibold text-slate-500">
-                        예약 {selectedReservations.length}건 · 직원 일정{" "}
+                        예약 {selectedReservations.length}건 · 그룹 다이빙{" "}
+                        {selectedGroupDiveTrips.length}건 · 직원 일정{" "}
                         {selectedStaffSchedules.length}건
                       </p>
                     </div>
@@ -1353,103 +1647,133 @@ export default function AdminCalendarPage() {
                     </div>
                   </div>
 
-                  {selectedStaffSchedules.length > 0 ? (
+                  {selectedTimedItems.length > 0 ? (
                     <div className="mt-4 space-y-2">
-                      <p className="text-xs font-black text-purple-700">
-                        직원 일정
+                      <p className="text-xs font-black text-slate-700">
+                        시간순 일정
                       </p>
 
-                      {selectedStaffSchedules.map((schedule) => (
-                        <div
-                          key={`${selectedDateKey}-${schedule.id}`}
-                          className={`rounded-xl border px-3 py-2 text-xs font-bold ${
-                            STAFF_SCHEDULE_STYLE[schedule.type]
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="truncate">
-                              {schedule.staffName}
-                            </span>
-                            <span className="shrink-0">
-                              {STAFF_SCHEDULE_LABEL[schedule.type]}
-                            </span>
-                          </div>
+                      {selectedTimedItems.map((item) => {
+                        if (item.kind === "GROUP_DIVE") {
+                          const trip = item.trip;
+                          const boardedCount = trip.participants.filter(
+                            (participant) => participant.boarded,
+                          ).length;
 
-                          {schedule.memo ? (
-                            <p className="mt-1 truncate font-medium opacity-80">
-                              {schedule.memo}
-                            </p>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
+                          return (
+                            <Link
+                              key={`group-${trip.id}`}
+                              href={`/admin/group-dives/${trip.groupDiveId}`}
+                              className={`block rounded-xl border px-3 py-3 text-xs font-semibold ${
+                                GROUP_DIVE_TRIP_STYLE[trip.status]
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-black">
+                                    {trip.startTime || "시간 미정"} · {trip.groupName}
+                                  </p>
+                                  <p className="mt-1 truncate opacity-80">
+                                    {trip.actualPointName ||
+                                      trip.plannedPointName ||
+                                      "포인트 미정"}
+                                  </p>
+                                </div>
 
-                  {selectedReservations.length > 0 ? (
-                    <div className="mt-4 space-y-2">
-                      <p className="text-xs font-black text-blue-700">
-                        예약 목록
-                      </p>
+                                <span className="shrink-0 rounded-full bg-white/70 px-2 py-1 text-[10px] font-black">
+                                  그룹 다이빙
+                                </span>
+                              </div>
 
-                      {selectedReservations.map((reservation) => {
-                        const source = reservation.source || "CUSTOMER";
+                              <p className="mt-2 text-[11px] font-bold opacity-80">
+                                승선 {boardedCount}명 ·{" "}
+                                {GROUP_DIVE_TRIP_STATUS_LABEL[trip.status]}
+                                {trip.boatName ? ` · ${trip.boatName}` : ""}
+                              </p>
+                            </Link>
+                          );
+                        }
+
+                        const group = item.group;
+                        const statusCounts =
+                          getReservationGroupStatusCounts(group);
 
                         return (
-                          <Link
-                            key={reservation.id}
-                            href={`/admin/reservations/${reservation.id}`}
-                            className={`block rounded-xl border px-3 py-3 text-xs font-semibold ${
-                              STATUS_STYLE[reservation.status]
-                            }`}
+                          <div
+                            key={`reservation-group-${group.key}`}
+                            className={`rounded-xl border px-3 py-3 text-xs font-semibold ${getReservationGroupStyle(
+                              group,
+                            )}`}
                           >
-                            <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
-                                <p className="truncate text-sm font-black">
-                                  {reservation.experienceTime || "미정"} ·{" "}
-                                  {reservation.name}
+                                <p className="text-sm font-black">
+                                  {group.time || "미정"} · {group.programLabel}
                                 </p>
-                                <p className="mt-1 truncate opacity-80">
-                                  {reservation.people}명 ·{" "}
-                                  {getProgramLabel(reservation.program)}
-                                </p>
-
-                                <p className="mt-1 truncate text-[11px] font-black text-indigo-700">
-                                  담당{" "}
-                                  {getAssignedStaffNames(reservation).length > 0
-                                    ? getAssignedStaffNames(reservation).join(
-                                        " · ",
-                                      )
-                                    : "미배정"}
+                                <p className="mt-1 font-bold opacity-80">
+                                  예약 {group.reservations.length}건 · 총 {group.totalPeople}명
                                 </p>
                               </div>
 
-                              <span
-                                className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black ${SOURCE_STYLE[source]}`}
-                              >
-                                {SOURCE_LABEL[source]}
+                              <span className="shrink-0 rounded-full bg-white/80 px-2 py-1 text-[10px] font-black">
+                                프로그램별 묶음
                               </span>
                             </div>
 
-                            <div className="mt-2 flex items-center gap-1">
-                              <span
-                                className={`h-2 w-2 rounded-full ${
-                                  STATUS_DOT_STYLE[reservation.status]
-                                }`}
-                              />
-                              <span className="text-[11px] font-bold opacity-80">
-                                {STATUS_LABEL[reservation.status]}
-                              </span>
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {(Object.keys(STATUS_LABEL) as ReservationStatus[])
+                                .filter((status) => statusCounts[status] > 0)
+                                .map((status) => (
+                                  <span
+                                    key={status}
+                                    className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${STATUS_STYLE[status]}`}
+                                  >
+                                    {STATUS_LABEL[status]} {statusCounts[status]}
+                                  </span>
+                                ))}
                             </div>
-                          </Link>
+
+                            <div className="mt-3 space-y-1.5 border-t border-current/10 pt-3">
+                              {group.reservations.map((reservation) => {
+                                const source = reservation.source || "CUSTOMER";
+
+                                return (
+                                  <Link
+                                    key={reservation.id}
+                                    href={`/admin/reservations/${reservation.id}`}
+                                    className="flex items-center justify-between gap-2 rounded-lg bg-white/70 px-3 py-2 transition hover:bg-white"
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="truncate font-black">
+                                        {reservation.name} · {reservation.people}명
+                                      </p>
+                                      <p className="mt-0.5 truncate text-[10px] font-bold opacity-70">
+                                        {STATUS_LABEL[reservation.status]} · 담당 {getAssignedStaffNames(reservation).length > 0
+                                          ? getAssignedStaffNames(reservation).join(" · ")
+                                          : "미배정"}
+                                      </p>
+                                    </div>
+
+                                    <span
+                                      className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black ${SOURCE_STYLE[source]}`}
+                                    >
+                                      {SOURCE_LABEL[source]}
+                                    </span>
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          </div>
                         );
                       })}
                     </div>
                   ) : null}
 
                   {selectedReservations.length === 0 &&
+                  selectedGroupDiveTrips.length === 0 &&
                   selectedStaffSchedules.length === 0 ? (
                     <div className="mt-4 rounded-xl bg-white p-4 text-center text-sm font-semibold text-slate-500">
-                      선택한 날짜에 등록된 예약이나 직원 일정이 없습니다.
+                      선택한 날짜에 등록된 예약, 그룹 다이빙 또는 직원 일정이 없습니다.
                     </div>
                   ) : null}
                 </div>
@@ -1478,8 +1802,26 @@ export default function AdminCalendarPage() {
                     {calendarDays.map((day) => {
                       const dayReservations =
                         reservationsByDate.get(day.dateKey) || [];
+                      const dayGroupDiveTrips =
+                        groupDiveTripsByDate.get(day.dateKey) || [];
                       const dayStaffSchedules =
                         staffSchedulesByDate.get(day.dateKey) || [];
+
+                      const dayReservationGroups =
+                        groupReservationsByTimeAndProgram(dayReservations);
+
+                      const dayTimedItems = sortCalendarTimedItems([
+                        ...dayReservationGroups.map((group) => ({
+                          kind: "RESERVATION_GROUP" as const,
+                          time: group.time,
+                          group,
+                        })),
+                        ...dayGroupDiveTrips.map((trip) => ({
+                          kind: "GROUP_DIVE" as const,
+                          time: trip.startTime || "",
+                          trip,
+                        })),
+                      ]);
 
                       return (
                         <div
@@ -1509,6 +1851,12 @@ export default function AdminCalendarPage() {
                               {dayStaffSchedules.length > 0 ? (
                                 <span className="rounded-full bg-purple-100 px-2 py-1 text-[10px] font-black text-purple-700">
                                   휴가 {dayStaffSchedules.length}
+                                </span>
+                              ) : null}
+
+                              {dayGroupDiveTrips.length > 0 ? (
+                                <span className="rounded-full bg-cyan-100 px-2 py-1 text-[10px] font-black text-cyan-700">
+                                  그룹 {dayGroupDiveTrips.length}
                                 </span>
                               ) : null}
 
@@ -1553,57 +1901,113 @@ export default function AdminCalendarPage() {
                           ) : null}
 
                           <div className="space-y-1.5">
-                            {dayReservations.map((reservation) => {
-                              const source = reservation.source || "CUSTOMER";
+                            {dayTimedItems.map((item) => {
+                              if (item.kind === "GROUP_DIVE") {
+                                const trip = item.trip;
+                                const boardedCount = trip.participants.filter(
+                                  (participant) => participant.boarded,
+                                ).length;
+
+                                return (
+                                  <Link
+                                    key={`group-${trip.id}`}
+                                    href={`/admin/group-dives/${trip.groupDiveId}`}
+                                    className={`block rounded-xl border px-2 py-2 text-[11px] font-semibold leading-4 transition hover:scale-[1.01] hover:shadow-sm ${
+                                      GROUP_DIVE_TRIP_STYLE[trip.status]
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-1">
+                                      <span className="shrink-0 font-black">
+                                        {trip.startTime || "미정"}
+                                      </span>
+                                      <span className="truncate font-black">
+                                        {trip.groupName}
+                                      </span>
+                                    </div>
+
+                                    <div className="mt-1 truncate opacity-80">
+                                      {trip.actualPointName ||
+                                        trip.plannedPointName ||
+                                        "포인트 미정"}
+                                    </div>
+
+                                    <div className="mt-1 flex items-center justify-between gap-2">
+                                      <span className="truncate text-[10px] font-bold opacity-80">
+                                        승선 {boardedCount}명
+                                        {trip.boatName
+                                          ? ` · ${trip.boatName}`
+                                          : ""}
+                                      </span>
+                                      <span className="shrink-0 rounded-full bg-white/70 px-1.5 py-0.5 text-[9px] font-black">
+                                        그룹
+                                      </span>
+                                    </div>
+                                  </Link>
+                                );
+                              }
+
+                              const group = item.group;
+                              const statusCounts =
+                                getReservationGroupStatusCounts(group);
 
                               return (
-                                <Link
-                                  key={reservation.id}
-                                  href={`/admin/reservations/${reservation.id}`}
-                                  className={`block rounded-xl border px-2 py-2 text-[11px] font-semibold leading-4 transition hover:scale-[1.01] hover:shadow-sm ${
-                                    STATUS_STYLE[reservation.status]
-                                  }`}
+                                <div
+                                  key={`reservation-group-${day.dateKey}-${group.key}`}
+                                  className={`rounded-xl border px-2 py-2 text-[11px] font-semibold leading-4 ${getReservationGroupStyle(
+                                    group,
+                                  )}`}
                                 >
-                                  <div className="flex items-center gap-1">
-                                    <span className="shrink-0 font-black">
-                                      {reservation.experienceTime || "미정"}
-                                    </span>
-                                    <span className="truncate">
-                                      {reservation.name}
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <p className="truncate font-black">
+                                        {group.time || "미정"} · {group.programLabel}
+                                      </p>
+                                      <p className="mt-0.5 truncate text-[10px] font-bold opacity-80">
+                                        예약 {group.reservations.length}건 · 총 {group.totalPeople}명
+                                      </p>
+                                    </div>
+
+                                    <span className="shrink-0 rounded-full bg-white/80 px-1.5 py-0.5 text-[9px] font-black">
+                                      묶음
                                     </span>
                                   </div>
 
-                                  <div className="mt-1 flex items-center gap-1">
-                                    <span
-                                      className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${
-                                        SOURCE_STYLE[source]
-                                      }`}
-                                    >
-                                      {SOURCE_LABEL[source]}
-                                    </span>
-                                    <span className="truncate opacity-80">
-                                      {reservation.people}명 ·{" "}
-                                      {getProgramLabel(reservation.program)}
-                                    </span>
+                                  <div className="mt-1.5 flex flex-wrap gap-1">
+                                    {(Object.keys(STATUS_LABEL) as ReservationStatus[])
+                                      .filter((status) => statusCounts[status] > 0)
+                                      .map((status) => (
+                                        <span
+                                          key={status}
+                                          className={`rounded-full border px-1.5 py-0.5 text-[9px] font-black ${STATUS_STYLE[status]}`}
+                                        >
+                                          {STATUS_LABEL[status]} {statusCounts[status]}
+                                        </span>
+                                      ))}
                                   </div>
 
-                                  <div className="mt-0.5 truncate opacity-80">
-                                    {STATUS_LABEL[reservation.status]}
+                                  <div className="mt-2 space-y-1 border-t border-current/10 pt-2">
+                                    {group.reservations.map((reservation) => (
+                                      <Link
+                                        key={reservation.id}
+                                        href={`/admin/reservations/${reservation.id}`}
+                                        className="block rounded-lg bg-white/70 px-2 py-1.5 transition hover:bg-white"
+                                      >
+                                        <p className="truncate text-[10px] font-black">
+                                          {reservation.name} · {reservation.people}명
+                                        </p>
+                                        <p className="mt-0.5 truncate text-[9px] font-bold opacity-70">
+                                          담당 {getAssignedStaffNames(reservation).length > 0
+                                            ? getAssignedStaffNames(reservation).join(" · ")
+                                            : "미배정"}
+                                        </p>
+                                      </Link>
+                                    ))}
                                   </div>
-
-                                  <div className="mt-1 truncate text-[10px] font-black text-indigo-700">
-                                    담당{" "}
-                                    {getAssignedStaffNames(reservation).length >
-                                    0
-                                      ? getAssignedStaffNames(reservation).join(
-                                          " · ",
-                                        )
-                                      : "미배정"}
-                                  </div>
-                                </Link>
+                                </div>
                               );
                             })}
                           </div>
+
                         </div>
                       );
                     })}

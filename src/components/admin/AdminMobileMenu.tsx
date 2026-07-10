@@ -13,7 +13,9 @@ import {
   Menu,
   MessageCircle,
   Settings,
+  Ship,
   TrendingUp,
+  UserCog,
   Users,
   X,
 } from "lucide-react";
@@ -47,6 +49,12 @@ const menuItems: Array<{
     name: "예약 관리",
     href: "/admin/reservations",
     icon: ClipboardList,
+  },
+  {
+    key: "GROUP_DIVES",
+    name: "그룹 다이빙",
+    href: "/admin/group-dives",
+    icon: Ship,
   },
   {
     key: "CALENDAR",
@@ -89,6 +97,12 @@ const menuItems: Array<{
     name: "다이빙 포인트 관리",
     href: "/admin/dive-destinations",
     icon: MapPin,
+  },
+  {
+    key: "ACCOUNTS",
+    name: "관리자 계정",
+    href: "/admin/accounts",
+    icon: UserCog,
   },
   {
     key: "SETTINGS",

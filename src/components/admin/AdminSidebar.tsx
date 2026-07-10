@@ -11,6 +11,7 @@ import {
   MapPin,
   MessageCircle,
   Settings,
+  Ship,
   TrendingUp,
   UserCog,
   Users,
@@ -45,6 +46,12 @@ const menuItems: Array<{
     name: "예약 관리",
     href: "/admin/reservations",
     icon: ClipboardList,
+  },
+  {
+    key: "GROUP_DIVES",
+    name: "그룹 다이빙",
+    href: "/admin/group-dives",
+    icon: Ship,
   },
   {
     key: "CALENDAR",
@@ -107,10 +114,7 @@ function isActivePath(pathname: string, href: string) {
     return pathname === "/admin";
   }
 
-  return (
-    pathname === href ||
-    pathname.startsWith(`${href}/`)
-  );
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export default function AdminSidebar({
