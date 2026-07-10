@@ -24,3 +24,69 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/*
+ * 관리자 화면 공통 폼 가독성
+ * 인증된 관리자 레이아웃의 .admin-ui 내부에만 적용됩니다.
+ */
+.admin-ui input:not([type="checkbox"]):not([type="radio"]),
+.admin-ui select,
+.admin-ui textarea {
+  color: #020617;
+  background-color: #ffffff;
+  font-weight: 600;
+  opacity: 1;
+  -webkit-text-fill-color: #020617;
+}
+
+.admin-ui input::placeholder,
+.admin-ui textarea::placeholder {
+  color: #64748b;
+  opacity: 1;
+  -webkit-text-fill-color: #64748b;
+}
+
+.admin-ui input:disabled:not([type="checkbox"]):not([type="radio"]),
+.admin-ui select:disabled,
+.admin-ui textarea:disabled {
+  color: #334155;
+  background-color: #f1f5f9;
+  opacity: 1;
+  -webkit-text-fill-color: #334155;
+  cursor: not-allowed;
+}
+
+.admin-ui input[type="date"],
+.admin-ui input[type="time"],
+.admin-ui input[type="datetime-local"],
+.admin-ui input[type="number"],
+.admin-ui input[type="text"],
+.admin-ui input[type="tel"],
+.admin-ui input[type="email"],
+.admin-ui input[type="search"],
+.admin-ui input[type="password"] {
+  color: #020617;
+  font-weight: 600;
+  opacity: 1;
+  -webkit-text-fill-color: #020617;
+}
+
+.admin-ui select option {
+  color: #020617;
+  background-color: #ffffff;
+  font-weight: 600;
+}
+
+.admin-ui input[type="date"]::-webkit-datetime-edit,
+.admin-ui input[type="time"]::-webkit-datetime-edit,
+.admin-ui input[type="datetime-local"]::-webkit-datetime-edit {
+  color: #020617;
+  opacity: 1;
+  -webkit-text-fill-color: #020617;
+}
+
+.admin-ui input[type="date"]::-webkit-calendar-picker-indicator,
+.admin-ui input[type="time"]::-webkit-calendar-picker-indicator,
+.admin-ui input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  opacity: 0.85;
+}

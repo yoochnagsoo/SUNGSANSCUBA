@@ -41,7 +41,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-dvh overflow-x-hidden bg-slate-50">
+    <div className="admin-ui min-h-dvh overflow-x-hidden bg-slate-50">
       <AdminSidebar
         adminRole={payload.adminRole}
         adminName={payload.adminName}
