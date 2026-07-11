@@ -1247,10 +1247,10 @@ export default function AdminExpensesPage() {
               </div>
             </label>
 
-            <div className="flex items-end gap-2">
+            <div className="flex items-end gap-2 md:col-span-2 xl:col-span-1">
               <button
                 type="submit"
-                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-bold text-white hover:bg-slate-700 xl:flex-none"
+                className="inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-slate-900 px-4 text-sm font-bold text-white hover:bg-slate-700 xl:flex-none"
               >
                 <Search className="h-4 w-4" />
                 조회
