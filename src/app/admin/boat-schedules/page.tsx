@@ -1138,7 +1138,7 @@ export default function AdminBoatSchedulesPage() {
 
         {!options?.assigned &&
         boatSchedules.length > 0 ? (
-          <div className="mt-3 border-t border-slate-100 pt-3 lg:hidden">
+          <div className="mt-3 border-t border-slate-100 pt-3 xl:hidden">
             <label className="text-xs font-black text-slate-600">
               모바일 배정
             </label>
@@ -1423,25 +1423,55 @@ export default function AdminBoatSchedulesPage() {
         </div>
       ) : (
         <div className="min-w-0">
-          <div
-            className="grid min-w-0 items-start gap-4"
-            style={{
-              gridTemplateColumns:
-                "minmax(0, 1fr) 404px",
-            }}
-          >
-          <section
-            ref={boatScheduleSectionRef}
-            className="min-w-0"
-          >
+          <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_404px]">
+            <section className="min-w-0 xl:hidden">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="text-lg font-black text-slate-900">
+                    미배정 회차
+                  </h2>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">
+                    아이패드와 모바일에서는 출항 시간을 선택해 배정합니다.
+                  </p>
+                </div>
+
+                <span className="shrink-0 rounded-full bg-rose-100 px-3 py-1 text-xs font-black text-rose-700">
+                  {unassignedTrips.length}건
+                </span>
+              </div>
+
+              <div className="space-y-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3">
+                {unassignedTrips.length > 0 ? (
+                  unassignedTrips.map((card) =>
+                    renderTripCard(card),
+                  )
+                ) : (
+                  <div className="rounded-xl bg-white p-8 text-center">
+                    <CalendarDays className="mx-auto h-8 w-8 text-slate-300" />
+                    <p className="mt-3 text-sm font-black text-slate-700">
+                      미배정 회차가 없습니다.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section
+              ref={boatScheduleSectionRef}
+              className="min-w-0"
+            >
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-black text-slate-900">
                   보트 출항 슬롯
                 </h2>
                 <p className="mt-1 text-xs font-semibold text-slate-500">
-                  오른쪽의 미배정 회차를 왼쪽 출항 슬롯으로
-                  드래그하세요.
+                  <span className="xl:hidden">
+                    위 미배정 회차에서 출항 시간을 선택해 배정하세요.
+                  </span>
+                  <span className="hidden xl:inline">
+                    오른쪽의 미배정 회차를 왼쪽 출항 슬롯으로 드래그하세요.
+                  </span>
                 </p>
               </div>
 
@@ -1450,7 +1480,7 @@ export default function AdminBoatSchedulesPage() {
               </span>
             </div>
 
-            <div className="space-y-4 pr-2">
+            <div className="space-y-4 xl:pr-2">
               {boatSchedules.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4">
                 {boatSchedules.map((schedule) => {
@@ -1631,10 +1661,10 @@ export default function AdminBoatSchedulesPage() {
             </div>
           </section>
 
-          <section
-            className="min-w-0"
-            aria-hidden="true"
-          />
+            <section
+              className="hidden min-w-0 xl:block"
+              aria-hidden="true"
+            />
 
           </div>
         </div>
@@ -1642,7 +1672,7 @@ export default function AdminBoatSchedulesPage() {
       {mounted
         ? createPortal(
             <aside
-              className="fixed z-[9999] hidden w-[380px] lg:block"
+              className="fixed z-[9999] hidden w-[380px] xl:block"
               style={{
                 top: `${unassignedPanelTop}px`,
                 right: "24px",
