@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   MapPin,
   MessageCircle,
+  ReceiptText,
   Settings,
   Ship,
   TrendingUp,
@@ -87,6 +88,12 @@ const menuItems: Array<{
     name: "매출 관리",
     href: "/admin/sales",
     icon: TrendingUp,
+  },
+  {
+    key: "EXPENSES",
+    name: "경비·지출 관리",
+    href: "/admin/expenses",
+    icon: ReceiptText,
   },
   {
     key: "GALLERY",

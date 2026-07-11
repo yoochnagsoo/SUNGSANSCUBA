@@ -1,13 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
 import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
   Banknote,
   CalendarDays,
   CreditCard,
   Download,
+  Minus,
+  ReceiptText,
   RefreshCw,
+  Scale,
+  TrendingDown,
   TrendingUp,
   Wallet,
 } from "lucide-react";
@@ -33,6 +43,32 @@ type SalesSource =
 type SalesSourceFilter =
   | "ALL"
   | SalesSource;
+
+type ExpenseCategory =
+  | "RENT"
+  | "UTILITIES"
+  | "BOAT"
+  | "FUEL"
+  | "EQUIPMENT"
+  | "SUPPLIES"
+  | "MAINTENANCE"
+  | "TRANSPORTATION"
+  | "MEAL"
+  | "SALARY"
+  | "INSURANCE"
+  | "TAX"
+  | "MARKETING"
+  | "EDUCATION"
+  | "FEE"
+  | "OTHER";
+
+type ExpensePaymentMethod =
+  | "CASH"
+  | "CARD"
+  | "TRANSFER"
+  | "NAVER_PAY"
+  | "KAKAO_PAY"
+  | "OTHER";
 
 type Reservation = {
   id: string;
@@ -96,11 +132,14 @@ type GroupDive = {
   endDate: string;
   expectedPeople: number;
   status: "ACTIVE" | "COMPLETED" | "CANCELLED";
+
   participants: Array<{
     id: string;
     active: boolean;
   }>;
+
   trips: unknown[];
+
   settlement: {
     additionalAmount: number;
     discountAmount: number;
@@ -111,7 +150,9 @@ type GroupDive = {
     memo: string;
     updatedAt: string;
   };
+
   payments: GroupDivePayment[];
+
   createdAt: string;
   updatedAt: string;
 };
@@ -119,6 +160,37 @@ type GroupDive = {
 type GroupDiveListResponse = {
   ok: boolean;
   groupDives?: GroupDive[];
+  message?: string;
+};
+
+type Expense = {
+  id: string;
+  expenseDate: string;
+  category: ExpenseCategory;
+  title: string;
+  amount: number;
+  paymentMethod: ExpensePaymentMethod;
+  vendor: string;
+  memo: string;
+  hasReceipt: boolean;
+  receiptKey: string;
+  receiptUrl: string;
+  receiptFileName: string;
+  receiptMimeType: string;
+  receiptSize: number;
+  createdById: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type ExpenseListResponse = {
+  ok: boolean;
+  expenses?: Expense[];
+  summary?: {
+    count: number;
+    totalAmount: number;
+  };
   message?: string;
 };
 
@@ -135,6 +207,14 @@ type SalesItem = {
   paymentAmount: number;
   paymentMethod: PaymentMethod;
   paymentMemo: string;
+};
+
+type MonthlyProfitItem = {
+  key: string;
+  label: string;
+  sales: number;
+  expenses: number;
+  profit: number;
 };
 
 const PAYMENT_METHOD_LABEL: Record<
@@ -175,8 +255,44 @@ const SALES_SOURCE_OPTIONS: SalesSourceFilter[] = [
   "GROUP_DIVE",
 ];
 
+const EXPENSE_CATEGORY_LABEL: Record<
+  ExpenseCategory,
+  string
+> = {
+  RENT: "임대료",
+  UTILITIES: "공과금",
+  BOAT: "선박 관련",
+  FUEL: "유류비",
+  EQUIPMENT: "장비 구입",
+  SUPPLIES: "소모품",
+  MAINTENANCE: "수리·정비",
+  TRANSPORTATION: "교통비",
+  MEAL: "식비",
+  SALARY: "급여",
+  INSURANCE: "보험료",
+  TAX: "세금",
+  MARKETING: "광고·마케팅",
+  EDUCATION: "교육비",
+  FEE: "수수료",
+  OTHER: "기타",
+};
+
 function formatCurrency(value: number) {
-  return `${value.toLocaleString("ko-KR")}원`;
+  return `${Math.round(value).toLocaleString(
+    "ko-KR",
+  )}원`;
+}
+
+function formatSignedCurrency(value: number) {
+  if (value > 0) {
+    return `+${formatCurrency(value)}`;
+  }
+
+  if (value < 0) {
+    return `-${formatCurrency(Math.abs(value))}`;
+  }
+
+  return "0원";
 }
 
 function formatDateTime(value?: string) {
@@ -214,9 +330,11 @@ function getDateOnly(value?: string) {
 
   if (!Number.isNaN(date.getTime())) {
     const year = date.getFullYear();
+
     const month = String(
       date.getMonth() + 1,
     ).padStart(2, "0");
+
     const day = String(
       date.getDate(),
     ).padStart(2, "0");
@@ -227,37 +345,24 @@ function getDateOnly(value?: string) {
   return value.slice(0, 10);
 }
 
-function isSameMonth(value?: string) {
-  if (!value) {
-    return false;
+function getMonthKey(value?: string) {
+  const dateOnly = getDateOnly(value);
+
+  if (!dateOnly) {
+    return "";
   }
 
-  const date = new Date(value);
+  return dateOnly.slice(0, 7);
+}
 
-  if (Number.isNaN(date.getTime())) {
-    return false;
-  }
-
-  const now = new Date();
-
-  return (
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth()
+function getCurrentMonthKey() {
+  return getMonthKey(
+    new Date().toISOString(),
   );
 }
 
-function isSameYear(value?: string) {
-  if (!value) {
-    return false;
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return false;
-  }
-
-  return date.getFullYear() === new Date().getFullYear();
+function getCurrentYear() {
+  return String(new Date().getFullYear());
 }
 
 function isToday(value?: string) {
@@ -265,18 +370,21 @@ function isToday(value?: string) {
     return false;
   }
 
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return false;
-  }
-
-  const now = new Date();
-
   return (
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
+    getDateOnly(value) ===
+    getDateOnly(new Date().toISOString())
+  );
+}
+
+function isCurrentMonth(value?: string) {
+  return (
+    getMonthKey(value) === getCurrentMonthKey()
+  );
+}
+
+function isCurrentYear(value?: string) {
+  return getDateOnly(value).startsWith(
+    getCurrentYear(),
   );
 }
 
@@ -307,7 +415,11 @@ function downloadCsv(
       row
         .map((cell) => {
           const value = String(cell ?? "");
-          return `"${value.replaceAll('"', '""')}"`;
+
+          return `"${value.replaceAll(
+            '"',
+            '""',
+          )}"`;
         })
         .join(","),
     )
@@ -322,9 +434,48 @@ function downloadCsv(
 
   link.href = url;
   link.download = filename;
+
+  document.body.appendChild(link);
   link.click();
+  link.remove();
 
   URL.revokeObjectURL(url);
+}
+
+function createRecentMonthKeys(
+  count: number,
+) {
+  const months: Array<{
+    key: string;
+    label: string;
+  }> = [];
+
+  const now = new Date();
+
+  for (
+    let offset = count - 1;
+    offset >= 0;
+    offset -= 1
+  ) {
+    const date = new Date(
+      now.getFullYear(),
+      now.getMonth() - offset,
+      1,
+    );
+
+    const year = date.getFullYear();
+
+    const month = String(
+      date.getMonth() + 1,
+    ).padStart(2, "0");
+
+    months.push({
+      key: `${year}-${month}`,
+      label: `${year}.${month}`,
+    });
+  }
+
+  return months;
 }
 
 export default function AdminSalesPage() {
@@ -334,16 +485,26 @@ export default function AdminSalesPage() {
   const [groupDives, setGroupDives] =
     useState<GroupDive[]>([]);
 
-  const [loading, setLoading] = useState(true);
+  const [expenses, setExpenses] =
+    useState<Expense[]>([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
   const [refreshing, setRefreshing] =
     useState(false);
 
   const [errorMessage, setErrorMessage] =
     useState("");
 
-  const [keyword, setKeyword] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [keyword, setKeyword] =
+    useState("");
+
+  const [dateFrom, setDateFrom] =
+    useState("");
+
+  const [dateTo, setDateTo] =
+    useState("");
 
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod | "ALL">("ALL");
@@ -351,13 +512,14 @@ export default function AdminSalesPage() {
   const [salesSource, setSalesSource] =
     useState<SalesSourceFilter>("ALL");
 
-  async function fetchSales() {
+  async function fetchSalesAndExpenses() {
     try {
       setErrorMessage("");
 
       const [
         reservationResponse,
         groupDiveResponse,
+        expenseResponse,
       ] = await Promise.all([
         fetch(
           "/api/reservations?status=COMPLETED&limit=100",
@@ -369,6 +531,10 @@ export default function AdminSalesPage() {
         fetch("/api/admin/group-dives", {
           cache: "no-store",
         }),
+
+        fetch("/api/admin/expenses", {
+          cache: "no-store",
+        }),
       ]);
 
       const reservationData =
@@ -376,6 +542,9 @@ export default function AdminSalesPage() {
 
       const groupDiveData =
         (await groupDiveResponse.json()) as GroupDiveListResponse;
+
+      const expenseData =
+        (await expenseResponse.json()) as ExpenseListResponse;
 
       if (
         !reservationResponse.ok ||
@@ -397,6 +566,16 @@ export default function AdminSalesPage() {
         );
       }
 
+      if (
+        !expenseResponse.ok ||
+        !expenseData.ok
+      ) {
+        throw new Error(
+          expenseData.message ||
+            "경비 정보를 불러오지 못했습니다.",
+        );
+      }
+
       setReservations(
         reservationData.reservations ||
           reservationData.data ||
@@ -407,11 +586,15 @@ export default function AdminSalesPage() {
       setGroupDives(
         groupDiveData.groupDives || [],
       );
+
+      setExpenses(
+        expenseData.expenses || [],
+      );
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "매출 정보를 불러오지 못했습니다.",
+          : "매출과 경비 정보를 불러오지 못했습니다.",
       );
     } finally {
       setLoading(false);
@@ -420,7 +603,7 @@ export default function AdminSalesPage() {
   }
 
   useEffect(() => {
-    void fetchSales();
+    void fetchSalesAndExpenses();
   }, []);
 
   const allSales = useMemo(() => {
@@ -428,7 +611,8 @@ export default function AdminSalesPage() {
       reservations
         .filter(
           (reservation) =>
-            reservation.status === "COMPLETED",
+            reservation.status ===
+            "COMPLETED",
         )
         .filter(
           (reservation) =>
@@ -439,21 +623,30 @@ export default function AdminSalesPage() {
           id: `reservation-${reservation.id}`,
           source: "RESERVATION",
           sourceId: reservation.id,
+
           salesDate:
-            getReservationSalesDate(reservation),
+            getReservationSalesDate(
+              reservation,
+            ),
+
           serviceDate:
             reservation.reservationDate ||
             reservation.date ||
             "",
+
           customerName: reservation.name,
           phone: reservation.phone,
           description: reservation.program,
           people: reservation.people,
+
           paymentAmount: Number(
             reservation.paymentAmount || 0,
           ),
+
           paymentMethod:
-            reservation.paymentMethod || "ETC",
+            reservation.paymentMethod ||
+            "ETC",
+
           paymentMemo:
             reservation.paymentMemo || "",
         }));
@@ -461,7 +654,8 @@ export default function AdminSalesPage() {
     const groupDiveSales: SalesItem[] =
       groupDives.flatMap((groupDive) => {
         if (
-          groupDive.settlement?.status !== "PAID" ||
+          groupDive.settlement?.status !==
+            "PAID" ||
           !groupDive.settlement.settledAt
         ) {
           return [];
@@ -476,13 +670,10 @@ export default function AdminSalesPage() {
         return activePayments.map(
           (payment): SalesItem => ({
             id: `group-dive-${groupDive.id}-${payment.id}`,
+
             source: "GROUP_DIVE",
             sourceId: groupDive.id,
 
-            /*
-             * 그룹 다이빙은 정산 완료 시점에 매출로 반영합니다.
-             * 분할 결제는 결제 수단별로 각각 한 줄씩 표시합니다.
-             */
             salesDate:
               groupDive.settlement.settledAt,
 
@@ -492,10 +683,15 @@ export default function AdminSalesPage() {
                 ? groupDive.startDate
                 : `${groupDive.startDate} ~ ${groupDive.endDate}`,
 
-            customerName: groupDive.groupName,
+            customerName:
+              groupDive.groupName,
+
             phone:
               groupDive.representativePhone,
-            description: `그룹 다이빙 · 대표 ${groupDive.representativeName}`,
+
+            description:
+              `그룹 다이빙 · 대표 ${groupDive.representativeName}`,
+
             people:
               groupDive.participants?.filter(
                 (participant) =>
@@ -505,6 +701,7 @@ export default function AdminSalesPage() {
               0,
 
             paymentAmount: payment.amount,
+
             paymentMethod:
               mapGroupPaymentMethod(
                 payment.paymentMethod,
@@ -522,7 +719,9 @@ export default function AdminSalesPage() {
       ...reservationSales,
       ...groupDiveSales,
     ].sort((a, b) =>
-      b.salesDate.localeCompare(a.salesDate),
+      b.salesDate.localeCompare(
+        a.salesDate,
+      ),
     );
   }, [groupDives, reservations]);
 
@@ -537,11 +736,17 @@ export default function AdminSalesPage() {
         sale.salesDate,
       );
 
-      if (dateFrom && salesDate < dateFrom) {
+      if (
+        dateFrom &&
+        salesDate < dateFrom
+      ) {
         return false;
       }
 
-      if (dateTo && salesDate > dateTo) {
+      if (
+        dateTo &&
+        salesDate > dateTo
+      ) {
         return false;
       }
 
@@ -586,49 +791,150 @@ export default function AdminSalesPage() {
     salesSource,
   ]);
 
-  const totalSales = useMemo(() => {
-    return filteredSales.reduce(
-      (sum, sale) =>
-        sum + sale.paymentAmount,
-      0,
-    );
-  }, [filteredSales]);
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter((expense) => {
+      if (
+        dateFrom &&
+        expense.expenseDate < dateFrom
+      ) {
+        return false;
+      }
 
-  const todaySales = useMemo(() => {
-    return allSales
-      .filter((sale) =>
-        isToday(sale.salesDate),
-      )
-      .reduce(
+      if (
+        dateTo &&
+        expense.expenseDate > dateTo
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [
+    dateFrom,
+    dateTo,
+    expenses,
+  ]);
+
+  const totalSales = useMemo(
+    () =>
+      filteredSales.reduce(
         (sum, sale) =>
           sum + sale.paymentAmount,
         0,
-      );
-  }, [allSales]);
+      ),
+    [filteredSales],
+  );
 
-  const monthSales = useMemo(() => {
-    return allSales
-      .filter((sale) =>
-        isSameMonth(sale.salesDate),
-      )
-      .reduce(
-        (sum, sale) =>
-          sum + sale.paymentAmount,
+  const totalExpenses = useMemo(
+    () =>
+      filteredExpenses.reduce(
+        (sum, expense) =>
+          sum + expense.amount,
         0,
-      );
-  }, [allSales]);
+      ),
+    [filteredExpenses],
+  );
 
-  const yearSales = useMemo(() => {
-    return allSales
-      .filter((sale) =>
-        isSameYear(sale.salesDate),
-      )
-      .reduce(
-        (sum, sale) =>
-          sum + sale.paymentAmount,
-        0,
-      );
-  }, [allSales]);
+  const totalProfit =
+    totalSales - totalExpenses;
+
+  const todaySales = useMemo(
+    () =>
+      allSales
+        .filter((sale) =>
+          isToday(sale.salesDate),
+        )
+        .reduce(
+          (sum, sale) =>
+            sum + sale.paymentAmount,
+          0,
+        ),
+    [allSales],
+  );
+
+  const todayExpenses = useMemo(
+    () =>
+      expenses
+        .filter((expense) =>
+          isToday(expense.expenseDate),
+        )
+        .reduce(
+          (sum, expense) =>
+            sum + expense.amount,
+          0,
+        ),
+    [expenses],
+  );
+
+  const monthSales = useMemo(
+    () =>
+      allSales
+        .filter((sale) =>
+          isCurrentMonth(
+            sale.salesDate,
+          ),
+        )
+        .reduce(
+          (sum, sale) =>
+            sum + sale.paymentAmount,
+          0,
+        ),
+    [allSales],
+  );
+
+  const monthExpenses = useMemo(
+    () =>
+      expenses
+        .filter((expense) =>
+          isCurrentMonth(
+            expense.expenseDate,
+          ),
+        )
+        .reduce(
+          (sum, expense) =>
+            sum + expense.amount,
+          0,
+        ),
+    [expenses],
+  );
+
+  const monthProfit =
+    monthSales - monthExpenses;
+
+  const yearSales = useMemo(
+    () =>
+      allSales
+        .filter((sale) =>
+          isCurrentYear(
+            sale.salesDate,
+          ),
+        )
+        .reduce(
+          (sum, sale) =>
+            sum + sale.paymentAmount,
+          0,
+        ),
+    [allSales],
+  );
+
+  const yearExpenses = useMemo(
+    () =>
+      expenses
+        .filter((expense) =>
+          isCurrentYear(
+            expense.expenseDate,
+          ),
+        )
+        .reduce(
+          (sum, expense) =>
+            sum + expense.amount,
+          0,
+        ),
+    [expenses],
+  );
+
+  const yearProfit =
+    yearSales - yearExpenses;
 
   const averageSales = useMemo(() => {
     if (filteredSales.length === 0) {
@@ -636,9 +942,13 @@ export default function AdminSalesPage() {
     }
 
     return Math.round(
-      totalSales / filteredSales.length,
+      totalSales /
+        filteredSales.length,
     );
-  }, [filteredSales.length, totalSales]);
+  }, [
+    filteredSales.length,
+    totalSales,
+  ]);
 
   const salesByMethod = useMemo(() => {
     const result: Record<
@@ -661,40 +971,182 @@ export default function AdminSalesPage() {
     return result;
   }, [filteredSales]);
 
+  const expenseByCategory = useMemo(() => {
+    const result = new Map<
+      ExpenseCategory,
+      number
+    >();
+
+    for (const expense of filteredExpenses) {
+      result.set(
+        expense.category,
+        (result.get(expense.category) || 0) +
+          expense.amount,
+      );
+    }
+
+    return [...result.entries()]
+      .map(([category, amount]) => ({
+        category,
+        amount,
+      }))
+      .sort(
+        (a, b) =>
+          b.amount - a.amount,
+      );
+  }, [filteredExpenses]);
+
+  const monthlyProfitItems =
+    useMemo<MonthlyProfitItem[]>(() => {
+      return createRecentMonthKeys(
+        12,
+      ).map((month) => {
+        const sales = allSales
+          .filter(
+            (sale) =>
+              getMonthKey(
+                sale.salesDate,
+              ) === month.key,
+          )
+          .reduce(
+            (sum, sale) =>
+              sum + sale.paymentAmount,
+            0,
+          );
+
+        const monthlyExpenses =
+          expenses
+            .filter(
+              (expense) =>
+                getMonthKey(
+                  expense.expenseDate,
+                ) === month.key,
+            )
+            .reduce(
+              (sum, expense) =>
+                sum + expense.amount,
+              0,
+            );
+
+        return {
+          key: month.key,
+          label: month.label,
+          sales,
+          expenses: monthlyExpenses,
+          profit:
+            sales - monthlyExpenses,
+        };
+      });
+    }, [allSales, expenses]);
+
+  const maxMonthlyAmount =
+    useMemo(() => {
+      return Math.max(
+        ...monthlyProfitItems.flatMap(
+          (item) => [
+            item.sales,
+            item.expenses,
+          ],
+        ),
+        1,
+      );
+    }, [monthlyProfitItems]);
+
+  const previousMonthProfit =
+    monthlyProfitItems.length >= 2
+      ? monthlyProfitItems[
+          monthlyProfitItems.length - 2
+        ].profit
+      : 0;
+
+  const profitChange =
+    monthProfit - previousMonthProfit;
+
   function handleRefresh() {
     setRefreshing(true);
-    void fetchSales();
+
+    void fetchSalesAndExpenses();
+  }
+
+  function handleResetFilters() {
+    setKeyword("");
+    setDateFrom("");
+    setDateTo("");
+    setPaymentMethod("ALL");
+    setSalesSource("ALL");
   }
 
   function handleDownloadCsv() {
     const rows = [
       [
-        "매출일시",
         "구분",
-        "이용일",
-        "고객/팀명",
-        "연락처",
-        "프로그램/내용",
-        "인원",
-        "결제금액",
-        "결제방법",
-        "결제메모",
+        "일시/지출일",
+        "항목",
+        "고객/거래처",
+        "금액",
+        "결제방법/지출분류",
+        "메모",
       ],
 
-      ...filteredSales.map((sale) => [
-        formatDateTime(sale.salesDate),
-        SALES_SOURCE_LABEL[sale.source],
-        sale.serviceDate,
-        sale.customerName,
-        sale.phone,
-        sale.description,
-        String(sale.people),
-        String(sale.paymentAmount),
-        PAYMENT_METHOD_LABEL[
-          sale.paymentMethod
+      ...filteredSales.map(
+        (sale) => [
+          "매출",
+          formatDateTime(
+            sale.salesDate,
+          ),
+          `${SALES_SOURCE_LABEL[sale.source]} · ${sale.description}`,
+          sale.customerName,
+          String(sale.paymentAmount),
+          PAYMENT_METHOD_LABEL[
+            sale.paymentMethod
+          ],
+          sale.paymentMemo,
         ],
-        sale.paymentMemo,
-      ]),
+      ),
+
+      ...filteredExpenses.map(
+        (expense) => [
+          "경비",
+          expense.expenseDate,
+          expense.title,
+          expense.vendor,
+          String(-expense.amount),
+          EXPENSE_CATEGORY_LABEL[
+            expense.category
+          ],
+          expense.memo,
+        ],
+      ),
+
+      [
+        "합계",
+        "",
+        "매출 합계",
+        "",
+        String(totalSales),
+        "",
+        "",
+      ],
+
+      [
+        "합계",
+        "",
+        "경비 합계",
+        "",
+        String(-totalExpenses),
+        "",
+        "",
+      ],
+
+      [
+        "합계",
+        "",
+        "순이익",
+        "",
+        String(totalProfit),
+        "",
+        "",
+      ],
     ];
 
     const today = getDateOnly(
@@ -702,7 +1154,7 @@ export default function AdminSalesPage() {
     );
 
     downloadCsv(
-      `sungsan-scuba-sales-${today}.csv`,
+      `sungsan-scuba-profit-${today}.csv`,
       rows,
     );
   }
@@ -712,7 +1164,7 @@ export default function AdminSalesPage() {
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm text-slate-500">
-            매출 정보를 불러오는 중입니다.
+            매출과 경비 정보를 불러오는 중입니다.
           </p>
         </div>
       </div>
@@ -724,16 +1176,16 @@ export default function AdminSalesPage() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-sm font-medium text-slate-500">
-            매출관리
+            매출·손익 관리
           </p>
 
           <h1 className="mt-1 text-2xl font-bold text-slate-900">
-            결제 매출 현황
+            매출 및 순이익 현황
           </h1>
 
           <p className="mt-2 text-sm text-slate-500">
-            완료된 일반 예약과 정산 완료된 그룹
-            다이빙 매출을 함께 집계합니다.
+            완료된 매출과 등록된 경비를 비교하여
+            실제 운영 손익을 확인합니다.
           </p>
         </div>
 
@@ -752,6 +1204,7 @@ export default function AdminSalesPage() {
                   : "",
               ].join(" ")}
             />
+
             새로고침
           </button>
 
@@ -761,7 +1214,7 @@ export default function AdminSalesPage() {
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
           >
             <Download className="h-4 w-4" />
-            CSV 다운로드
+            손익 CSV 다운로드
           </button>
         </div>
       </div>
@@ -774,49 +1227,107 @@ export default function AdminSalesPage() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
-          title="필터 기준 매출"
-          value={formatCurrency(totalSales)}
+          title="검색 기간 매출"
+          value={formatCurrency(
+            totalSales,
+          )}
           description={`${filteredSales.length.toLocaleString(
             "ko-KR",
           )}건`}
           icon={Wallet}
+          tone="blue"
         />
 
         <SummaryCard
-          title="오늘 매출"
-          value={formatCurrency(todaySales)}
-          description="매출 반영일 기준"
-          icon={CalendarDays}
+          title="검색 기간 경비"
+          value={formatCurrency(
+            totalExpenses,
+          )}
+          description={`${filteredExpenses.length.toLocaleString(
+            "ko-KR",
+          )}건`}
+          icon={ReceiptText}
+          tone="rose"
         />
 
         <SummaryCard
-          title="이번 달 매출"
-          value={formatCurrency(monthSales)}
-          description="매출 반영일 기준"
-          icon={TrendingUp}
+          title="검색 기간 순이익"
+          value={formatSignedCurrency(
+            totalProfit,
+          )}
+          description="매출 - 경비"
+          icon={
+            totalProfit >= 0
+              ? TrendingUp
+              : TrendingDown
+          }
+          tone={
+            totalProfit >= 0
+              ? "emerald"
+              : "rose"
+          }
         />
 
         <SummaryCard
-          title="올해 매출"
-          value={formatCurrency(yearSales)}
-          description={`평균 ${formatCurrency(
-            averageSales,
-          )}`}
-          icon={Banknote}
+          title="이번 달 순이익"
+          value={formatSignedCurrency(
+            monthProfit,
+          )}
+          description={
+            profitChange === 0
+              ? "전월과 동일"
+              : `전월 대비 ${formatSignedCurrency(
+                  profitChange,
+                )}`
+          }
+          icon={
+            profitChange > 0
+              ? ArrowUpRight
+              : profitChange < 0
+                ? ArrowDownRight
+                : Minus
+          }
+          tone={
+            monthProfit >= 0
+              ? "emerald"
+              : "rose"
+          }
+        />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <PeriodProfitCard
+          title="오늘"
+          sales={todaySales}
+          expenses={todayExpenses}
+        />
+
+        <PeriodProfitCard
+          title="이번 달"
+          sales={monthSales}
+          expenses={monthExpenses}
+        />
+
+        <PeriodProfitCard
+          title="올해"
+          sales={yearSales}
+          expenses={yearExpenses}
         />
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="grid gap-4 lg:grid-cols-[1fr_150px_170px_170px_180px]">
+        <div className="grid gap-4 lg:grid-cols-[1fr_150px_170px_170px_180px_auto]">
           <div>
             <label className="text-sm font-semibold text-slate-600">
-              검색어
+              매출 검색어
             </label>
 
             <input
               value={keyword}
               onChange={(event) =>
-                setKeyword(event.target.value)
+                setKeyword(
+                  event.target.value,
+                )
               }
               placeholder="고객명, 팀명, 연락처, 프로그램, 메모"
               className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
@@ -825,7 +1336,7 @@ export default function AdminSalesPage() {
 
           <div>
             <label className="text-sm font-semibold text-slate-600">
-              구분
+              매출 구분
             </label>
 
             <select
@@ -864,7 +1375,9 @@ export default function AdminSalesPage() {
               type="date"
               value={dateFrom}
               onChange={(event) =>
-                setDateFrom(event.target.value)
+                setDateFrom(
+                  event.target.value,
+                )
               }
               className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
             />
@@ -879,7 +1392,9 @@ export default function AdminSalesPage() {
               type="date"
               value={dateTo}
               onChange={(event) =>
-                setDateTo(event.target.value)
+                setDateTo(
+                  event.target.value,
+                )
               }
               className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
             />
@@ -917,10 +1432,71 @@ export default function AdminSalesPage() {
               )}
             </select>
           </div>
+
+          <div className="flex items-end">
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 lg:w-auto"
+            >
+              초기화
+            </button>
+          </div>
         </div>
+
+        <p className="mt-4 text-xs leading-5 text-slate-500">
+          시작일과 종료일은 매출 반영일과 경비
+          지출일에 동일하게 적용됩니다. 검색어와
+          결제방법, 매출 구분은 매출 내역에만
+          적용됩니다.
+        </p>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">
+              최근 12개월 손익
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              월별 매출, 경비 및 순이익을 비교합니다.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-4 text-xs font-bold">
+            <span className="inline-flex items-center gap-2 text-blue-700">
+              <span className="h-2.5 w-2.5 rounded-full bg-blue-600" />
+              매출
+            </span>
+
+            <span className="inline-flex items-center gap-2 text-rose-700">
+              <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />
+              경비
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-6 overflow-x-auto">
+          <div className="min-w-[900px]">
+            <div className="grid grid-cols-12 gap-3">
+              {monthlyProfitItems.map(
+                (item) => (
+                  <MonthlyChartColumn
+                    key={item.key}
+                    item={item}
+                    maxAmount={
+                      maxMonthlyAmount
+                    }
+                  />
+                ),
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-200 p-5">
             <div>
@@ -942,21 +1518,27 @@ export default function AdminSalesPage() {
                   <th className="px-5 py-4">
                     매출일시
                   </th>
+
                   <th className="px-5 py-4">
                     구분
                   </th>
+
                   <th className="px-5 py-4">
                     고객/팀
                   </th>
+
                   <th className="px-5 py-4">
                     프로그램/내용
                   </th>
+
                   <th className="px-5 py-4">
                     인원
                   </th>
+
                   <th className="px-5 py-4">
                     결제방법
                   </th>
+
                   <th className="px-5 py-4 text-right">
                     결제금액
                   </th>
@@ -964,7 +1546,8 @@ export default function AdminSalesPage() {
               </thead>
 
               <tbody className="divide-y divide-slate-100">
-                {filteredSales.length === 0 ? (
+                {filteredSales.length ===
+                0 ? (
                   <tr>
                     <td
                       colSpan={7}
@@ -974,90 +1557,98 @@ export default function AdminSalesPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredSales.map((sale) => (
-                    <tr
-                      key={sale.id}
-                      className="hover:bg-slate-50"
-                    >
-                      <td className="px-5 py-4 text-slate-600">
-                        {formatDateTime(
-                          sale.salesDate,
-                        )}
-                      </td>
+                  filteredSales.map(
+                    (sale) => (
+                      <tr
+                        key={sale.id}
+                        className="hover:bg-slate-50"
+                      >
+                        <td className="px-5 py-4 text-slate-600">
+                          {formatDateTime(
+                            sale.salesDate,
+                          )}
+                        </td>
 
-                      <td className="px-5 py-4">
-                        <span
-                          className={[
-                            "inline-flex rounded-full px-3 py-1 text-xs font-bold",
-                            sale.source ===
-                            "GROUP_DIVE"
-                              ? "bg-cyan-50 text-cyan-700"
-                              : "bg-slate-100 text-slate-700",
-                          ].join(" ")}
-                        >
-                          {
-                            SALES_SOURCE_LABEL[
-                              sale.source
-                            ]
-                          }
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-4">
-                        {sale.source ===
-                        "GROUP_DIVE" ? (
-                          <Link
-                            href={`/admin/group-dives/${sale.sourceId}`}
-                            className="font-bold text-slate-900 hover:text-cyan-700"
+                        <td className="px-5 py-4">
+                          <span
+                            className={[
+                              "inline-flex rounded-full px-3 py-1 text-xs font-bold",
+                              sale.source ===
+                              "GROUP_DIVE"
+                                ? "bg-cyan-50 text-cyan-700"
+                                : "bg-slate-100 text-slate-700",
+                            ].join(" ")}
                           >
-                            {sale.customerName}
-                          </Link>
-                        ) : (
-                          <Link
-                            href={`/admin/reservations/${sale.sourceId}`}
-                            className="font-bold text-slate-900 hover:text-blue-700"
-                          >
-                            {sale.customerName}
-                          </Link>
-                        )}
+                            {
+                              SALES_SOURCE_LABEL[
+                                sale.source
+                              ]
+                            }
+                          </span>
+                        </td>
 
-                        <p className="mt-1 text-xs text-slate-500">
-                          {sale.phone || "-"}
-                        </p>
-                      </td>
+                        <td className="px-5 py-4">
+                          {sale.source ===
+                          "GROUP_DIVE" ? (
+                            <Link
+                              href={`/admin/group-dives/${sale.sourceId}`}
+                              className="font-bold text-slate-900 hover:text-cyan-700"
+                            >
+                              {
+                                sale.customerName
+                              }
+                            </Link>
+                          ) : (
+                            <Link
+                              href={`/admin/reservations/${sale.sourceId}`}
+                              className="font-bold text-slate-900 hover:text-blue-700"
+                            >
+                              {
+                                sale.customerName
+                              }
+                            </Link>
+                          )}
 
-                      <td className="px-5 py-4">
-                        <p className="font-semibold text-slate-800">
-                          {sale.description}
-                        </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {sale.phone || "-"}
+                          </p>
+                        </td>
 
-                        <p className="mt-1 text-xs text-slate-500">
-                          이용일:{" "}
-                          {sale.serviceDate || "-"}
-                        </p>
-                      </td>
+                        <td className="px-5 py-4">
+                          <p className="font-semibold text-slate-800">
+                            {sale.description}
+                          </p>
 
-                      <td className="px-5 py-4 text-slate-700">
-                        {sale.people}명
-                      </td>
+                          <p className="mt-1 text-xs text-slate-500">
+                            이용일:{" "}
+                            {sale.serviceDate ||
+                              "-"}
+                          </p>
+                        </td>
 
-                      <td className="px-5 py-4">
-                        <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                          {
-                            PAYMENT_METHOD_LABEL[
-                              sale.paymentMethod
-                            ]
-                          }
-                        </span>
-                      </td>
+                        <td className="px-5 py-4 text-slate-700">
+                          {sale.people}명
+                        </td>
 
-                      <td className="px-5 py-4 text-right text-base font-black text-slate-950">
-                        {formatCurrency(
-                          sale.paymentAmount,
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                        <td className="px-5 py-4">
+                          <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                            {
+                              PAYMENT_METHOD_LABEL[
+                                sale
+                                  .paymentMethod
+                              ]
+                            }
+                          </span>
+                        </td>
+
+                        <td className="px-5 py-4 text-right text-base font-black text-slate-950">
+                          {formatCurrency(
+                            sale.paymentAmount,
+                          )}
+                        </td>
+                      </tr>
+                    ),
+                  )
                 )}
               </tbody>
             </table>
@@ -1086,63 +1677,163 @@ export default function AdminSalesPage() {
 
                 const ratio =
                   totalSales > 0
-                    ? (amount / totalSales) *
+                    ? (amount /
+                        totalSales) *
                       100
                     : 0;
 
                 return (
-                  <div key={method}>
-                    <div className="mb-2 flex items-center justify-between text-sm">
-                      <span className="font-semibold text-slate-700">
-                        {
-                          PAYMENT_METHOD_LABEL[
-                            method
-                          ]
-                        }
-                      </span>
-
-                      <span className="font-bold text-slate-950">
-                        {formatCurrency(
-                          amount,
-                        )}
-                      </span>
-                    </div>
-
-                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                      <div
-                        className="h-full rounded-full bg-blue-600"
-                        style={{
-                          width: `${Math.min(
-                            ratio,
-                            100,
-                          )}%`,
-                        }}
-                      />
-                    </div>
-
-                    <p className="mt-1 text-right text-xs text-slate-500">
-                      {ratio.toFixed(1)}%
-                    </p>
-                  </div>
+                  <RatioRow
+                    key={method}
+                    label={
+                      PAYMENT_METHOD_LABEL[
+                        method
+                      ]
+                    }
+                    amount={amount}
+                    ratio={ratio}
+                    tone="blue"
+                  />
                 );
               })}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-slate-950 p-5 text-white shadow-sm">
-            <h2 className="text-lg font-bold">
-              정산 참고
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-2">
+              <ReceiptText className="h-5 w-5 text-rose-600" />
+
+              <h2 className="text-lg font-bold text-slate-900">
+                분류별 경비
+              </h2>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              {expenseByCategory.length ===
+              0 ? (
+                <p className="text-sm text-slate-500">
+                  표시할 경비가 없습니다.
+                </p>
+              ) : (
+                expenseByCategory.map(
+                  (item) => {
+                    const ratio =
+                      totalExpenses > 0
+                        ? (item.amount /
+                            totalExpenses) *
+                          100
+                        : 0;
+
+                    return (
+                      <RatioRow
+                        key={item.category}
+                        label={
+                          EXPENSE_CATEGORY_LABEL[
+                            item.category
+                          ]
+                        }
+                        amount={item.amount}
+                        ratio={ratio}
+                        tone="rose"
+                      />
+                    );
+                  },
+                )
+              )}
+            </div>
+
+            <Link
+              href="/admin/expenses"
+              className="mt-5 inline-flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+            >
+              경비 내역 관리
+            </Link>
+          </div>
+
+          <div
+            className={[
+              "rounded-2xl p-5 text-white shadow-sm",
+              totalProfit >= 0
+                ? "bg-slate-950"
+                : "bg-rose-950",
+            ].join(" ")}
+          >
+            <div className="flex items-center gap-2">
+              <Scale className="h-5 w-5" />
+
+              <h2 className="text-lg font-bold">
+                검색 기간 손익
+              </h2>
+            </div>
+
+            <dl className="mt-5 space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-4">
+                <dt className="text-slate-300">
+                  매출
+                </dt>
+
+                <dd className="font-bold">
+                  {formatCurrency(
+                    totalSales,
+                  )}
+                </dd>
+              </div>
+
+              <div className="flex items-center justify-between gap-4">
+                <dt className="text-slate-300">
+                  경비
+                </dt>
+
+                <dd className="font-bold text-rose-300">
+                  -{formatCurrency(
+                    totalExpenses,
+                  )}
+                </dd>
+              </div>
+
+              <div className="border-t border-white/20 pt-3">
+                <div className="flex items-center justify-between gap-4">
+                  <dt className="font-bold">
+                    순이익
+                  </dt>
+
+                  <dd
+                    className={[
+                      "text-xl font-black",
+                      totalProfit >= 0
+                        ? "text-emerald-300"
+                        : "text-rose-300",
+                    ].join(" ")}
+                  >
+                    {formatSignedCurrency(
+                      totalProfit,
+                    )}
+                  </dd>
+                </div>
+              </div>
+            </dl>
+
+            <p className="mt-4 text-xs leading-5 text-slate-300">
+              순이익은 세무상 확정 소득이 아니라 등록된
+              매출에서 등록된 경비를 차감한 운영 참고
+              수치입니다.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+            <h2 className="font-bold text-slate-900">
+              집계 기준
             </h2>
 
-            <div className="mt-4 space-y-2 text-sm leading-6 text-slate-300">
+            <div className="mt-3 space-y-2 text-xs leading-5 text-slate-500">
               <p>
-                · 완료 처리된 일반 예약만
-                매출로 집계됩니다.
+                · 완료 처리된 일반 예약만 매출로
+                집계됩니다.
               </p>
 
               <p>
-                · 그룹 다이빙은 정산 완료
-                시점에 매출로 반영됩니다.
+                · 그룹 다이빙은 정산 완료 시점에
+                반영됩니다.
               </p>
 
               <p>
@@ -1151,8 +1842,13 @@ export default function AdminSalesPage() {
               </p>
 
               <p>
-                · 분할 결제는 결제 수단별로
-                각각 표시됩니다.
+                · 경비는 경비·지출 관리에 등록된
+                지출일 기준입니다.
+              </p>
+
+              <p>
+                · 매출과 경비의 부가세 및 세무 조정은
+                별도로 반영되지 않습니다.
               </p>
             </div>
           </div>
@@ -1167,21 +1863,48 @@ function SummaryCard({
   value,
   description,
   icon: Icon,
+  tone,
 }: {
   title: string;
   value: string;
   description: string;
   icon: React.ElementType;
+  tone:
+    | "blue"
+    | "emerald"
+    | "rose";
 }) {
+  const toneClass = {
+    blue: {
+      icon: "bg-blue-50 text-blue-600",
+      value: "text-slate-950",
+    },
+
+    emerald: {
+      icon: "bg-emerald-50 text-emerald-600",
+      value: "text-emerald-700",
+    },
+
+    rose: {
+      icon: "bg-rose-50 text-rose-600",
+      value: "text-rose-700",
+    },
+  }[tone];
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-500">
             {title}
           </p>
 
-          <p className="mt-3 text-2xl font-black text-slate-950">
+          <p
+            className={[
+              "mt-3 truncate text-2xl font-black",
+              toneClass.value,
+            ].join(" ")}
+          >
             {value}
           </p>
 
@@ -1190,10 +1913,216 @@ function SummaryCard({
           </p>
         </div>
 
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+        <div
+          className={[
+            "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl",
+            toneClass.icon,
+          ].join(" ")}
+        >
           <Icon className="h-6 w-6" />
         </div>
       </div>
+    </div>
+  );
+}
+
+function PeriodProfitCard({
+  title,
+  sales,
+  expenses,
+}: {
+  title: string;
+  sales: number;
+  expenses: number;
+}) {
+  const profit = sales - expenses;
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="h-5 w-5 text-slate-500" />
+
+          <h2 className="font-bold text-slate-900">
+            {title} 손익
+          </h2>
+        </div>
+
+        <span
+          className={[
+            "rounded-full px-3 py-1 text-xs font-bold",
+            profit >= 0
+              ? "bg-emerald-50 text-emerald-700"
+              : "bg-rose-50 text-rose-700",
+          ].join(" ")}
+        >
+          {profit >= 0 ? "흑자" : "적자"}
+        </span>
+      </div>
+
+      <dl className="mt-5 space-y-3">
+        <div className="flex items-center justify-between gap-4 text-sm">
+          <dt className="text-slate-500">
+            매출
+          </dt>
+
+          <dd className="font-bold text-blue-700">
+            {formatCurrency(sales)}
+          </dd>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 text-sm">
+          <dt className="text-slate-500">
+            경비
+          </dt>
+
+          <dd className="font-bold text-rose-700">
+            -{formatCurrency(expenses)}
+          </dd>
+        </div>
+
+        <div className="border-t border-slate-200 pt-3">
+          <div className="flex items-center justify-between gap-4">
+            <dt className="font-bold text-slate-700">
+              순이익
+            </dt>
+
+            <dd
+              className={[
+                "text-lg font-black",
+                profit >= 0
+                  ? "text-emerald-700"
+                  : "text-rose-700",
+              ].join(" ")}
+            >
+              {formatSignedCurrency(profit)}
+            </dd>
+          </div>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+function MonthlyChartColumn({
+  item,
+  maxAmount,
+}: {
+  item: MonthlyProfitItem;
+  maxAmount: number;
+}) {
+  const salesHeight =
+    item.sales > 0
+      ? Math.max(
+          (item.sales / maxAmount) * 160,
+          4,
+        )
+      : 0;
+
+  const expensesHeight =
+    item.expenses > 0
+      ? Math.max(
+          (item.expenses /
+            maxAmount) *
+            160,
+          4,
+        )
+      : 0;
+
+  return (
+    <div className="min-w-0">
+      <div className="flex h-[180px] items-end justify-center gap-1.5">
+        <div
+          title={`매출 ${formatCurrency(
+            item.sales,
+          )}`}
+          className="w-3 rounded-t bg-blue-600"
+          style={{
+            height: `${salesHeight}px`,
+          }}
+        />
+
+        <div
+          title={`경비 ${formatCurrency(
+            item.expenses,
+          )}`}
+          className="w-3 rounded-t bg-rose-500"
+          style={{
+            height: `${expensesHeight}px`,
+          }}
+        />
+      </div>
+
+      <p className="mt-3 text-center text-xs font-bold text-slate-500">
+        {item.label}
+      </p>
+
+      <p
+        className={[
+          "mt-1 truncate text-center text-xs font-black",
+          item.profit >= 0
+            ? "text-emerald-700"
+            : "text-rose-700",
+        ].join(" ")}
+        title={formatSignedCurrency(
+          item.profit,
+        )}
+      >
+        {item.profit >= 0 ? "+" : "-"}
+        {Math.abs(
+          Math.round(
+            item.profit / 10000,
+          ),
+        ).toLocaleString("ko-KR")}
+        만
+      </p>
+    </div>
+  );
+}
+
+function RatioRow({
+  label,
+  amount,
+  ratio,
+  tone,
+}: {
+  label: string;
+  amount: number;
+  ratio: number;
+  tone: "blue" | "rose";
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+        <span className="truncate font-semibold text-slate-700">
+          {label}
+        </span>
+
+        <span className="shrink-0 font-bold text-slate-950">
+          {formatCurrency(amount)}
+        </span>
+      </div>
+
+      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+        <div
+          className={[
+            "h-full rounded-full",
+            tone === "blue"
+              ? "bg-blue-600"
+              : "bg-rose-500",
+          ].join(" ")}
+          style={{
+            width: `${Math.min(
+              Math.max(ratio, 0),
+              100,
+            )}%`,
+          }}
+        />
+      </div>
+
+      <p className="mt-1 text-right text-xs text-slate-500">
+        {ratio.toFixed(1)}%
+      </p>
     </div>
   );
 }

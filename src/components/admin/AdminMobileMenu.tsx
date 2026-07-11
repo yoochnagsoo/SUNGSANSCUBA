@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
+  Anchor,
   BarChart3,
   CalendarDays,
   ClipboardList,
@@ -12,6 +13,7 @@ import {
   MapPin,
   Menu,
   MessageCircle,
+  ReceiptText,
   Settings,
   Ship,
   TrendingUp,
@@ -57,6 +59,12 @@ const menuItems: Array<{
     icon: Ship,
   },
   {
+    key: "GROUP_DIVES",
+    name: "보트 운항 스케줄",
+    href: "/admin/boat-schedules",
+    icon: Anchor,
+  },
+  {
     key: "CALENDAR",
     name: "캘린더",
     href: "/admin/calendar",
@@ -79,6 +87,12 @@ const menuItems: Array<{
     name: "매출 관리",
     href: "/admin/sales",
     icon: TrendingUp,
+  },
+  {
+    key: "EXPENSES",
+    name: "경비·지출 관리",
+    href: "/admin/expenses",
+    icon: ReceiptText,
   },
   {
     key: "GALLERY",

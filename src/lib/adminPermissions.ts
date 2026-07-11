@@ -8,6 +8,7 @@ export type AdminMenuKey =
   | "CUSTOMERS"
   | "VISITOR_LOGS"
   | "SALES"
+  | "EXPENSES"
   | "GALLERY"
   | "REVIEWS"
   | "DIVE_DESTINATIONS"
@@ -74,6 +75,14 @@ export const ADMIN_MENU_DEFINITIONS: AdminMenuDefinition[] = [
     assignable: true,
   },
   {
+    key: "EXPENSES",
+    name: "경비·지출 관리",
+    href: "/admin/expenses",
+    description:
+      "운영 경비와 지출 내역을 등록하고 기간별·분류별 지출을 확인합니다.",
+    assignable: true,
+  },
+  {
     key: "GALLERY",
     name: "갤러리 관리",
     href: "/admin/gallery",
@@ -126,6 +135,7 @@ const MANAGER_DEFAULT_MENU_KEYS: AdminMenuKey[] = [
   "CUSTOMERS",
   "VISITOR_LOGS",
   "SALES",
+  "EXPENSES",
   "GALLERY",
   "REVIEWS",
   "DIVE_DESTINATIONS",
