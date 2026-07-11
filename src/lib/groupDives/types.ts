@@ -71,10 +71,21 @@ export type GroupDiveTrip = {
   date: string;
 
   /*
-   * 다이빙 회차의 실제 출항 시간입니다.
-   * 보트 운항 슬롯에 배정되면 해당 슬롯의 departureTime으로 갱신됩니다.
+   * 고객 또는 그룹이 회차 등록 시 요청한 희망 시간입니다.
+   */
+  preferredTime?: string;
+
+  /*
+   * 기존 데이터 및 다른 화면과의 호환을 위한 필드입니다.
+   * 신규 저장 시 preferredTime과 같은 값으로 유지합니다.
    */
   startTime: string;
+
+  /*
+   * 보트 운항 스케줄에 배정된 실제 출항 시간입니다.
+   * 미배정 상태에서는 빈 문자열입니다.
+   */
+  actualDepartureTime?: string;
 
   /*
    * 배정되지 않은 회차는 빈 문자열 또는 undefined입니다.
@@ -233,7 +244,11 @@ export type GroupDiveParticipantUpdateInput = {
 
 export type GroupDiveTripInput = {
   date: string;
-  startTime: string;
+  preferredTime: string;
+
+  /* 기존 호출부 호환용 */
+  startTime?: string;
+  actualDepartureTime?: string;
 
   boatScheduleId?: string;
 
@@ -253,7 +268,11 @@ export type GroupDiveTripInput = {
 
 export type GroupDiveTripUpdateInput = {
   date?: string;
+  preferredTime?: string;
+
+  /* 기존 호출부 호환용 */
   startTime?: string;
+  actualDepartureTime?: string;
 
   boatScheduleId?: string;
 

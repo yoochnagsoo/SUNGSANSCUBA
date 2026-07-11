@@ -39,6 +39,10 @@ import type {
   GroupDiveTripStatus,
 } from "@/lib/groupDives/types";
 import {
+  DEFAULT_EXPERIENCE_TIME,
+  EXPERIENCE_TIME_OPTIONS,
+} from "@/lib/experienceTimes";
+import {
   formatPhoneInput,
   isValidKoreanMobilePhone,
 } from "@/lib/phone";
@@ -131,7 +135,7 @@ type ParticipantFormState = {
 
 type TripFormState = {
   date: string;
-  startTime: string;
+  preferredTime: string;
   plannedPointName: string;
   actualPointName: string;
   guideName: string;
@@ -150,7 +154,7 @@ const initialParticipantForm: ParticipantFormState = {
 
 const initialTripForm: TripFormState = {
   date: "",
-  startTime: "09:00",
+  preferredTime: DEFAULT_EXPERIENCE_TIME,
   plannedPointName: "",
   actualPointName: "",
   guideName: "",
@@ -292,14 +296,25 @@ function sortParticipants(
   });
 }
 
+function getPreferredTime(trip: GroupDiveTrip) {
+  return trip.preferredTime || trip.startTime || "";
+}
+
+function getActualDepartureTime(trip: GroupDiveTrip) {
+  return trip.actualDepartureTime || "";
+}
+
 function sortTrips(trips: GroupDiveTrip[]) {
   return [...trips].sort((a, b) => {
     if (a.date !== b.date) {
       return a.date.localeCompare(b.date);
     }
 
-    if (a.startTime !== b.startTime) {
-      return a.startTime.localeCompare(b.startTime);
+    const aPreferredTime = getPreferredTime(a);
+    const bPreferredTime = getPreferredTime(b);
+
+    if (aPreferredTime !== bPreferredTime) {
+      return aPreferredTime.localeCompare(bPreferredTime);
     }
 
     return a.createdAt.localeCompare(b.createdAt);
@@ -996,7 +1011,7 @@ export default function AdminGroupDiveDetailPage() {
 
     setTripForm({
       date: trip.date,
-      startTime: trip.startTime,
+      preferredTime: getPreferredTime(trip),
       plannedPointName: trip.plannedPointName,
       actualPointName: trip.actualPointName,
       guideName: trip.guideName,
@@ -1036,9 +1051,9 @@ export default function AdminGroupDiveDetailPage() {
       return;
     }
 
-    if (!tripForm.startTime) {
+    if (!tripForm.preferredTime) {
       setTripMessage(
-        "출항 시간을 입력해주세요.",
+        "희망 시간을 입력해주세요.",
       );
       return;
     }
@@ -1064,7 +1079,7 @@ export default function AdminGroupDiveDetailPage() {
           },
           body: JSON.stringify({
             date: tripForm.date,
-            startTime: tripForm.startTime,
+            preferredTime: tripForm.preferredTime,
             plannedPointName:
               tripForm.plannedPointName.trim(),
             actualPointName:
@@ -1114,7 +1129,7 @@ export default function AdminGroupDiveDetailPage() {
     if (
       !groupDive ||
       !window.confirm(
-        `${formatDate(trip.date)} ${trip.startTime} 회차를 삭제할까요?`,
+        `${formatDate(trip.date)} ${getPreferredTime(trip)} 희망 회차를 삭제할까요?`,
       )
     ) {
       return;
@@ -2406,12 +2421,53 @@ export default function AdminGroupDiveDetailPage() {
                           </span>
 
                           <span className="text-sm font-black text-slate-950">
-                            {formatDate(trip.date)}{" "}
-                            {trip.startTime}
+                            {formatDate(trip.date)}
                           </span>
+
                         </div>
 
-                        <h3 className="mt-2 text-lg font-black text-slate-950">
+                        <div className="mt-3 grid max-w-md grid-cols-2 gap-2">
+                          <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3">
+                            <p className="text-xs font-black text-sky-700">
+                              희망 시간
+                            </p>
+                            <p className="mt-1 text-xl font-black text-sky-950">
+                              {getPreferredTime(trip) || "미정"}
+                            </p>
+                          </div>
+
+                          <div
+                            className={[
+                              "rounded-2xl border px-4 py-3",
+                              getActualDepartureTime(trip)
+                                ? "border-emerald-200 bg-emerald-50"
+                                : "border-slate-300 bg-slate-100",
+                            ].join(" ")}
+                          >
+                            <p
+                              className={[
+                                "text-xs font-black",
+                                getActualDepartureTime(trip)
+                                  ? "text-emerald-700"
+                                  : "text-slate-600",
+                              ].join(" ")}
+                            >
+                              실제 출항 시간
+                            </p>
+                            <p
+                              className={[
+                                "mt-1 text-xl font-black",
+                                getActualDepartureTime(trip)
+                                  ? "text-emerald-950"
+                                  : "text-slate-700",
+                              ].join(" ")}
+                            >
+                              {getActualDepartureTime(trip) || "미배정"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <h3 className="mt-3 text-lg font-black text-slate-950">
                           {trip.actualPointName ||
                             trip.plannedPointName}
                         </h3>
@@ -3494,19 +3550,24 @@ export default function AdminGroupDiveDetailPage() {
 
                 <label>
                   <span className="text-sm font-bold text-slate-700">
-                    출항 시간
+                    희망 시간
                   </span>
-                  <input
-                    type="time"
-                    value={tripForm.startTime}
+                  <select
+                    value={tripForm.preferredTime}
                     onChange={(event) =>
                       setTripForm((previous) => ({
                         ...previous,
-                        startTime: event.target.value,
+                        preferredTime: event.target.value,
                       }))
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4"
-                  />
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 bg-white px-4 font-semibold text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  >
+                    {EXPERIENCE_TIME_OPTIONS.map((time) => (
+                      <option key={time} value={time}>
+                        {time}
+                      </option>
+                    ))}
+                  </select>
                 </label>
 
                 <label>
@@ -3661,7 +3722,8 @@ export default function AdminGroupDiveDetailPage() {
                 </h2>
                 <p className="mt-1 text-xs font-semibold text-slate-700">
                   {formatDate(boardingTrip.date)}{" "}
-                  {boardingTrip.startTime} ·{" "}
+                  희망 {getPreferredTime(boardingTrip)} · 실제 출항{" "}
+                  {getActualDepartureTime(boardingTrip) || "미배정"} ·{" "}
                   {boardingTrip.actualPointName ||
                     boardingTrip.plannedPointName}
                 </p>

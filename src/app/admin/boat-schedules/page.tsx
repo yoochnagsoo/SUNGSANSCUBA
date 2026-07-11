@@ -25,6 +25,11 @@ import {
   useState,
 } from "react";
 
+import {
+  DEFAULT_EXPERIENCE_TIME,
+  EXPERIENCE_TIME_OPTIONS,
+} from "@/lib/experienceTimes";
+
 type BoatScheduleStatus =
   | "SCHEDULED"
   | "BOARDING"
@@ -65,7 +70,9 @@ type GroupDiveTrip = {
   id: string;
   groupDiveId: string;
   date: string;
+  preferredTime?: string;
   startTime: string;
+  actualDepartureTime?: string;
   boatScheduleId?: string;
   plannedPointName: string;
   actualPointName: string;
@@ -131,7 +138,7 @@ type ScheduleFormState = {
 const DEFAULT_PASSENGER_CAPACITY = 11;
 
 const initialScheduleForm: ScheduleFormState = {
-  departureTime: "09:00",
+  departureTime: DEFAULT_EXPERIENCE_TIME,
   plannedPointName: "",
   memo: "",
 };
@@ -277,10 +284,21 @@ function sortSchedules(schedules: BoatSchedule[]) {
   );
 }
 
+function getPreferredTime(trip: GroupDiveTrip) {
+  return trip.preferredTime || trip.startTime || "";
+}
+
+function getActualDepartureTime(trip: GroupDiveTrip) {
+  return trip.actualDepartureTime || "";
+}
+
 function sortTripCards(cards: TripCard[]) {
   return [...cards].sort((a, b) => {
-    if (a.trip.startTime !== b.trip.startTime) {
-      return a.trip.startTime.localeCompare(b.trip.startTime);
+    const aPreferredTime = getPreferredTime(a.trip);
+    const bPreferredTime = getPreferredTime(b.trip);
+
+    if (aPreferredTime !== bPreferredTime) {
+      return aPreferredTime.localeCompare(bPreferredTime);
     }
 
     if (a.boardedCount !== b.boardedCount) {
@@ -1013,30 +1031,65 @@ export default function AdminBoatSchedulesPage() {
           </span>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-          <div className={[
-              "rounded-xl px-3 py-2",
-              teamColorStyle.detail,
-            ].join(" ")}>
-            <p className="font-semibold text-slate-500">
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2">
+            <p className="text-[11px] font-black text-sky-700">
               희망 시간
             </p>
-            <p className="mt-1 font-black text-slate-900">
-              {card.trip.startTime || "미정"}
+            <p className="mt-1 text-lg font-black text-sky-950">
+              {getPreferredTime(card.trip) || "미정"}
             </p>
           </div>
 
-          <div className={[
-              "rounded-xl px-3 py-2",
-              teamColorStyle.detail,
-            ].join(" ")}>
-            <p className="font-semibold text-slate-500">
-              요청 포인트
+          <div
+            className={[
+              "rounded-xl border px-3 py-2",
+              options?.assigned &&
+              getActualDepartureTime(card.trip)
+                ? "border-emerald-200 bg-emerald-50"
+                : "border-slate-300 bg-slate-100",
+            ].join(" ")}
+          >
+            <p
+              className={[
+                "text-[11px] font-black",
+                options?.assigned &&
+                getActualDepartureTime(card.trip)
+                  ? "text-emerald-700"
+                  : "text-slate-600",
+              ].join(" ")}
+            >
+              실제 출항 시간
             </p>
-            <p className="mt-1 truncate font-black text-slate-900">
-              {getTripPointName(card.trip)}
+            <p
+              className={[
+                "mt-1 text-lg font-black",
+                options?.assigned &&
+                getActualDepartureTime(card.trip)
+                  ? "text-emerald-950"
+                  : "text-slate-700",
+              ].join(" ")}
+            >
+              {options?.assigned
+                ? getActualDepartureTime(card.trip) ||
+                  "미기록"
+                : "미배정"}
             </p>
           </div>
+        </div>
+
+        <div
+          className={[
+            "mt-2 rounded-xl px-3 py-2 text-xs",
+            teamColorStyle.detail,
+          ].join(" ")}
+        >
+          <p className="font-semibold text-slate-500">
+            요청 포인트
+          </p>
+          <p className="mt-1 truncate font-black text-slate-900">
+            {getTripPointName(card.trip)}
+          </p>
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2">
@@ -1296,8 +1349,7 @@ export default function AdminBoatSchedulesPage() {
               <label className="text-sm font-black text-slate-700">
                 실제 출항시간
               </label>
-              <input
-                type="time"
+              <select
                 value={form.departureTime}
                 onChange={(event) =>
                   updateForm(
@@ -1305,8 +1357,14 @@ export default function AdminBoatSchedulesPage() {
                     event.target.value,
                   )
                 }
-                className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-              />
+                className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-950 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+              >
+                {EXPERIENCE_TIME_OPTIONS.map((time) => (
+                  <option key={time} value={time}>
+                    {time}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>

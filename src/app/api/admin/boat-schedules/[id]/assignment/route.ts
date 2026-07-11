@@ -18,14 +18,21 @@ function getBoardedCount(trip: GroupDiveTrip) {
   return trip.participants.filter((participant) => participant.boarded).length;
 }
 
+function getPreferredTime(trip: GroupDiveTrip) {
+  return trip.preferredTime || trip.startTime || "";
+}
+
 function sortTrips(trips: GroupDiveTrip[]) {
   return [...trips].sort((a, b) => {
     if (a.date !== b.date) {
       return a.date.localeCompare(b.date);
     }
 
-    if (a.startTime !== b.startTime) {
-      return a.startTime.localeCompare(b.startTime);
+    const aPreferredTime = getPreferredTime(a);
+    const bPreferredTime = getPreferredTime(b);
+
+    if (aPreferredTime !== bPreferredTime) {
+      return aPreferredTime.localeCompare(bPreferredTime);
     }
 
     return a.createdAt.localeCompare(b.createdAt);
@@ -90,6 +97,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const updatedTrip: GroupDiveTrip = {
         ...previousTrip,
         boatScheduleId: "",
+        actualDepartureTime: "",
         updatedAt: new Date().toISOString(),
       };
 
@@ -227,10 +235,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       ...previousTrip,
 
       /*
-       * 보트 운항에 배정되는 순간 회차 시간도
-       * 실제 보트 출항 시간으로 맞춥니다.
+       * 보트 운항 슬롯 배정은 실제 출항 시간만 기록합니다.
+       *
+       * preferredTime과 기존 데이터 호환용 startTime은
+       * previousTrip의 값을 그대로 유지해야 하므로
+       * 이곳에서는 두 필드를 다시 대입하지 않습니다.
        */
-      startTime: boatSchedule.departureTime,
+      actualDepartureTime: boatSchedule.departureTime,
       boatScheduleId,
 
       updatedAt: new Date().toISOString(),

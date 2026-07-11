@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { EXPERIENCE_TIME_OPTIONS } from "@/lib/experienceTimes";
 import { getGroupDiveRepository } from "@/lib/groupDives/groupDiveRepository";
 import type {
   GroupDiveTrip,
@@ -89,21 +90,8 @@ function isValidDate(value: string) {
 }
 
 function isValidTime(value: string) {
-  if (!/^\d{2}:\d{2}$/.test(value)) {
-    return false;
-  }
-
-  const [hourText, minuteText] = value.split(":");
-  const hour = Number(hourText);
-  const minute = Number(minuteText);
-
-  return (
-    Number.isInteger(hour) &&
-    Number.isInteger(minute) &&
-    hour >= 0 &&
-    hour <= 23 &&
-    minute >= 0 &&
-    minute <= 59
+  return EXPERIENCE_TIME_OPTIONS.includes(
+    value as (typeof EXPERIENCE_TIME_OPTIONS)[number],
   );
 }
 
@@ -115,14 +103,21 @@ function isTripStatus(
   );
 }
 
+function getPreferredTime(trip: GroupDiveTrip) {
+  return trip.preferredTime || trip.startTime || "";
+}
+
 function sortTrips(trips: GroupDiveTrip[]) {
   return [...trips].sort((a, b) => {
     if (a.date !== b.date) {
       return a.date.localeCompare(b.date);
     }
 
-    if (a.startTime !== b.startTime) {
-      return a.startTime.localeCompare(b.startTime);
+    const aPreferredTime = getPreferredTime(a);
+    const bPreferredTime = getPreferredTime(b);
+
+    if (aPreferredTime !== bPreferredTime) {
+      return aPreferredTime.localeCompare(bPreferredTime);
     }
 
     return a.createdAt.localeCompare(b.createdAt);
@@ -469,15 +464,20 @@ export async function PATCH(
       input.date = date;
     }
 
-    if (typeof body.startTime !== "undefined") {
-      const startTime = normalizeText(body.startTime);
+    if (
+      typeof body.preferredTime !== "undefined" ||
+      typeof body.startTime !== "undefined"
+    ) {
+      const preferredTime = normalizeText(
+        body.preferredTime ?? body.startTime,
+      );
 
-      if (!isValidTime(startTime)) {
+      if (!isValidTime(preferredTime)) {
         return NextResponse.json(
           {
             ok: false,
             message:
-              "출항 시간을 올바르게 입력해주세요.",
+              "희망 시간은 운영 시간 목록에서 선택해주세요.",
           },
           {
             status: 400,
@@ -485,18 +485,19 @@ export async function PATCH(
         );
       }
 
-      input.startTime = startTime;
+      input.preferredTime = preferredTime;
+      input.startTime = preferredTime;
     }
 
     const nextDate = input.date ?? previous.date;
-    const nextStartTime =
-      input.startTime ?? previous.startTime;
+    const nextPreferredTime =
+      input.preferredTime ?? getPreferredTime(previous);
 
     const duplicateTrip = groupDive.trips.some(
       (trip) =>
         trip.id !== tripId &&
         trip.date === nextDate &&
-        trip.startTime === nextStartTime,
+        getPreferredTime(trip) === nextPreferredTime,
     );
 
     if (duplicateTrip) {
@@ -504,7 +505,7 @@ export async function PATCH(
         {
           ok: false,
           message:
-            "같은 날짜와 시간의 다이빙 회차가 이미 등록되어 있습니다.",
+            "같은 날짜와 희망 시간의 다이빙 회차가 이미 등록되어 있습니다.",
         },
         {
           status: 409,
@@ -657,8 +658,15 @@ export async function PATCH(
       ...previous,
 
       date: input.date ?? previous.date,
+      preferredTime:
+        input.preferredTime ?? getPreferredTime(previous),
+
+      /* 기존 데이터 및 다른 화면과의 호환용 */
       startTime:
-        input.startTime ?? previous.startTime,
+        input.preferredTime ?? getPreferredTime(previous),
+
+      actualDepartureTime:
+        previous.actualDepartureTime ?? "",
 
       boatScheduleId:
         input.boatScheduleId ??
