@@ -92,6 +92,7 @@ function filterExpenses(
         expense.vendor,
         expense.memo,
         expense.createdByName,
+        expense.receiptFileName,
         expense.category,
         expense.paymentMethod,
       ].some((value) =>
@@ -110,6 +111,14 @@ export const memoryExpenseRepository: ExpenseRepository =
     ): Promise<Expense> {
       const now = new Date().toISOString();
 
+      const receiptKey = normalizeText(
+        input.receiptKey,
+      );
+
+      const hasReceipt =
+        input.hasReceipt === true &&
+        Boolean(receiptKey);
+
       const expense: Expense = {
         id: createId(),
 
@@ -125,7 +134,31 @@ export const memoryExpenseRepository: ExpenseRepository =
         vendor: normalizeText(input.vendor),
 
         memo: normalizeText(input.memo),
-        hasReceipt: input.hasReceipt ?? false,
+        hasReceipt,
+
+        receiptKey: hasReceipt
+          ? receiptKey
+          : "",
+
+        receiptUrl: hasReceipt
+          ? normalizeText(input.receiptUrl)
+          : "",
+
+        receiptFileName: hasReceipt
+          ? normalizeText(
+              input.receiptFileName,
+            )
+          : "",
+
+        receiptMimeType: hasReceipt
+          ? normalizeText(
+              input.receiptMimeType,
+            )
+          : "",
+
+        receiptSize: hasReceipt
+          ? normalizeAmount(input.receiptSize)
+          : 0,
 
         createdById: normalizeText(
           input.createdById,
@@ -176,6 +209,20 @@ export const memoryExpenseRepository: ExpenseRepository =
 
       const current = expenses[index];
 
+      const nextHasReceipt =
+        typeof input.hasReceipt === "boolean"
+          ? input.hasReceipt
+          : current.hasReceipt;
+
+      const nextReceiptKey =
+        typeof input.receiptKey !== "undefined"
+          ? normalizeText(input.receiptKey)
+          : current.receiptKey;
+
+      const hasReceipt =
+        nextHasReceipt &&
+        Boolean(nextReceiptKey);
+
       const updated: Expense = {
         ...current,
 
@@ -184,7 +231,8 @@ export const memoryExpenseRepository: ExpenseRepository =
           current.expenseDate,
 
         category:
-          input.category ?? current.category,
+          input.category ??
+          current.category,
 
         title:
           typeof input.title !== "undefined"
@@ -210,10 +258,47 @@ export const memoryExpenseRepository: ExpenseRepository =
             ? normalizeText(input.memo)
             : current.memo,
 
-        hasReceipt:
-          typeof input.hasReceipt !== "undefined"
-            ? input.hasReceipt
-            : current.hasReceipt,
+        hasReceipt,
+
+        receiptKey: hasReceipt
+          ? nextReceiptKey
+          : "",
+
+        receiptUrl: hasReceipt
+          ? typeof input.receiptUrl !==
+            "undefined"
+            ? normalizeText(
+                input.receiptUrl,
+              )
+            : current.receiptUrl
+          : "",
+
+        receiptFileName: hasReceipt
+          ? typeof input.receiptFileName !==
+            "undefined"
+            ? normalizeText(
+                input.receiptFileName,
+              )
+            : current.receiptFileName
+          : "",
+
+        receiptMimeType: hasReceipt
+          ? typeof input.receiptMimeType !==
+            "undefined"
+            ? normalizeText(
+                input.receiptMimeType,
+              )
+            : current.receiptMimeType
+          : "",
+
+        receiptSize: hasReceipt
+          ? typeof input.receiptSize !==
+            "undefined"
+            ? normalizeAmount(
+                input.receiptSize,
+              )
+            : current.receiptSize
+          : 0,
 
         updatedAt: new Date().toISOString(),
       };
