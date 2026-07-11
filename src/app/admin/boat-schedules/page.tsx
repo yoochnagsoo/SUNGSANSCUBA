@@ -344,6 +344,7 @@ export default function AdminBoatSchedulesPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [formMessage, setFormMessage] = useState("");
   const [draggingTripKey, setDraggingTripKey] = useState("");
+  const [selectedTouchTripKey, setSelectedTouchTripKey] = useState("");
 
   const loadData = useCallback(
     async (showRefreshState = false) => {
@@ -520,6 +521,16 @@ export default function AdminBoatSchedulesPage() {
         (card) => !card.trip.boatScheduleId,
       ),
     [allTripCards],
+  );
+
+  const selectedTouchTrip = useMemo(
+    () =>
+      unassignedTrips.find(
+        (card) =>
+          `${card.groupDiveId}:${card.trip.id}` ===
+          selectedTouchTripKey,
+      ) ?? null,
+    [selectedTouchTripKey, unassignedTrips],
   );
 
   const tripsByScheduleId = useMemo(() => {
@@ -763,6 +774,7 @@ export default function AdminBoatSchedulesPage() {
       }
 
       await loadData(true);
+      setSelectedTouchTripKey("");
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -962,6 +974,7 @@ export default function AdminBoatSchedulesPage() {
     const tripKey = `${card.groupDiveId}:${card.trip.id}`;
     const moving = movingTripKey === tripKey;
     const dragging = draggingTripKey === tripKey;
+    const touchSelected = selectedTouchTripKey === tripKey;
     const recommendedScheduleId =
       recommendationByTripKey.get(tripKey);
 
@@ -989,6 +1002,9 @@ export default function AdminBoatSchedulesPage() {
             ? "cursor-wait opacity-60"
             : "cursor-grab hover:shadow-md active:cursor-grabbing",
           dragging ? "scale-[0.98] opacity-60" : "",
+          touchSelected
+            ? "ring-4 ring-blue-400 ring-offset-2"
+            : "",
         ].join(" ")}
       >
         <div className="flex items-start justify-between gap-3">
@@ -1139,8 +1155,28 @@ export default function AdminBoatSchedulesPage() {
         {!options?.assigned &&
         boatSchedules.length > 0 ? (
           <div className="mt-3 border-t border-slate-100 pt-3 xl:hidden">
-            <label className="text-xs font-black text-slate-600">
-              모바일 배정
+            <button
+              type="button"
+              onClick={() =>
+                setSelectedTouchTripKey((previous) =>
+                  previous === tripKey ? "" : tripKey,
+                )
+              }
+              disabled={moving}
+              className={[
+                "inline-flex w-full items-center justify-center rounded-xl px-3 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-50",
+                touchSelected
+                  ? "bg-blue-600 text-white"
+                  : "border border-blue-300 bg-blue-50 text-blue-700",
+              ].join(" ")}
+            >
+              {touchSelected
+                ? "선택됨 · 아래 출항 슬롯에서 배정"
+                : "이 회차 선택"}
+            </button>
+
+            <label className="mt-3 block text-xs font-black text-slate-600">
+              또는 출항 시간 바로 선택
             </label>
             <select
               defaultValue=""
@@ -1573,6 +1609,45 @@ export default function AdminBoatSchedulesPage() {
                         </button>
                       </div>
 
+                      <div className="mt-4 xl:hidden">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!selectedTouchTrip) {
+                              return;
+                            }
+
+                            void assignTrip(
+                              selectedTouchTrip,
+                              schedule.id,
+                            );
+                          }}
+                          disabled={
+                            !selectedTouchTrip ||
+                            Boolean(movingTripKey) ||
+                            remainingSeats <
+                              (selectedTouchTrip?.boardedCount ?? 0)
+                          }
+                          className={[
+                            "inline-flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-50",
+                            selectedTouchTrip
+                              ? "bg-blue-600 text-white"
+                              : "border border-slate-300 bg-slate-100 text-slate-500",
+                          ].join(" ")}
+                        >
+                          {movingTripKey && selectedTouchTrip ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Ship className="mr-2 h-4 w-4" />
+                          )}
+                          {selectedTouchTrip
+                            ? remainingSeats < selectedTouchTrip.boardedCount
+                              ? "정원 부족"
+                              : `${selectedTouchTrip.groupName} 여기에 배정`
+                            : "먼저 미배정 회차를 선택하세요"}
+                        </button>
+                      </div>
+
                       <div className="mt-4">
                         <div className="flex items-center justify-between text-sm">
                           <span className="font-black text-slate-700">
@@ -1622,8 +1697,12 @@ export default function AdminBoatSchedulesPage() {
                           <div className="flex min-h-24 flex-col items-center justify-center text-center">
                             <Ship className="h-7 w-7 text-blue-300" />
                             <p className="mt-2 text-xs font-black text-blue-700">
-                              이곳에 회차 카드를
-                              드래그하세요.
+                              <span className="xl:hidden">
+                                회차를 선택한 뒤 여기에 배정하세요.
+                              </span>
+                              <span className="hidden xl:inline">
+                                이곳에 회차 카드를 드래그하세요.
+                              </span>
                             </p>
                           </div>
                         )}
