@@ -56,7 +56,19 @@ type GroupDiveTrip = {
   id: string;
   groupDiveId: string;
   date: string;
+
+  /*
+   * startTime은 기존 데이터 호환용 희망 시간입니다.
+   */
   startTime: string;
+  preferredTime?: string;
+
+  /*
+   * 보트 운항 스케줄에 배정된 실제 출항 정보입니다.
+   */
+  actualDepartureTime?: string;
+  boatScheduleId?: string;
+
   plannedPointName: string;
   actualPointName: string;
   boatName: string;
@@ -88,6 +100,41 @@ type GroupDiveListResponse = {
 type CalendarGroupDiveTrip = GroupDiveTrip & {
   groupName: string;
   groupStatus: GroupDive["status"];
+};
+
+type BoatScheduleStatus =
+  | "SCHEDULED"
+  | "BOARDING"
+  | "DEPARTED"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "WEATHER_CANCELLED";
+
+type BoatSchedule = {
+  id: string;
+  date: string;
+  departureTime: string;
+  plannedPointName: string;
+  actualPointName: string;
+  passengerCapacity: number;
+  status: BoatScheduleStatus;
+  memo: string;
+};
+
+type BoatScheduleResponse = {
+  ok: boolean;
+  boatSchedule?: BoatSchedule;
+  message?: string;
+};
+
+type CalendarBoatDeparture = {
+  boatScheduleId: string;
+  date: string;
+  time: string;
+  pointName: string;
+  status: BoatScheduleStatus;
+  trips: CalendarGroupDiveTrip[];
+  totalPeople: number;
 };
 
 type StaffScheduleType =
@@ -335,7 +382,7 @@ type CalendarTimedItem =
   | {
       kind: "GROUP_DIVE";
       time: string;
-      trip: CalendarGroupDiveTrip;
+      departure: CalendarBoatDeparture;
     };
 
 function groupReservationsByTimeAndProgram(
@@ -418,12 +465,12 @@ function sortCalendarTimedItems(items: CalendarTimedItem[]) {
     const labelA =
       a.kind === "RESERVATION_GROUP"
         ? a.group.programLabel
-        : a.trip.groupName;
+        : a.departure.pointName;
 
     const labelB =
       b.kind === "RESERVATION_GROUP"
         ? b.group.programLabel
-        : b.trip.groupName;
+        : b.departure.pointName;
 
     return labelA.localeCompare(labelB);
   });
@@ -431,7 +478,9 @@ function sortCalendarTimedItems(items: CalendarTimedItem[]) {
 
 function sortGroupDiveTrips(items: CalendarGroupDiveTrip[]) {
   return [...items].sort((a, b) => {
-    const timeDiff = getTimeValue(a.startTime) - getTimeValue(b.startTime);
+    const timeDiff =
+      getTimeValue(a.actualDepartureTime) -
+      getTimeValue(b.actualDepartureTime);
 
     if (timeDiff !== 0) {
       return timeDiff;
@@ -485,6 +534,9 @@ export default function AdminCalendarPage() {
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [groupDives, setGroupDives] = useState<GroupDive[]>([]);
+  const [boatSchedulesById, setBoatSchedulesById] = useState<
+    Record<string, BoatSchedule>
+  >({});
   const [staffSchedules, setStaffSchedules] = useState<StaffSchedule[]>([]);
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
 
@@ -635,32 +687,96 @@ export default function AdminCalendarPage() {
   }, [filteredReservations]);
 
   const groupDiveTripsByDate = useMemo(() => {
-    const map = new Map<string, CalendarGroupDiveTrip[]>();
+    const departuresByDate = new Map<
+      string,
+      Map<string, CalendarBoatDeparture>
+    >();
 
     for (const groupDive of groupDives) {
       for (const trip of groupDive.trips || []) {
-        if (!trip.date) {
+        if (
+          !trip.date ||
+          !trip.boatScheduleId ||
+          !trip.actualDepartureTime
+        ) {
           continue;
         }
 
-        if (!map.has(trip.date)) {
-          map.set(trip.date, []);
+        const boatSchedule =
+          boatSchedulesById[trip.boatScheduleId];
+
+        if (!boatSchedule) {
+          continue;
         }
 
-        map.get(trip.date)?.push({
+        if (
+          boatSchedule.status === "CANCELLED" ||
+          boatSchedule.status === "WEATHER_CANCELLED"
+        ) {
+          continue;
+        }
+
+        if (!departuresByDate.has(trip.date)) {
+          departuresByDate.set(trip.date, new Map());
+        }
+
+        const dateMap = departuresByDate.get(trip.date)!;
+        const existing = dateMap.get(trip.boatScheduleId);
+        const boardedCount = trip.participants.filter(
+          (participant) => participant.boarded,
+        ).length;
+
+        const calendarTrip: CalendarGroupDiveTrip = {
           ...trip,
           groupName: groupDive.groupName,
           groupStatus: groupDive.status,
+        };
+
+        if (existing) {
+          existing.trips.push(calendarTrip);
+          existing.totalPeople += boardedCount;
+          continue;
+        }
+
+        dateMap.set(trip.boatScheduleId, {
+          boatScheduleId: trip.boatScheduleId,
+          date: boatSchedule.date,
+          time: boatSchedule.departureTime,
+          pointName:
+            boatSchedule.actualPointName ||
+            boatSchedule.plannedPointName ||
+            "포인트 미정",
+          status: boatSchedule.status,
+          trips: [calendarTrip],
+          totalPeople: boardedCount,
         });
       }
     }
 
-    for (const [dateKey, items] of map.entries()) {
-      map.set(dateKey, sortGroupDiveTrips(items));
+    const result = new Map<string, CalendarBoatDeparture[]>();
+
+    for (const [dateKey, departureMap] of departuresByDate.entries()) {
+      const departures = Array.from(departureMap.values())
+        .map((departure) => ({
+          ...departure,
+          trips: sortGroupDiveTrips(departure.trips),
+        }))
+        .sort((a, b) => {
+          const timeDiff =
+            getTimeValue(a.time) - getTimeValue(b.time);
+
+          if (timeDiff !== 0) {
+            return timeDiff;
+          }
+
+          return a.pointName.localeCompare(b.pointName);
+        });
+
+      result.set(dateKey, departures);
     }
 
-    return map;
-  }, [groupDives]);
+    return result;
+  }, [boatSchedulesById, groupDives]);
 
   const staffSchedulesByDate = useMemo(() => {
     const map = new Map<string, StaffSchedule[]>();
@@ -715,10 +831,10 @@ export default function AdminCalendarPage() {
         time: group.time,
         group,
       })),
-      ...selectedGroupDiveTrips.map((trip) => ({
+      ...selectedGroupDiveTrips.map((departure) => ({
         kind: "GROUP_DIVE" as const,
-        time: trip.startTime || "",
-        trip,
+        time: departure.time,
+        departure,
       })),
     ];
 
@@ -782,16 +898,65 @@ export default function AdminCalendarPage() {
 
       if (!res.ok || !data.ok) {
         throw new Error(
-          data.message || "그룹 다이빙 일정을 불러오지 못했습니다.",
+          data.message || "보트 출항 일정을 불러오지 못했습니다.",
         );
       }
 
-      setGroupDives(data.groupDives || []);
+      const nextGroupDives = data.groupDives || [];
+      setGroupDives(nextGroupDives);
+
+      const boatScheduleIds = Array.from(
+        new Set(
+          nextGroupDives.flatMap((groupDive) =>
+            (groupDive.trips || [])
+              .map((trip) => trip.boatScheduleId || "")
+              .filter(Boolean),
+          ),
+        ),
+      );
+
+      const boatScheduleEntries = await Promise.all(
+        boatScheduleIds.map(async (boatScheduleId) => {
+          const boatResponse = await fetch(
+            `/api/admin/boat-schedules/${boatScheduleId}`,
+            {
+              cache: "no-store",
+            },
+          );
+
+          const boatData =
+            (await boatResponse.json()) as BoatScheduleResponse;
+
+          if (
+            !boatResponse.ok ||
+            !boatData.ok ||
+            !boatData.boatSchedule
+          ) {
+            return null;
+          }
+
+          return [
+            boatScheduleId,
+            boatData.boatSchedule,
+          ] as const;
+        }),
+      );
+
+      setBoatSchedulesById(
+        Object.fromEntries(
+          boatScheduleEntries.filter(
+            (
+              entry,
+            ): entry is readonly [string, BoatSchedule] =>
+              entry !== null,
+          ),
+        ),
+      );
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
-          : "그룹 다이빙 일정을 불러오지 못했습니다.";
+          : "보트 출항 일정을 불러오지 못했습니다.";
 
       setErrorMessage(message);
     } finally {
@@ -1272,8 +1437,8 @@ export default function AdminCalendarPage() {
             예약 캘린더
           </h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            고객 예약, 그룹 다이빙 회차, 직원 휴가/근무불가 일정을
-            함께 확인합니다.
+            고객 예약, 보트 운항 스케줄에 배정된 보트 출항별 그룹 다이빙,
+            직원 휴가/근무불가 일정을 함께 확인합니다.
           </p>
         </div>
 
@@ -1655,42 +1820,53 @@ export default function AdminCalendarPage() {
 
                       {selectedTimedItems.map((item) => {
                         if (item.kind === "GROUP_DIVE") {
-                          const trip = item.trip;
-                          const boardedCount = trip.participants.filter(
-                            (participant) => participant.boarded,
-                          ).length;
+                          const departure = item.departure;
 
                           return (
-                            <Link
-                              key={`group-${trip.id}`}
-                              href={`/admin/group-dives/${trip.groupDiveId}`}
-                              className={`block rounded-xl border px-3 py-3 text-xs font-semibold ${
-                                GROUP_DIVE_TRIP_STYLE[trip.status]
-                              }`}
+                            <div
+                              key={`boat-${departure.boatScheduleId}`}
+                              className="rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-3 text-xs font-semibold text-cyan-950"
                             >
-                              <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
-                                  <p className="truncate text-sm font-black">
-                                    {trip.startTime || "시간 미정"} · {trip.groupName}
+                                  <p className="text-sm font-black">
+                                    {departure.time || "시간 미정"} 출항
                                   </p>
-                                  <p className="mt-1 truncate opacity-80">
-                                    {trip.actualPointName ||
-                                      trip.plannedPointName ||
-                                      "포인트 미정"}
+                                  <p className="mt-1 truncate font-bold text-cyan-800">
+                                    {departure.pointName}
                                   </p>
                                 </div>
 
-                                <span className="shrink-0 rounded-full bg-white/70 px-2 py-1 text-[10px] font-black">
-                                  그룹 다이빙
+                                <span className="shrink-0 rounded-full bg-white/80 px-2 py-1 text-[10px] font-black text-cyan-800">
+                                  총 {departure.totalPeople}명
                                 </span>
                               </div>
 
-                              <p className="mt-2 text-[11px] font-bold opacity-80">
-                                승선 {boardedCount}명 ·{" "}
-                                {GROUP_DIVE_TRIP_STATUS_LABEL[trip.status]}
-                                {trip.boatName ? ` · ${trip.boatName}` : ""}
-                              </p>
-                            </Link>
+                              <div className="mt-3 space-y-1.5 border-t border-cyan-200 pt-3">
+                                {departure.trips.map((trip) => {
+                                  const boardedCount =
+                                    trip.participants.filter(
+                                      (participant) =>
+                                        participant.boarded,
+                                    ).length;
+
+                                  return (
+                                    <Link
+                                      key={trip.id}
+                                      href={`/admin/group-dives/${trip.groupDiveId}`}
+                                      className="flex items-center justify-between gap-3 rounded-lg bg-white/80 px-3 py-2 transition hover:bg-white"
+                                    >
+                                      <span className="min-w-0 truncate font-black text-slate-900">
+                                        {trip.groupName}
+                                      </span>
+                                      <span className="shrink-0 font-black text-cyan-800">
+                                        {boardedCount}명
+                                      </span>
+                                    </Link>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           );
                         }
 
@@ -1771,7 +1947,7 @@ export default function AdminCalendarPage() {
                   selectedGroupDiveTrips.length === 0 &&
                   selectedStaffSchedules.length === 0 ? (
                     <div className="mt-4 rounded-xl bg-white p-4 text-center text-sm font-semibold text-slate-500">
-                      선택한 날짜에 등록된 예약, 그룹 다이빙 또는 직원 일정이 없습니다.
+                      선택한 날짜에 등록된 예약, 보트 출항 또는 직원 일정이 없습니다.
                     </div>
                   ) : null}
                 </div>
@@ -1814,10 +1990,10 @@ export default function AdminCalendarPage() {
                           time: group.time,
                           group,
                         })),
-                        ...dayGroupDiveTrips.map((trip) => ({
+                        ...dayGroupDiveTrips.map((departure) => ({
                           kind: "GROUP_DIVE" as const,
-                          time: trip.startTime || "",
-                          trip,
+                          time: departure.time,
+                          departure,
                         })),
                       ]);
 
@@ -1901,46 +2077,51 @@ export default function AdminCalendarPage() {
                           <div className="space-y-1.5">
                             {dayTimedItems.map((item) => {
                               if (item.kind === "GROUP_DIVE") {
-                                const trip = item.trip;
-                                const boardedCount = trip.participants.filter(
-                                  (participant) => participant.boarded,
-                                ).length;
+                                const departure = item.departure;
 
                                 return (
-                                  <Link
-                                    key={`group-${trip.id}`}
-                                    href={`/admin/group-dives/${trip.groupDiveId}`}
-                                    className={`block rounded-xl border px-2 py-2 text-[11px] font-semibold leading-4 transition hover:scale-[1.01] hover:shadow-sm ${
-                                      GROUP_DIVE_TRIP_STYLE[trip.status]
-                                    }`}
+                                  <div
+                                    key={`boat-${departure.boatScheduleId}`}
+                                    className="rounded-xl border border-cyan-200 bg-cyan-50 px-2 py-2 text-[11px] font-semibold leading-4 text-cyan-950"
                                   >
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex items-center justify-between gap-2">
                                       <span className="shrink-0 font-black">
-                                        {trip.startTime || "미정"}
+                                        {departure.time || "미정"} 출항
                                       </span>
-                                      <span className="truncate font-black">
-                                        {trip.groupName}
+                                      <span className="shrink-0 rounded-full bg-white/80 px-1.5 py-0.5 text-[9px] font-black text-cyan-800">
+                                        {departure.totalPeople}명
                                       </span>
                                     </div>
 
-                                    <div className="mt-1 truncate opacity-80">
-                                      {trip.actualPointName ||
-                                        trip.plannedPointName ||
-                                        "포인트 미정"}
+                                    <div className="mt-1 truncate font-bold text-cyan-800">
+                                      {departure.pointName}
                                     </div>
 
-                                    <div className="mt-1 flex items-center justify-between gap-2">
-                                      <span className="truncate text-[10px] font-bold opacity-80">
-                                        승선 {boardedCount}명
-                                        {trip.boatName
-                                          ? ` · ${trip.boatName}`
-                                          : ""}
-                                      </span>
-                                      <span className="shrink-0 rounded-full bg-white/70 px-1.5 py-0.5 text-[9px] font-black">
-                                        그룹
-                                      </span>
+                                    <div className="mt-2 space-y-1 border-t border-cyan-200 pt-2">
+                                      {departure.trips.map((trip) => {
+                                        const boardedCount =
+                                          trip.participants.filter(
+                                            (participant) =>
+                                              participant.boarded,
+                                          ).length;
+
+                                        return (
+                                          <Link
+                                            key={trip.id}
+                                            href={`/admin/group-dives/${trip.groupDiveId}`}
+                                            className="flex items-center justify-between gap-2 rounded-lg bg-white/80 px-2 py-1.5 transition hover:bg-white"
+                                          >
+                                            <span className="min-w-0 truncate text-[10px] font-black text-slate-900">
+                                              {trip.groupName}
+                                            </span>
+                                            <span className="shrink-0 text-[10px] font-black text-cyan-800">
+                                              {boardedCount}명
+                                            </span>
+                                          </Link>
+                                        );
+                                      })}
                                     </div>
-                                  </Link>
+                                  </div>
                                 );
                               }
 
@@ -2276,7 +2457,7 @@ export default function AdminCalendarPage() {
 
                         {staffOptions.map((staff) => (
                           <option key={staff.id} value={staff.id}>
-                            {staff.name} · {staff.roleLabel}
+                            {staff.name} 
                           </option>
                         ))}
                       </select>
