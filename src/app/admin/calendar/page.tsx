@@ -322,6 +322,39 @@ function getTimeValue(time?: string) {
   return hour * 60 + minute;
 }
 
+function formatScheduleTimeRange(time?: string) {
+  if (!time) {
+    return "시간 미정";
+  }
+
+  const [hourText, minuteText] = time.split(":");
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+
+  if (
+    Number.isNaN(hour) ||
+    Number.isNaN(minute) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return time;
+  }
+
+  const start = `${String(hour).padStart(2, "0")}:${String(minute).padStart(
+    2,
+    "0",
+  )}`;
+  const endHour = (hour + 1) % 24;
+  const end = `${String(endHour).padStart(2, "0")}:${String(minute).padStart(
+    2,
+    "0",
+  )}`;
+
+  return `${start} - ${end}`;
+}
+
 function sortReservationsByTime(reservations: Reservation[]) {
   return [...reservations].sort((a, b) => {
     const timeA = getTimeValue(a.experienceTime);
@@ -555,6 +588,7 @@ export default function AdminCalendarPage() {
   const [reservationNameKeyword, setReservationNameKeyword] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isDayDetailOpen, setIsDayDetailOpen] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
   const [showStaffPanel, setShowStaffPanel] = useState(false);
@@ -1082,12 +1116,14 @@ export default function AdminCalendarPage() {
   }
 
   function goPrevMonth() {
+    setIsDayDetailOpen(false);
     setCurrentDate(
       (prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1),
     );
   }
 
   function goNextMonth() {
+    setIsDayDetailOpen(false);
     setCurrentDate(
       (prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1),
     );
@@ -1098,6 +1134,7 @@ export default function AdminCalendarPage() {
 
     setCurrentDate(today);
     setSelectedDateKey(toDateKey(today));
+    setIsDayDetailOpen(true);
   }
 
   function resetStaffScheduleForm(dateKey?: string) {
@@ -1953,7 +1990,249 @@ export default function AdminCalendarPage() {
                 </div>
               </div>
 
-              <div className="-mx-3 mt-5 hidden max-w-none overflow-x-auto px-3 sm:mx-0 sm:block sm:max-w-full sm:px-0">
+              {isDayDetailOpen ? (
+                <div className="mt-5 hidden overflow-hidden rounded-2xl border border-slate-200 bg-white sm:block">
+                  <div className="flex flex-col gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsDayDetailOpen(false)}
+                          className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-100"
+                        >
+                          월간 보기
+                        </button>
+                        <p className="text-sm font-black text-blue-700">
+                          일자 상세
+                        </p>
+                      </div>
+
+                      <h3 className="mt-3 text-2xl font-black text-slate-950">
+                        {getKoreanDateLabel(selectedDateKey)}
+                      </h3>
+                      <p className="mt-1 text-sm font-semibold text-slate-500">
+                        예약 {selectedReservations.length}건 · 그룹 다이빙{" "}
+                        {selectedGroupDiveTrips.length}건 · 직원 일정{" "}
+                        {selectedStaffSchedules.length}건
+                      </p>
+                    </div>
+
+                    {!isTabletDisplay ? (
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openReservationPanel(selectedDateKey)}
+                          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white hover:bg-blue-700"
+                        >
+                          예약 등록
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openStaffPanel(selectedDateKey)}
+                          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white hover:bg-slate-700"
+                        >
+                          직원 일정
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="grid min-h-[620px] grid-cols-[96px_minmax(0,1fr)] bg-white">
+                    <div className="border-r border-slate-200 bg-slate-50">
+                      {EXPERIENCE_TIME_OPTIONS.map((time) => (
+                        <div
+                          key={time}
+                          className="flex h-16 items-start justify-end border-b border-slate-200 px-3 pt-2 text-xs font-bold text-slate-500"
+                        >
+                          {time}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="relative min-w-0">
+                      {EXPERIENCE_TIME_OPTIONS.map((time) => (
+                        <div
+                          key={`line-${time}`}
+                          className="h-16 border-b border-slate-100"
+                        />
+                      ))}
+
+                      <div className="absolute inset-0 space-y-3 overflow-y-auto p-4">
+                        {selectedStaffSchedules.length > 0 ? (
+                          <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4">
+                            <p className="text-xs font-black uppercase tracking-[0.18em] text-purple-700">
+                              All Day
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {selectedStaffSchedules.map((schedule) => (
+                                <button
+                                  type="button"
+                                  key={schedule.id}
+                                  onClick={() => handleEditStaffSchedule(schedule)}
+                                  className={`rounded-xl border px-3 py-2 text-xs font-black transition hover:shadow-sm ${
+                                    STAFF_SCHEDULE_STYLE[schedule.type]
+                                  }`}
+                                >
+                                  {schedule.staffName} ·{" "}
+                                  {STAFF_SCHEDULE_LABEL[schedule.type]}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {selectedTimedItems.map((item) => {
+                          if (item.kind === "GROUP_DIVE") {
+                            const departure = item.departure;
+
+                            return (
+                              <div
+                                key={`detail-boat-${departure.boatScheduleId}`}
+                                className="grid grid-cols-[132px_minmax(0,1fr)] gap-4 rounded-2xl border border-cyan-200 bg-cyan-50 p-4 text-cyan-950 shadow-sm"
+                              >
+                                <div className="text-sm font-black text-cyan-800">
+                                  {formatScheduleTimeRange(departure.time)}
+                                </div>
+
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <p className="text-base font-black">
+                                        보트 출항 · {departure.pointName}
+                                      </p>
+                                      <p className="mt-1 text-sm font-bold text-cyan-800">
+                                        총 승선 {departure.totalPeople}명
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="mt-3 grid gap-2 md:grid-cols-2">
+                                    {departure.trips.map((trip) => {
+                                      const boardedCount =
+                                        trip.participants.filter(
+                                          (participant) =>
+                                            participant.boarded,
+                                        ).length;
+
+                                      return (
+                                        <Link
+                                          key={trip.id}
+                                          href={`/admin/group-dives/${trip.groupDiveId}`}
+                                          className="rounded-xl bg-white/85 px-3 py-2 text-sm font-bold text-slate-900 transition hover:bg-white"
+                                        >
+                                          <span className="block truncate">
+                                            {trip.groupName}
+                                          </span>
+                                          <span className="mt-1 block text-xs font-black text-cyan-800">
+                                            {boardedCount}명 승선
+                                          </span>
+                                        </Link>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          const group = item.group;
+                          const statusCounts =
+                            getReservationGroupStatusCounts(group);
+
+                          return (
+                            <div
+                              key={`detail-reservation-${group.key}`}
+                              className={`grid grid-cols-[132px_minmax(0,1fr)] gap-4 rounded-2xl border p-4 shadow-sm ${getReservationGroupStyle(
+                                group,
+                              )}`}
+                            >
+                              <div className="text-sm font-black">
+                                {formatScheduleTimeRange(group.time)}
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="text-base font-black">
+                                      {group.programLabel}
+                                    </p>
+                                    <p className="mt-1 text-sm font-bold opacity-80">
+                                      예약 {group.reservations.length}건 · 총{" "}
+                                      {group.totalPeople}명
+                                    </p>
+                                  </div>
+
+                                  <div className="flex flex-wrap gap-1">
+                                    {(Object.keys(
+                                      STATUS_LABEL,
+                                    ) as ReservationStatus[])
+                                      .filter(
+                                        (status) =>
+                                          statusCounts[status] > 0,
+                                      )
+                                      .map((status) => (
+                                        <span
+                                          key={status}
+                                          className={`rounded-full border px-2 py-1 text-[10px] font-black ${STATUS_STYLE[status]}`}
+                                        >
+                                          {STATUS_LABEL[status]}{" "}
+                                          {statusCounts[status]}
+                                        </span>
+                                      ))}
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                                  {group.reservations.map((reservation) => {
+                                    const source =
+                                      reservation.source || "CUSTOMER";
+
+                                    return (
+                                      <Link
+                                        key={reservation.id}
+                                        href={`/admin/reservations/${reservation.id}`}
+                                        className="rounded-xl bg-white/75 px-3 py-2 text-sm transition hover:bg-white"
+                                      >
+                                        <span className="block truncate font-black">
+                                          {reservation.name} ·{" "}
+                                          {reservation.people}명
+                                        </span>
+                                        <span className="mt-1 block truncate text-xs font-bold opacity-75">
+                                          {SOURCE_LABEL[source]} · 담당{" "}
+                                          {getAssignedStaffNames(reservation)
+                                            .length > 0
+                                            ? getAssignedStaffNames(
+                                                reservation,
+                                              ).join(" · ")
+                                            : "미배정"}
+                                        </span>
+                                      </Link>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {selectedTimedItems.length === 0 &&
+                        selectedStaffSchedules.length === 0 ? (
+                          <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-sm font-bold text-slate-500">
+                            선택한 날짜에 등록된 예약, 보트 출항 또는 직원 일정이 없습니다.
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              <div
+                className={[
+                  "-mx-3 mt-5 max-w-none overflow-x-auto px-3 sm:mx-0 sm:max-w-full sm:px-0",
+                  isDayDetailOpen ? "hidden" : "hidden sm:block",
+                ].join(" ")}
+              >
                 <div className={["transition-all", calendarMinWidth].join(" ")}>
                   <div className="grid grid-cols-7 border-y border-slate-200 bg-slate-50">
                     {DAY_NAMES.map((dayName, index) => (
@@ -2009,7 +2288,12 @@ export default function AdminCalendarPage() {
                           ].join(" ")}
                         >
                           <div className="mb-2 flex items-center justify-between gap-2">
-                            <span
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedDateKey(day.dateKey);
+                                setIsDayDetailOpen(true);
+                              }}
                               className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold ${
                                 day.isToday
                                   ? "bg-blue-600 text-white"
@@ -2017,9 +2301,10 @@ export default function AdminCalendarPage() {
                                     ? "text-slate-800"
                                     : "text-slate-400"
                               }`}
+                              aria-label={`${day.dateKey} 상세 일정 보기`}
                             >
                               {day.date.getDate()}
-                            </span>
+                            </button>
 
                             <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
                               {dayStaffSchedules.length > 0 ? (
