@@ -33,6 +33,7 @@ export type GoogleCalendarEventPayload = {
   summary: string;
   description?: string;
   location?: string;
+  colorId?: string;
   start:
     | {
         date: string;

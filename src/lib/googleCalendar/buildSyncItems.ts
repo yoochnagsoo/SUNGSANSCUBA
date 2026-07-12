@@ -19,6 +19,14 @@ import type {
 } from "./types";
 
 const TIME_ZONE = "Asia/Seoul";
+const GOOGLE_CALENDAR_COLOR = {
+  RESERVATION_PENDING: "5",
+  RESERVATION_CONFIRMED: "9",
+  RESERVATION_COMPLETED: "10",
+  RESERVATION_CANCELLED: "11",
+  BOAT_SCHEDULE: "7",
+  STAFF_SCHEDULE: "3",
+} as const;
 
 function addOneHour(time?: string) {
   if (!time) {
@@ -74,6 +82,7 @@ function createTimedEvent(
   date: string,
   time: string,
   details: string[],
+  colorId: string,
   location?: string,
 ): GoogleCalendarSyncItem | null {
   const endTime = addOneHour(time);
@@ -86,6 +95,7 @@ function createTimedEvent(
     summary,
     description: details.filter(Boolean).join("\n"),
     location,
+    colorId,
     start: {
       dateTime: createTimedEventDate(date, time),
       timeZone: TIME_ZONE,
@@ -117,6 +127,7 @@ function createAllDayEvent(
   date: string,
   endDate: string | undefined,
   details: string[],
+  colorId: string,
 ): GoogleCalendarSyncItem | null {
   if (!date) {
     return null;
@@ -125,6 +136,7 @@ function createAllDayEvent(
   const event: GoogleCalendarEventPayload = {
     summary,
     description: details.filter(Boolean).join("\n"),
+    colorId,
     start: {
       date,
     },
@@ -148,30 +160,48 @@ function createAllDayEvent(
 }
 
 function buildReservationItem(reservation: Reservation) {
-  if (reservation.status === "CANCELLED") {
-    return null;
-  }
-
   const programLabel = getProgramLabel(reservation.program);
+  const date = reservation.reservationDate || reservation.date || "";
+  const summary = `${reservation.name} · ${programLabel} · ${reservation.people}명`;
+  const details = [
+    `예약자: ${reservation.name}`,
+    `연락처: ${reservation.phone}`,
+    reservation.email ? `이메일: ${reservation.email}` : "",
+    `프로그램: ${programLabel}`,
+    `인원: ${reservation.people}명`,
+    `상태: ${reservation.status}`,
+    reservation.primaryStaffName ? `담당: ${reservation.primaryStaffName}` : "",
+    reservation.adminMemo ? `메모: ${reservation.adminMemo}` : "",
+  ];
+  const colorId =
+    reservation.status === "PENDING"
+      ? GOOGLE_CALENDAR_COLOR.RESERVATION_PENDING
+      : reservation.status === "COMPLETED"
+        ? GOOGLE_CALENDAR_COLOR.RESERVATION_COMPLETED
+        : reservation.status === "CANCELLED"
+          ? GOOGLE_CALENDAR_COLOR.RESERVATION_CANCELLED
+          : GOOGLE_CALENDAR_COLOR.RESERVATION_CONFIRMED;
+
+  if (!reservation.experienceTime) {
+    return createAllDayEvent(
+      "RESERVATION",
+      reservation.id,
+      summary,
+      date,
+      undefined,
+      details,
+      colorId,
+    );
+  }
 
   return createTimedEvent(
     "RESERVATION",
     reservation.id,
-    `${reservation.name} · ${programLabel} · ${reservation.people}명`,
-    reservation.reservationDate || reservation.date || "",
+    summary,
+    date,
     reservation.experienceTime || "",
-    [
-      `예약자: ${reservation.name}`,
-      `연락처: ${reservation.phone}`,
-      reservation.email ? `이메일: ${reservation.email}` : "",
-      `프로그램: ${programLabel}`,
-      `인원: ${reservation.people}명`,
-      `상태: ${reservation.status}`,
-      reservation.primaryStaffName
-        ? `담당: ${reservation.primaryStaffName}`
-        : "",
-      reservation.adminMemo ? `메모: ${reservation.adminMemo}` : "",
-    ],
+    details,
+    colorId,
   );
 }
 
@@ -181,6 +211,7 @@ function buildBoatScheduleItem(
   groupDiveById: Map<string, GroupDive>,
 ) {
   if (
+    trips.length === 0 ||
     schedule.status === "CANCELLED" ||
     schedule.status === "WEATHER_CANCELLED"
   ) {
@@ -218,6 +249,7 @@ function buildBoatScheduleItem(
       ...tripDetails,
       schedule.memo ? `메모: ${schedule.memo}` : "",
     ],
+    GOOGLE_CALENDAR_COLOR.BOAT_SCHEDULE,
     pointName,
   );
 }
@@ -244,6 +276,7 @@ function buildStaffScheduleItem(schedule: StaffSchedule) {
       `일정: ${typeLabel[schedule.type]}`,
       schedule.memo ? `메모: ${schedule.memo}` : "",
     ],
+    GOOGLE_CALENDAR_COLOR.STAFF_SCHEDULE,
   );
 }
 
@@ -269,6 +302,7 @@ export async function buildGoogleCalendarSyncItems() {
     for (const trip of groupDive.trips) {
       if (
         !trip.boatScheduleId ||
+        !trip.actualDepartureTime ||
         trip.status === "CANCELLED" ||
         trip.status === "WEATHER_CANCELLED"
       ) {
