@@ -78,10 +78,6 @@ const VALID_ADMIN_ROLES: AdminRole[] = [
 
 let initializePromise: Promise<void> | null = null;
 
-function hasDynamoAdminAccountsTable() {
-  return Boolean(process.env.DYNAMODB_ADMIN_ACCOUNTS_TABLE);
-}
-
 export function isAdminRole(
   value: unknown,
 ): value is AdminRole {
@@ -187,7 +183,6 @@ function getAccountsFromJsonEnvironment() {
 function getLegacyAdminAccount(): EnvironmentAdminAccount {
   if (
     process.env.NODE_ENV === "production" &&
-    !hasDynamoAdminAccountsTable() &&
     !process.env.ADMIN_PASSWORD
   ) {
     throw new Error(
@@ -208,14 +203,6 @@ function getLegacyAdminAccount(): EnvironmentAdminAccount {
 }
 
 function getEnvironmentAdminAccounts() {
-  if (
-    process.env.NODE_ENV === "production" &&
-    hasDynamoAdminAccountsTable() &&
-    !process.env.ADMIN_ACCOUNTS
-  ) {
-    return [];
-  }
-
   const accounts = getAccountsFromJsonEnvironment();
 
   if (accounts.length > 0) {
@@ -338,11 +325,6 @@ async function initializeDynamoAccounts() {
   }
 
   const environmentAccounts = getEnvironmentAdminAccounts();
-
-  if (environmentAccounts.length === 0) {
-    return;
-  }
-
   const now = new Date().toISOString();
 
   for (const account of environmentAccounts) {
@@ -410,10 +392,6 @@ export async function getAdminAccounts(): Promise<
       error,
     );
 
-    if (hasDynamoAdminAccountsTable()) {
-      throw error;
-    }
-
     return getEnvironmentAdminAccounts().map(
       toPublicAdminAccount,
     );
@@ -442,10 +420,6 @@ export async function getAdminAccountById(
       "[adminAccounts] DynamoDB 관리자 계정 단건 조회 실패. 환경변수 계정으로 대체합니다.",
       error,
     );
-
-    if (hasDynamoAdminAccountsTable()) {
-      throw error;
-    }
 
     const fallbackAccount =
       getEnvironmentAdminAccounts().find(
@@ -495,10 +469,6 @@ export async function authenticateAdminAccount(
       "[adminAccounts] DynamoDB 로그인 실패. 환경변수 계정으로 대체합니다.",
       error,
     );
-
-    if (hasDynamoAdminAccountsTable()) {
-      throw error;
-    }
 
     const fallbackAccount =
       getEnvironmentAdminAccounts().find(
