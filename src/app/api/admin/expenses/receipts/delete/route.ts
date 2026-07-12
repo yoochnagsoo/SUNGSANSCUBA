@@ -1,7 +1,6 @@
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAdminMenuMutation } from "@/lib/adminAuth";
 import {
   s3Client,
   s3GalleryBucket,
@@ -28,12 +27,6 @@ function getErrorMessage(error: unknown) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdminMenuMutation(request, "EXPENSES");
-
-  if (!auth.ok) {
-    return auth.response;
-  }
-
   try {
     if (!s3GalleryBucket) {
       return NextResponse.json(

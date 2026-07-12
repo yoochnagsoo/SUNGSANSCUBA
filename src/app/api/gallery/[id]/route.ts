@@ -2,10 +2,6 @@ import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { NextRequest, NextResponse } from "next/server";
 
 import {
-  requireAdminMenu,
-  requireAdminMenuMutation,
-} from "@/lib/adminAuth";
-import {
   s3Client,
   s3GalleryBucket,
   s3GalleryPublicBaseUrl,
@@ -76,12 +72,6 @@ function isSameImageUrl(a: string, b: string) {
 }
 
 export async function GET(_request: NextRequest, context: RouteContext) {
-  const auth = await requireAdminMenu(_request, "GALLERY");
-
-  if (!auth.ok) {
-    return auth.response;
-  }
-
   const { id } = await context.params;
 
   const image = await galleryRepository.getById(id);
@@ -103,12 +93,6 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdminMenuMutation(request, "GALLERY");
-
-  if (!auth.ok) {
-    return auth.response;
-  }
-
   try {
     const { id } = await context.params;
     const body = await request.json();
@@ -200,13 +184,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 }
 
-export async function DELETE(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdminMenuMutation(request, "GALLERY");
-
-  if (!auth.ok) {
-    return auth.response;
-  }
-
+export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
 

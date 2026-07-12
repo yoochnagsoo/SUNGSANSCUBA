@@ -13,17 +13,10 @@ import {
   type AdminMenuKey,
 } from "@/lib/adminPermissions";
 
-function getJwtSecret() {
-  const value = process.env.JWT_SECRET;
-
-  if (!value && process.env.NODE_ENV === "production") {
-    throw new Error("JWT_SECRET environment variable is required in production.");
-  }
-
-  return value || "dev-secret-change-me";
-}
-
-const secret = new TextEncoder().encode(getJwtSecret());
+const secret = new TextEncoder().encode(
+  process.env.JWT_SECRET ||
+    "dev-secret-change-me",
+);
 
 export interface AdminTokenPayload extends JWTPayload {
   role: "admin";

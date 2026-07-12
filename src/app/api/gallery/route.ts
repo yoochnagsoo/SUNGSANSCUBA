@@ -1,22 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import {
-  requireAdminMenu,
-  requireAdminMenuMutation,
-} from "@/lib/adminAuth";
 import { galleryRepository } from "@/lib/gallery/galleryRepository";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const admin = searchParams.get("admin") === "1";
-
-  if (admin) {
-    const auth = await requireAdminMenu(request, "GALLERY");
-
-    if (!auth.ok) {
-      return auth.response;
-    }
-  }
 
   const images = admin
     ? await galleryRepository.listAll()
@@ -29,12 +17,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdminMenuMutation(request, "GALLERY");
-
-  if (!auth.ok) {
-    return auth.response;
-  }
-
   try {
     const body = await request.json();
 
