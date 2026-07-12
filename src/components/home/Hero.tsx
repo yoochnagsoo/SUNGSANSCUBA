@@ -6,9 +6,11 @@ import {
   ArrowRight,
   BookOpen,
   Camera,
+  ExternalLink,
   HelpCircle,
   MapPin,
   MessageCircle,
+  Radio,
   Waves,
 } from "lucide-react";
 import { siteConfig } from "@/data/site";
@@ -157,7 +159,7 @@ export default function Hero() {
             </button>
           </div>
 
-          <div className="mt-12 grid max-w-3xl gap-4 sm:grid-cols-3">
+          <div className="mt-12 grid max-w-5xl gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <button
               type="button"
               onClick={() => scrollToSection("destinations")}
@@ -192,6 +194,27 @@ export default function Hero() {
               <p className="mt-2 text-sm font-semibold text-slate-300">
                 성산 바다의 순간을 확인하세요
               </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => window.open("/sea-live", "_blank", "noreferrer")}
+              className="rounded-3xl border border-cyan-300/30 bg-cyan-300/10 p-5 text-left backdrop-blur transition hover:-translate-y-0.5 hover:bg-cyan-300/15"
+            >
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <Radio className="h-6 w-6 text-cyan-300" />
+                <span className="rounded-full bg-red-500 px-2 py-1 text-[10px] font-black text-white">
+                  LIVE
+                </span>
+              </div>
+              <p className="text-base font-black text-white">오늘 바다 상황</p>
+              <p className="mt-2 text-sm font-semibold text-slate-300">
+                실시간 CCTV, 수온, 풍속, 파고 확인
+              </p>
+              <span className="mt-4 inline-flex items-center gap-1 text-xs font-black text-cyan-200">
+                새창으로 보기
+                <ExternalLink className="h-3.5 w-3.5" />
+              </span>
             </button>
           </div>
 
