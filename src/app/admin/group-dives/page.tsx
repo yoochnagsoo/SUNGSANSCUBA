@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   CalendarDays,
+  ChevronLeft,
   ChevronRight,
   Loader2,
   Plus,
@@ -264,6 +265,11 @@ export default function AdminGroupDivesPage() {
   const [selectedSort, setSelectedSort] =
     useState<GroupDiveSort>("OPERATION");
 
+  const [calendarDate, setCalendarDate] = useState(() => new Date());
+  const [selectedCalendarDateKey, setSelectedCalendarDateKey] = useState(() =>
+    toDateKey(new Date()),
+  );
+
   const [errorMessage, setErrorMessage] = useState("");
   const [formMessage, setFormMessage] = useState("");
 
@@ -429,6 +435,128 @@ export default function AdminGroupDivesPage() {
     selectedFilter,
     selectedSort,
   ]);
+
+  const groupDivesByTripDate = useMemo(() => {
+    const map = new Map<string, GroupDive[]>();
+
+    for (const groupDive of groupDives) {
+      if (groupDive.status === "CANCELLED") {
+        continue;
+      }
+
+      const activeTripDates = new Set(
+        groupDive.trips
+          .filter((trip) => trip.date && isCountableTripStatus(trip.status))
+          .map((trip) => trip.date),
+      );
+
+      for (const dateKey of activeTripDates) {
+        const items = map.get(dateKey) ?? [];
+        items.push(groupDive);
+        map.set(dateKey, items);
+      }
+    }
+
+    for (const [dateKey, items] of map.entries()) {
+      map.set(
+        dateKey,
+        [...items].sort((a, b) => {
+          const dateCompare = a.startDate.localeCompare(b.startDate);
+
+          if (dateCompare !== 0) {
+            return dateCompare;
+          }
+
+          return a.groupName.localeCompare(b.groupName);
+        }),
+      );
+    }
+
+    return map;
+  }, [groupDives]);
+
+  const calendarDays = useMemo(() => {
+    const year = calendarDate.getFullYear();
+    const month = calendarDate.getMonth();
+    const firstDate = new Date(year, month, 1);
+    const lastDate = new Date(year, month + 1, 0);
+    const firstDay = firstDate.getDay();
+    const days: Array<{
+      date: Date;
+      dateKey: string;
+      isCurrentMonth: boolean;
+      isToday: boolean;
+      groupCount: number;
+    }> = [];
+    const todayKey = toDateKey(new Date());
+
+    for (let index = firstDay - 1; index >= 0; index -= 1) {
+      const date = new Date(year, month, -index);
+      const dateKey = toDateKey(date);
+
+      days.push({
+        date,
+        dateKey,
+        isCurrentMonth: false,
+        isToday: dateKey === todayKey,
+        groupCount: groupDivesByTripDate.get(dateKey)?.length ?? 0,
+      });
+    }
+
+    for (let day = 1; day <= lastDate.getDate(); day += 1) {
+      const date = new Date(year, month, day);
+      const dateKey = toDateKey(date);
+
+      days.push({
+        date,
+        dateKey,
+        isCurrentMonth: true,
+        isToday: dateKey === todayKey,
+        groupCount: groupDivesByTripDate.get(dateKey)?.length ?? 0,
+      });
+    }
+
+    while (days.length % 7 !== 0) {
+      const previousDate = days[days.length - 1].date;
+      const date = new Date(previousDate);
+      date.setDate(previousDate.getDate() + 1);
+      const dateKey = toDateKey(date);
+
+      days.push({
+        date,
+        dateKey,
+        isCurrentMonth: false,
+        isToday: dateKey === todayKey,
+        groupCount: groupDivesByTripDate.get(dateKey)?.length ?? 0,
+      });
+    }
+
+    return days;
+  }, [calendarDate, groupDivesByTripDate]);
+
+  const selectedDateGroupDives = useMemo(() => {
+    return groupDivesByTripDate.get(selectedCalendarDateKey) ?? [];
+  }, [groupDivesByTripDate, selectedCalendarDateKey]);
+
+  function goPrevCalendarMonth() {
+    setCalendarDate(
+      (previous) =>
+        new Date(previous.getFullYear(), previous.getMonth() - 1, 1),
+    );
+  }
+
+  function goNextCalendarMonth() {
+    setCalendarDate(
+      (previous) =>
+        new Date(previous.getFullYear(), previous.getMonth() + 1, 1),
+    );
+  }
+
+  function getTripCountForDate(groupDive: GroupDive, dateKey: string) {
+    return groupDive.trips.filter(
+      (trip) => trip.date === dateKey && isCountableTripStatus(trip.status),
+    ).length;
+  }
 
   function updateForm<Key extends keyof FormState>(
     key: Key,
@@ -829,8 +957,9 @@ export default function AdminGroupDivesPage() {
             </button>
           </div>
         ) : (
-          <div className="grid gap-4 xl:grid-cols-2">
-            {filteredGroupDives.map((groupDive) => {
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="space-y-2">
+              {filteredGroupDives.map((groupDive) => {
               const activeParticipantCount =
                 groupDive.participants.filter(
                   (participant) => participant.active,
@@ -842,10 +971,10 @@ export default function AdminGroupDivesPage() {
               return (
                 <article
                   key={groupDive.id}
-                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-cyan-200 hover:shadow-md"
+                  className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50/30"
                 >
-                  <div className="p-5 sm:p-6">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="p-4">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <span
@@ -873,11 +1002,11 @@ export default function AdminGroupDivesPage() {
                           </span>
                         </div>
 
-                        <h2 className="mt-3 truncate text-xl font-black text-slate-950">
+                        <h2 className="mt-2 truncate text-base font-black text-slate-950">
                           {groupDive.groupName}
                         </h2>
 
-                        <p className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
+                        <p className="mt-1 inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
                           <CalendarDays className="h-4 w-4 shrink-0" />
                           {formatDateRange(
                             groupDive.startDate,
@@ -885,7 +1014,7 @@ export default function AdminGroupDivesPage() {
                           )}
                         </p>
 
-                        <p className="mt-2 text-sm font-semibold text-slate-500">
+                        <p className="mt-1 text-sm font-semibold text-slate-500">
                           대표자 {groupDive.representativeName}
                           {groupDive.representativePhone
                             ? ` · ${groupDive.representativePhone}`
@@ -895,15 +1024,15 @@ export default function AdminGroupDivesPage() {
 
                       <Link
                         href={`/admin/group-dives/${groupDive.id}`}
-                        className="inline-flex h-10 shrink-0 items-center justify-center gap-1 rounded-xl bg-slate-950 px-4 text-sm font-bold text-white transition hover:bg-slate-800"
+                        className="inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:border-cyan-300 hover:text-cyan-700"
                       >
                         상세 관리
                         <ChevronRight className="h-4 w-4" />
                       </Link>
                     </div>
 
-                    <div className="mt-5 grid grid-cols-3 divide-x divide-slate-200 rounded-2xl border border-slate-200">
-                      <div className="px-3 py-3 text-center">
+                    <div className="mt-3 grid grid-cols-3 divide-x divide-slate-200 rounded-xl border border-slate-200 bg-white">
+                      <div className="px-3 py-2 text-center">
                         <p className="text-xs font-semibold text-slate-400">
                           참가 인원
                         </p>
@@ -912,7 +1041,7 @@ export default function AdminGroupDivesPage() {
                         </p>
                       </div>
 
-                      <div className="px-3 py-3 text-center">
+                      <div className="px-3 py-2 text-center">
                         <p className="text-xs font-semibold text-slate-400">
                           회차
                         </p>
@@ -921,7 +1050,7 @@ export default function AdminGroupDivesPage() {
                         </p>
                       </div>
 
-                      <div className="px-3 py-3 text-center">
+                      <div className="px-3 py-2 text-center">
                         <p className="text-xs font-semibold text-slate-400">
                           미수금
                         </p>
@@ -942,7 +1071,166 @@ export default function AdminGroupDivesPage() {
                   </div>
                 </article>
               );
-            })}
+              })}
+            </div>
+
+            <aside className="space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black text-cyan-600">
+                      GROUP CALENDAR
+                    </p>
+                    <h2 className="mt-1 text-base font-black text-slate-950">
+                      그룹 다이빙 달력
+                    </h2>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={goPrevCalendarMonth}
+                      aria-label="이전 달"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={goNextCalendarMonth}
+                      aria-label="다음 달"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-4 text-center text-sm font-black text-slate-900">
+                  {calendarDate.getFullYear()}년 {calendarDate.getMonth() + 1}월
+                </div>
+
+                <div className="mt-4 grid grid-cols-7 border-y border-slate-100 text-center text-[11px] font-black text-slate-400">
+                  {["일", "월", "화", "수", "목", "금", "토"].map((dayName) => (
+                    <div key={dayName} className="py-2">
+                      {dayName}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-7 overflow-hidden rounded-b-xl border-x border-b border-slate-100">
+                  {calendarDays.map((day, index) => {
+                    const isSelected =
+                      day.dateKey === selectedCalendarDateKey;
+
+                    return (
+                      <button
+                        key={`${day.dateKey}-${index}`}
+                        type="button"
+                        onClick={() => setSelectedCalendarDateKey(day.dateKey)}
+                        className={[
+                          "min-h-[62px] border-r border-b border-slate-100 p-1.5 text-left transition",
+                          isSelected
+                            ? "bg-cyan-600 text-white"
+                            : day.isCurrentMonth
+                              ? "bg-white text-slate-800 hover:bg-cyan-50"
+                              : "bg-slate-50 text-slate-300",
+                        ].join(" ")}
+                      >
+                        <span
+                          className={[
+                            "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-black",
+                            day.isToday && !isSelected
+                              ? "border border-cyan-500 text-cyan-700"
+                              : "",
+                          ].join(" ")}
+                        >
+                          {day.date.getDate()}
+                        </span>
+
+                        {day.groupCount > 0 ? (
+                          <span
+                            className={[
+                              "mt-1 block w-fit rounded-md px-1.5 py-0.5 text-[10px] font-black",
+                              isSelected
+                                ? "bg-white/20 text-white"
+                                : day.groupCount >= 4
+                                  ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                                  : day.groupCount >= 2
+                                    ? "bg-blue-50 text-blue-700 ring-1 ring-blue-200"
+                                    : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+                            ].join(" ")}
+                          >
+                            {day.groupCount}그룹
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-base font-black text-slate-950">
+                    {getKoreanDateLabel(selectedCalendarDateKey)} 진행 예정
+                  </h2>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">
+                    {selectedDateGroupDives.length}그룹
+                  </span>
+                </div>
+
+                {selectedDateGroupDives.length > 0 ? (
+                  <div className="mt-4 space-y-2">
+                    {selectedDateGroupDives.map((groupDive) => {
+                      const dayTripCount = getTripCountForDate(
+                        groupDive,
+                        selectedCalendarDateKey,
+                      );
+                      const activeParticipantCount =
+                        groupDive.participants.filter(
+                          (participant) => participant.active,
+                        ).length;
+
+                      return (
+                        <Link
+                          key={groupDive.id}
+                          href={`/admin/group-dives/${groupDive.id}`}
+                          className="block rounded-xl border border-slate-100 px-3 py-3 transition hover:border-cyan-200 hover:bg-cyan-50/60"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-black text-slate-950">
+                                {groupDive.groupName}
+                              </p>
+                              <p className="mt-1 truncate text-xs font-semibold text-slate-500">
+                                대표자 {groupDive.representativeName}
+                              </p>
+                            </div>
+                            <span
+                              className={[
+                                "shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-black",
+                                statusClasses[groupDive.status],
+                              ].join(" ")}
+                            >
+                              {statusLabels[groupDive.status]}
+                            </span>
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-slate-500">
+                            <span>다이빙 {dayTripCount}회</span>
+                            <span>참여 {activeParticipantCount}명</span>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-500">
+                    선택한 날짜에 진행 예정인 그룹이 없습니다.
+                  </div>
+                )}
+              </div>
+            </aside>
           </div>
         )}
       </section>
@@ -1209,4 +1497,26 @@ export default function AdminGroupDivesPage() {
       ) : null}
     </div>
   );
+}
+
+function toDateKey(date: Date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function getKoreanDateLabel(dateKey: string) {
+  const [year, month, day] = dateKey.split("-");
+
+  if (!year || !month || !day) {
+    return dateKey;
+  }
+
+  return `${Number(month)}월 ${Number(day)}일`;
+}
+
+function isCountableTripStatus(status: string) {
+  return status !== "CANCELLED" && status !== "WEATHER_CANCELLED";
 }
