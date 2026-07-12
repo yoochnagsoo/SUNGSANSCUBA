@@ -75,6 +75,7 @@ export type GoogleCalendarSyncItemResult = {
 export type GoogleCalendarSyncResult = {
   ok: boolean;
   calendarId?: string;
+  message?: string;
   total: number;
   created: number;
   updated: number;
