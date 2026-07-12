@@ -17,17 +17,13 @@ function getJwtSecret() {
   const value = process.env.JWT_SECRET;
 
   if (!value && process.env.NODE_ENV === "production") {
-    throw new Error(
-      "JWT_SECRET environment variable is required in production.",
-    );
+    throw new Error("JWT_SECRET environment variable is required in production.");
   }
 
   return value || "dev-secret-change-me";
 }
 
-function getEncodedJwtSecret() {
-  return new TextEncoder().encode(getJwtSecret());
-}
+const secret = new TextEncoder().encode(getJwtSecret());
 
 export interface AdminTokenPayload extends JWTPayload {
   role: "admin";
@@ -93,17 +89,14 @@ export async function createAdminToken(
     .setSubject(account.id)
     .setIssuedAt()
     .setExpirationTime("7d")
-    .sign(getEncodedJwtSecret());
+    .sign(secret);
 }
 
 export async function verifyAdminToken(
   token: string,
 ): Promise<AdminTokenPayload | null> {
   try {
-    const verified = await jwtVerify(
-      token,
-      getEncodedJwtSecret(),
-    );
+    const verified = await jwtVerify(token, secret);
 
     return normalizeAdminTokenPayload(
       verified.payload,
