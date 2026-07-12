@@ -195,6 +195,16 @@ type ReservationCreateResponse = {
   message?: string;
 };
 
+type GoogleCalendarSyncResponse = {
+  ok: boolean;
+  total?: number;
+  created?: number;
+  updated?: number;
+  skipped?: number;
+  failed?: number;
+  message?: string;
+};
+
 const STATUS_LABEL: Record<ReservationStatus, string> = {
   PENDING: "접수대기",
   CONFIRMED: "예약확정",
@@ -587,6 +597,8 @@ export default function AdminCalendarPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [reservationNameKeyword, setReservationNameKeyword] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isGoogleSyncing, setIsGoogleSyncing] = useState(false);
+  const [googleSyncMessage, setGoogleSyncMessage] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDayDetailOpen, setIsDayDetailOpen] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
@@ -1122,6 +1134,46 @@ export default function AdminCalendarPage() {
     );
   }
 
+  async function syncGoogleCalendar() {
+    try {
+      setIsGoogleSyncing(true);
+      setGoogleSyncMessage("");
+      setErrorMessage("");
+
+      const res = await fetch("/api/admin/calendar/google-sync", {
+        method: "POST",
+        cache: "no-store",
+      });
+
+      const data = (await res.json()) as GoogleCalendarSyncResponse;
+
+      if (!res.ok || !data.ok) {
+        throw new Error(
+          data.message ||
+            `Google 캘린더 동기화 중 ${data.failed ?? 0}건이 실패했습니다.`,
+        );
+      }
+
+      setGoogleSyncMessage(
+        [
+          `Google 동기화 완료`,
+          `생성 ${data.created ?? 0}건`,
+          `수정 ${data.updated ?? 0}건`,
+          `건너뜀 ${data.skipped ?? 0}건`,
+          `전체 ${data.total ?? 0}건`,
+        ].join(" · "),
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Google 캘린더 동기화에 실패했습니다.",
+      );
+    } finally {
+      setIsGoogleSyncing(false);
+    }
+  }
+
   function goNextMonth() {
     setIsDayDetailOpen(false);
     setCurrentDate(
@@ -1513,6 +1565,15 @@ export default function AdminCalendarPage() {
             {isRefreshing ? "새로고침 중" : "새로고침"}
           </button>
 
+          <button
+            type="button"
+            onClick={syncGoogleCalendar}
+            disabled={isGoogleSyncing}
+            className="w-full rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-black text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          >
+            {isGoogleSyncing ? "Google 동기화 중" : "Google 동기화"}
+          </button>
+
           {isTabletDisplay ? (
             <>
               <button
@@ -1719,6 +1780,12 @@ export default function AdminCalendarPage() {
           {errorMessage ? (
             <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
               {errorMessage}
+            </div>
+          ) : null}
+
+          {googleSyncMessage ? (
+            <div className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm font-bold text-blue-700">
+              {googleSyncMessage}
             </div>
           ) : null}
 
