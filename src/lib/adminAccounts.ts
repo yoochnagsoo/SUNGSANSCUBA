@@ -181,6 +181,15 @@ function getAccountsFromJsonEnvironment() {
 }
 
 function getLegacyAdminAccount(): EnvironmentAdminAccount {
+  if (
+    process.env.NODE_ENV === "production" &&
+    !process.env.ADMIN_PASSWORD
+  ) {
+    throw new Error(
+      "ADMIN_PASSWORD or ADMIN_ACCOUNTS environment variable is required in production.",
+    );
+  }
+
   return {
     id: normalizeAdminId(process.env.ADMIN_ID || "admin"),
     name: String(

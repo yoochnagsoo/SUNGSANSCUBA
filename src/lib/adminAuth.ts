@@ -5,6 +5,10 @@ import {
 
 import { getAdminAccountById } from "@/lib/adminAccounts";
 import {
+  canAccessAdminMenu,
+  type AdminMenuKey,
+} from "@/lib/adminPermissions";
+import {
   verifyAdminToken,
   type AdminTokenPayload,
 } from "@/lib/auth";
@@ -33,6 +37,18 @@ function createUnauthorizedResponse(
     },
     {
       status: 401,
+    },
+  );
+}
+
+function createForbiddenResponse(message: string) {
+  return NextResponse.json(
+    {
+      ok: false,
+      message,
+    },
+    {
+      status: 403,
     },
   );
 }
@@ -156,4 +172,48 @@ export async function requireAdminMutation(
   }
 
   return requireAdmin(request);
+}
+
+export async function requireAdminMenu(
+  request: NextRequest,
+  menuKey: AdminMenuKey,
+): Promise<RequireAdminResult> {
+  const auth = await requireAdmin(request);
+
+  if (!auth.ok) {
+    return auth;
+  }
+
+  if (
+    !canAccessAdminMenu(
+      auth.payload.adminRole,
+      auth.payload.menuPermissions,
+      menuKey,
+    )
+  ) {
+    return {
+      ok: false,
+      response: createForbiddenResponse(
+        "해당 관리자 메뉴에 접근할 권한이 없습니다.",
+      ),
+    };
+  }
+
+  return auth;
+}
+
+export async function requireAdminMenuMutation(
+  request: NextRequest,
+  menuKey: AdminMenuKey,
+): Promise<RequireAdminResult> {
+  const originValidation = requireSameOrigin(request);
+
+  if (!originValidation.ok) {
+    return {
+      ok: false,
+      response: originValidation.response,
+    };
+  }
+
+  return requireAdminMenu(request, menuKey);
 }

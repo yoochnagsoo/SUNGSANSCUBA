@@ -2,6 +2,8 @@ import { randomUUID } from "crypto";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { NextRequest, NextResponse } from "next/server";
 
+import { requireAdminMenuMutation } from "@/lib/adminAuth";
+
 const s3 = new S3Client({
   region: process.env.AWS_REGION ?? "ap-northeast-2",
 });
@@ -102,6 +104,12 @@ function getSafeExtension(fileName: string, contentType: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdminMenuMutation(request, "DIVE_DESTINATIONS");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   try {
     const bucket = process.env.S3_GALLERY_BUCKET;
     const publicBaseUrl = process.env.S3_GALLERY_PUBLIC_BASE_URL;

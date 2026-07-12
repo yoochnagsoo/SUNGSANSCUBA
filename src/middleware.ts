@@ -5,6 +5,7 @@ import {
 
 import { isAdminPageAllowed } from "@/lib/adminPermissions";
 import { verifyAdminToken } from "@/lib/auth";
+import { validateSameOriginRequest } from "@/lib/csrf";
 
 const ADMIN_LOGIN_PAGE_PATH = "/admin/login";
 const ADMIN_LOGIN_API_PATH = "/api/admin/login";
@@ -111,6 +112,17 @@ export async function middleware(
 
   if (!isAdminPage && !isAdminApi) {
     return nextWithSecurityHeaders();
+  }
+
+  if (isAdminApi) {
+    const originValidation =
+      validateSameOriginRequest(request);
+
+    if (!originValidation.ok) {
+      return applySecurityHeaders(
+        originValidation.response,
+      );
+    }
   }
 
   const token =

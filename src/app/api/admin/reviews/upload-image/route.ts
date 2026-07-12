@@ -1,6 +1,8 @@
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { NextRequest, NextResponse } from "next/server";
 
+import { requireAdminMenuMutation } from "@/lib/adminAuth";
+
 export const runtime = "nodejs";
 
 const allowedImageTypes = new Set([
@@ -139,6 +141,12 @@ function jsonResponse(
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdminMenuMutation(request, "REVIEWS");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   try {
     const formData = await request.formData();
     const files = formData.getAll("images");
