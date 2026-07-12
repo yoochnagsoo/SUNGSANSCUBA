@@ -53,7 +53,6 @@ async function requestAccessToken() {
       typ: "JWT",
     })
     .setIssuer(clientEmail)
-    .setSubject(clientEmail)
     .setAudience(GOOGLE_TOKEN_URL)
     .setIssuedAt(now)
     .setExpirationTime(now + 3600)
