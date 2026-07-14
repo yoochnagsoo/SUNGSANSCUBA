@@ -143,7 +143,9 @@ export default function Footer() {
                 aria-label="성산스쿠버 인스타그램 보기"
                 className="flex gap-3 transition hover:text-sky-400"
               >
-                <InstagramIcon size={20} />
+                <span className="shrink-0 text-sky-400">
+                  <InstagramIcon size={20} />
+                </span>
                 @sungsanscuba
               </a>
             </div>
