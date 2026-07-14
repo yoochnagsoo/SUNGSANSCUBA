@@ -181,8 +181,8 @@ export default function DiscoverScubaPage() {
               실제 체험 사진으로 보는 성산 바다
             </h2>
             <p className="mt-4 text-base leading-8 text-slate-300">
-              메인 페이지 Real Review와 같은 리뷰 데이터를 사용해 실제
-              체험 사진을 보여줍니다.
+              처음 물속에 들어가는 설렘부터 수면 위로 올라온 웃음까지,
+              체험의 순간을 담았습니다.
             </p>
           </div>
           <DiscoverScubaReviewPhotos />
