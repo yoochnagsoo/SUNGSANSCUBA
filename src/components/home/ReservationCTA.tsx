@@ -40,7 +40,7 @@ export default function ReservationCTA() {
             </a>
 
             <a
-              href="tel:010-0000-0000"
+              href="tel:064-782-6117"
               className="inline-flex items-center gap-3 rounded-full border border-white/50 px-8 py-4 font-bold transition hover:bg-white hover:text-slate-950"
             >
               <Phone size={20} />
@@ -48,7 +48,9 @@ export default function ReservationCTA() {
             </a>
 
             <a
-              href="#"
+              href="http://pf.kakao.com/_xcYwCM/chat"
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-3 rounded-full border border-white/50 px-8 py-4 font-bold transition hover:bg-white hover:text-slate-950"
             >
               <MessageCircle size={20} />
