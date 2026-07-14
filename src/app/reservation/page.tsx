@@ -456,7 +456,7 @@ function ReservationPageContent() {
                     value={name}
                     onChange={(event) => setName(event.target.value)}
                     placeholder="홍길동"
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-base text-slate-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
                   />
                 </FormField>
 
@@ -478,7 +478,7 @@ function ReservationPageContent() {
                     }
                     placeholder="010-0000-0000"
                     maxLength={13}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-base text-slate-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
                   />
                   <p className="mt-2 text-xs leading-5 text-slate-500">
                     예: 010-1234-5678
@@ -492,7 +492,7 @@ function ReservationPageContent() {
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
                       placeholder="example@email.com"
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-base text-slate-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
                     />
                   </FormField>
 
@@ -509,7 +509,7 @@ function ReservationPageContent() {
                     onClick={handleOpenReservationDatePicker}
                     onFocus={handleOpenReservationDatePicker}
                     onChange={(event) => setReservationDate(event.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-base text-slate-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
                   />
                 </FormField>
 
@@ -519,7 +519,7 @@ function ReservationPageContent() {
                     min={1}
                     value={people}
                     onChange={(event) => setPeople(Number(event.target.value))}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-base text-slate-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
                   />
                 </FormField>
 
@@ -530,7 +530,7 @@ function ReservationPageContent() {
                       onChange={(event) => setMessage(event.target.value)}
                       rows={6}
                       placeholder="희망 시간, 다이빙 경험 여부, 아이 동반 여부, 문의사항 등을 적어주세요."
-                      className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                      className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-base text-slate-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
                     />
                   </FormField>
                 </div>
