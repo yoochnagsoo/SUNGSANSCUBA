@@ -46,7 +46,7 @@ export default function PadiCourses() {
           </h2>
 
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-500">
-            체험다이빙부터 자격증 과정까지, SUNGSAN SCUBA에서 안전하고
+            체험다이빙부터 자격증 과정까지, SEONG SAN SCUBA에서 안전하고
             체계적으로 시작하세요.
           </p>
         </div>

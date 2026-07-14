@@ -47,9 +47,9 @@ export default function Footer() {
       <div className="mx-auto max-w-7xl px-6 py-20">
         <div className="grid gap-12 lg:grid-cols-4">
           <div className="lg:col-span-2">
-            <Link href="/" aria-label="Sungsan Scuba 메인으로 이동">
+            <Link href="/" aria-label="Seong San Scuba 메인으로 이동">
               <div className="text-3xl font-black tracking-[0.18em]">
-                SUNGSAN
+                SEONG SAN
               </div>
               <div className="mt-1 text-3xl font-black tracking-[0.22em]">
                 SCUBA
@@ -170,7 +170,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-16 border-t border-white/10 pt-8 text-sm text-slate-500">
-          © 2026 SUNGSAN SCUBA Dive Center. All rights reserved.
+          © 2026 SEONG SAN SCUBA Dive Center. All rights reserved.
         </div>
       </div>
     </footer>

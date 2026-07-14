@@ -45,7 +45,7 @@ export const memoryBoatScheduleRepository: BoatScheduleRepository = {
       date: input.date,
       departureTime: input.departureTime,
 
-      boatName: input.boatName ?? "SUNG SAN SCUBA",
+      boatName: input.boatName ?? "SEONG SAN SCUBA",
       plannedPointName: input.plannedPointName ?? "",
       actualPointName: input.actualPointName ?? "",
 

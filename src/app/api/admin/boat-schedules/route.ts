@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       departureTime: normalizeText(body.departureTime),
 
       boatName:
-        normalizeText(body.boatName) || "SUNG SAN SCUBA",
+        normalizeText(body.boatName) || "SEONG SAN SCUBA",
       plannedPointName: normalizeText(
         body.plannedPointName,
       ),

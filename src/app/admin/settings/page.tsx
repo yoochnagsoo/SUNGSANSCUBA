@@ -38,7 +38,7 @@ export default function AdminSettingsPage() {
           </div>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <Info label="센터명" value="SUNGSAN SCUBA Dive Center" />
+            <Info label="센터명" value="SEONG SAN SCUBA Dive Center" />
             <Info label="지역" value="제주 성산" />
             <Info label="대표 연락처" value="추후 입력" />
             <Info label="관리자 이메일" value="추후 입력" />

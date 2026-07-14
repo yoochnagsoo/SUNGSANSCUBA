@@ -26,7 +26,7 @@ export default function AboutSection() {
         <div className="grid items-center gap-20 lg:grid-cols-2">
           <div>
             <p className="mb-5 text-sm font-bold uppercase tracking-[0.45em] text-sky-500">
-              About SUNGSAN SCUBA
+              About SEONG SAN SCUBA
             </p>
 
             <h2 className="text-5xl font-black leading-tight text-slate-950 md:text-6xl">
@@ -38,7 +38,7 @@ export default function AboutSection() {
             </h2>
 
             <p className="mt-8 max-w-2xl text-lg leading-9 text-slate-600">
-              SUNGSAN SCUBA Dive Center는 제주 성산의 아름다운 바다에서
+              SEONG SAN SCUBA Dive Center는 제주 성산의 아름다운 바다에서
               체험다이빙, PADI 교육, 펀다이빙을 제공하는 프리미엄 다이빙
               센터입니다. 처음 바다를 만나는 순간부터 자격증 교육까지,
               안전하고 특별한 경험을 만들어 드립니다.
@@ -83,7 +83,7 @@ export default function AboutSection() {
             <div className="relative h-[620px] overflow-hidden rounded-[44px] shadow-2xl">
               <Image
                 src="/images/about/about-01.jpg"
-                alt="SUNGSAN SCUBA Dive Center"
+                alt="SEONG SAN SCUBA Dive Center"
                 fill
                 className="object-cover"
               />

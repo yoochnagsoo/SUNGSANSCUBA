@@ -227,7 +227,7 @@ export async function PATCH(
 
     if (typeof body.boatName !== "undefined") {
       input.boatName =
-        normalizeText(body.boatName) || "SUNG SAN SCUBA";
+        normalizeText(body.boatName) || "SEONG SAN SCUBA";
     }
 
     if (

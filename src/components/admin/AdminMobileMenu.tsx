@@ -13,6 +13,7 @@ import {
   MapPin,
   Menu,
   MessageCircle,
+  Fish,
   ReceiptText,
   Settings,
   Ship,
@@ -107,6 +108,12 @@ const menuItems: Array<{
     icon: MessageCircle,
   },
   {
+    key: "DISCOVER_SCUBA_FISH",
+    name: "체험 생물 관리",
+    href: "/admin/discover-scuba-fish",
+    icon: Fish,
+  },
+  {
     key: "DIVE_DESTINATIONS",
     name: "다이빙 포인트 관리",
     href: "/admin/dive-destinations",
@@ -182,7 +189,7 @@ export default function AdminMobileMenu({
                 className="min-w-0"
               >
                 <p className="truncate text-xs font-black uppercase tracking-[0.12em] text-cyan-600">
-                  SUNGSAN SCUBA
+                  SEONG SAN SCUBA
                 </p>
 
                 <h1 className="truncate text-base font-black text-slate-950">

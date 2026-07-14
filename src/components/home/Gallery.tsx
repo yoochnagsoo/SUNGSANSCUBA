@@ -185,7 +185,7 @@ export default function Gallery() {
                       {image.title}
                     </p>
                     <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-300">
-                      {image.description || "SUNG SAN SCUBA Gallery"}
+                      {image.description || "SEONG SAN SCUBA Gallery"}
                     </p>
                   </div>
                 </div>

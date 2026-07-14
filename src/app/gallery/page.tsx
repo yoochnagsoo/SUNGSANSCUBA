@@ -151,7 +151,7 @@ export default function GalleryPage() {
 
             <div className="hidden items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-sm font-bold text-cyan-100 backdrop-blur sm:inline-flex">
               <Sparkles className="h-4 w-4" />
-              SUNG SAN SCUBA Gallery
+              SEONG SAN SCUBA Gallery
             </div>
           </header>
 
@@ -248,7 +248,7 @@ export default function GalleryPage() {
                         {image.title}
                       </p>
                       <p className="mt-2 line-clamp-2 text-sm font-medium text-slate-300">
-                        {image.description || "SUNG SAN SCUBA"}
+                        {image.description || "SEONG SAN SCUBA"}
                       </p>
                     </div>
                   </div>
@@ -319,7 +319,7 @@ export default function GalleryPage() {
 
             <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-white/10 p-5 backdrop-blur">
               <p className="text-sm font-bold text-cyan-200">
-                SUNG SAN SCUBA Gallery
+                SEONG SAN SCUBA Gallery
               </p>
               <p className="mt-2 text-sm leading-6 text-slate-300">
                 {selectedImage.description ||

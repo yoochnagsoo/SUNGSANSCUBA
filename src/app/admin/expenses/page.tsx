@@ -1067,7 +1067,7 @@ export default function AdminExpensesPage() {
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <p className="text-sm font-bold text-cyan-600">
-              SUNGSAN SCUBA
+              SEONG SAN SCUBA
             </p>
 
             <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">

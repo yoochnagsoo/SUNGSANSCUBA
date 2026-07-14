@@ -6,7 +6,7 @@ export default function ReservationCTA() {
     <section className="relative overflow-hidden bg-slate-950 py-32 text-white">
       <Image
         src="/images/cta/cta-01.jpg"
-        alt="SUNGSAN SCUBA reservation"
+        alt="SEONG SAN SCUBA reservation"
         fill
         className="object-cover opacity-45"
       />

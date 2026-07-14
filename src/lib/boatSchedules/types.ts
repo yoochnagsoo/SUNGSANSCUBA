@@ -18,7 +18,7 @@ export type BoatSchedule = {
 
   /*
    * 선장 1명을 제외한 실제 고객 승선 정원입니다.
-   * SUNG SAN SCUBA 보트는 기본 11명입니다.
+   * SEONG SAN SCUBA 보트는 기본 11명입니다.
    */
   passengerCapacity: number;
 

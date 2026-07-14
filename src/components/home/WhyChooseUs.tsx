@@ -37,7 +37,7 @@ export default function WhyChooseUs() {
           </h2>
 
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-            SUNGSAN SCUBA는 안전, 교육, 경험, 지역 전문성을 기준으로
+            SEONG SAN SCUBA는 안전, 교육, 경험, 지역 전문성을 기준으로
             다이빙을 준비합니다.
           </p>
         </div>

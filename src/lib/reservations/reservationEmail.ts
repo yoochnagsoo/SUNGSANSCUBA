@@ -28,7 +28,7 @@ const sesClient = new SESClient({
   region: process.env.AWS_REGION || "ap-northeast-2",
 });
 
-const SHOP_NAME = process.env.SHOP_NAME || "SUNG SAN SCUBA Dive Center";
+const SHOP_NAME = process.env.SHOP_NAME || "SEONG SAN SCUBA Dive Center";
 const SHOP_LOCATION =
   process.env.SHOP_LOCATION || "제주 성산 일대, 예약 확정 후 상세 위치 안내";
 const SHOP_PHONE = process.env.SHOP_PHONE || "예약 확정 후 안내";

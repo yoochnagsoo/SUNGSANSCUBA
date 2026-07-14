@@ -76,7 +76,7 @@ export default function Hero() {
           className="text-left leading-none"
         >
           <div className="text-2xl font-black tracking-[0.16em] text-white">
-            SUNGSAN
+            SEONG SAN
           </div>
           <div className="mt-1 text-xs font-bold tracking-[0.34em] text-cyan-300">
             SCUBA
@@ -122,7 +122,7 @@ export default function Hero() {
           </div>
 
           <h1 className="text-6xl font-black uppercase leading-[0.88] tracking-tight text-white sm:text-7xl md:text-8xl lg:text-[8.5rem]">
-            SUNGSAN
+            SEONG SAN
             <br />
             SCUBA
           </h1>
@@ -160,7 +160,7 @@ export default function Hero() {
           <div className="mt-12 grid max-w-3xl gap-4 sm:grid-cols-3">
             <button
               type="button"
-              onClick={() => scrollToSection("destinations")}
+              onClick={() => router.push("/discover-scuba")}
               className="rounded-3xl border border-white/15 bg-white/10 p-5 text-left backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/15"
             >
               <Waves className="mb-4 h-6 w-6 text-cyan-300" />

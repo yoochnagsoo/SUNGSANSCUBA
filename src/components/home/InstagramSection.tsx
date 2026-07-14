@@ -25,7 +25,7 @@ export default function InstagramSection() {
             </h2>
 
             <p className="mt-4 text-lg text-slate-500">
-              매일 업데이트되는 SUNGSAN SCUBA의 바다 이야기
+              매일 업데이트되는 SEONG SAN SCUBA의 바다 이야기
             </p>
           </div>
 
@@ -47,7 +47,7 @@ export default function InstagramSection() {
             >
               <Image
                 src={image}
-                alt="SUNGSAN SCUBA Instagram post"
+                alt="SEONG SAN SCUBA Instagram post"
                 fill
                 className="object-cover transition duration-700 group-hover:scale-110"
               />

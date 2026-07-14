@@ -103,7 +103,7 @@ export default function AboutPage() {
             <div className="max-w-4xl">
               <p className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-300/10 px-4 py-2 text-xs font-black uppercase tracking-[0.35em] text-cyan-100 backdrop-blur">
                 <Sparkles className="h-4 w-4" />
-                About Sung San Scuba
+                About Seong San Scuba
               </p>
 
               <h1 className="mt-7 text-5xl font-black tracking-tight text-white sm:text-6xl lg:text-8xl">
@@ -112,7 +112,7 @@ export default function AboutPage() {
               </h1>
 
               <p className="mt-7 max-w-2xl text-base font-medium leading-8 text-slate-200 sm:text-lg">
-                SUNG SAN SCUBA는 제주 성산의 바다를 기반으로 체험 다이빙,
+                SEONG SAN SCUBA는 제주 성산의 바다를 기반으로 체험 다이빙,
                 펀 다이빙, PADI 교육을 운영하는 다이빙 센터입니다. 처음
                 다이빙을 접하는 분들도 안전하고 편안하게 바다를 경험할 수
                 있도록 차분한 안내와 단계별 진행을 중요하게 생각합니다.
@@ -148,7 +148,7 @@ export default function AboutPage() {
             <div className="relative h-[520px]">
               <Image
                 src="/images/about/about-center.jpg"
-                alt="SUNG SAN SCUBA Dive Center"
+                alt="SEONG SAN SCUBA Dive Center"
                 fill
                 className="object-cover"
               />
@@ -176,7 +176,7 @@ export default function AboutPage() {
 
             <p className="mt-7 text-lg leading-9 text-slate-600">
               다이빙은 특별한 경험이지만, 처음 접하는 분들에게는 낯설고
-              긴장될 수 있습니다. SUNG SAN SCUBA는 빠르게 진행하는 체험보다
+              긴장될 수 있습니다. SEONG SAN SCUBA는 빠르게 진행하는 체험보다
               충분히 설명하고, 천천히 적응하며, 안전하게 바다를 즐기는 과정을
               더 중요하게 생각합니다.
             </p>

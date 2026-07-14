@@ -89,7 +89,7 @@ export default function PadiPage() {
       <section className="relative min-h-screen overflow-hidden">
         <Image
           src="/images/padi/padi-hero.jpg"
-          alt="SUNG SAN SCUBA PADI 다이빙 교육"
+          alt="SEONG SAN SCUBA PADI 다이빙 교육"
           fill
           priority
           className="object-cover"
@@ -113,7 +113,7 @@ export default function PadiPage() {
 
             <div className="hidden items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-sm font-bold text-cyan-100 backdrop-blur sm:inline-flex">
               <Sparkles className="h-4 w-4" />
-              SUNG SAN SCUBA PADI
+              SEONG SAN SCUBA PADI
             </div>
           </header>
 
@@ -135,7 +135,7 @@ export default function PadiPage() {
 
               <p className="mt-7 max-w-2xl text-lg leading-8 text-slate-200 sm:text-xl">
                 처음 바다에 들어가는 체험 다이빙부터 Open Water, Advanced,
-                Rescue 과정까지. SUNG SAN SCUBA에서 제주 성산의 바다를 배우고
+                Rescue 과정까지. SEONG SAN SCUBA에서 제주 성산의 바다를 배우고
                 경험하세요.
               </p>
 
@@ -205,7 +205,7 @@ export default function PadiPage() {
 
               <p className="mt-6 text-lg leading-8 text-slate-300">
                 PADI는 전 세계적으로 알려진 스쿠버 다이빙 교육 기관입니다.
-                SUNG SAN SCUBA는 입문자도 부담 없이 이해할 수 있도록 교육 과정,
+                SEONG SAN SCUBA는 입문자도 부담 없이 이해할 수 있도록 교육 과정,
                 장비 사용, 바다 적응을 단계별로 안내합니다.
               </p>
 
@@ -362,7 +362,7 @@ export default function PadiPage() {
 
               <p className="mt-6 text-lg leading-8 text-slate-300">
                 처음 다이빙을 배우는 분들이 가장 어려워하는 부분은 바다보다
-                절차입니다. SUNG SAN SCUBA는 상담, 교육, 장비, 입수 과정을
+                절차입니다. SEONG SAN SCUBA는 상담, 교육, 장비, 입수 과정을
                 하나씩 안내합니다.
               </p>
             </div>
@@ -400,7 +400,7 @@ export default function PadiPage() {
 
         <div className="relative mx-auto max-w-5xl text-center">
           <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-700">
-            SUNG SAN SCUBA Dive Center
+            SEONG SAN SCUBA Dive Center
           </p>
 
           <h2 className="mt-5 text-4xl font-black tracking-tight sm:text-6xl">

@@ -38,7 +38,7 @@ export default function FAQ() {
           </h2>
 
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-500">
-            SUNGSAN SCUBA 이용 전 가장 많이 궁금해하시는 내용을 정리했습니다.
+            SEONG SAN SCUBA 이용 전 가장 많이 궁금해하시는 내용을 정리했습니다.
           </p>
         </div>
 

@@ -49,7 +49,7 @@ export default function AdminLoginPage() {
       >
         <h1 className="text-2xl font-bold text-slate-900">관리자 로그인</h1>
         <p className="mt-2 text-sm text-slate-500">
-          SUNGSAN SCUBA 관리자 페이지입니다.
+          SEONG SAN SCUBA 관리자 페이지입니다.
         </p>
 
         <div className="mt-6 space-y-4">

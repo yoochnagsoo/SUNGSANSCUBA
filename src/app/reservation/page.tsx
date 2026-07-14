@@ -232,7 +232,7 @@ function ReservationPageContent() {
         <div className="relative mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-6 lg:grid lg:grid-cols-[1fr_420px] lg:gap-12 lg:px-8 lg:pb-24 lg:pt-16">
           <div>
             <div className="inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-xs font-black uppercase tracking-[0.35em] text-cyan-100 shadow-lg shadow-black/10 backdrop-blur-md">
-              SUNG SAN SCUBA
+              SEONG SAN SCUBA
             </div>
 
             <h1 className="mt-7 max-w-4xl text-4xl font-black tracking-tight text-white sm:text-6xl lg:text-7xl">
@@ -615,7 +615,7 @@ function ReservationPageLoading() {
     <main className="flex min-h-screen items-center justify-center bg-[#061827] text-white">
       <div className="rounded-3xl border border-white/10 bg-white/10 px-6 py-5 text-center shadow-2xl shadow-black/30 backdrop-blur-xl">
         <p className="text-sm font-black uppercase tracking-[0.3em] text-cyan-200">
-          SUNG SAN SCUBA
+          SEONG SAN SCUBA
         </p>
         <p className="mt-3 text-lg font-bold">예약 페이지를 불러오는 중...</p>
       </div>

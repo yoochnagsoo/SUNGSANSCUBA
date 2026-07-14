@@ -35,7 +35,7 @@ export default function AdminHeader({
             </p>
 
             <h2 className="truncate text-sm font-bold text-slate-900 sm:text-lg">
-              SUNG SAN SCUBA Dive Center
+              SEONG SAN SCUBA Dive Center
             </h2>
           </div>
         </div>

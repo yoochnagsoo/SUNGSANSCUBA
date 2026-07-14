@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SUNG SAN SCUBA",
+  title: "SEONG SAN SCUBA",
   description: "제주 성산 스쿠버다이빙 예약 및 다이빙 센터",
 };
 

@@ -221,7 +221,7 @@ export default function DiveDestinations() {
             </h2>
 
             <p className="mt-6 text-base font-medium text-slate-500 sm:text-lg">
-              SUNGSAN SCUBA가 안내하는 제주 동부권의 아름다운 바다를 만나보세요.
+              SEONG SAN SCUBA가 안내하는 제주 동부권의 아름다운 바다를 만나보세요.
             </p>
           </div>
 

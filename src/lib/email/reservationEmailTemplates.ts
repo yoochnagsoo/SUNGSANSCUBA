@@ -25,7 +25,7 @@ function baseLayout(title: string, body: string) {
         <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:20px;overflow:hidden;">
           <div style="background:#0891b2;padding:28px 32px;color:#ffffff;">
             <div style="font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">
-              SUNG SAN SCUBA
+              SEONG SAN SCUBA
             </div>
             <h1 style="margin:10px 0 0;font-size:24px;line-height:1.35;">
               ${escapeHtml(title)}
@@ -37,7 +37,7 @@ function baseLayout(title: string, body: string) {
           </div>
 
           <div style="border-top:1px solid #e2e8f0;background:#f8fafc;padding:20px 32px;font-size:12px;line-height:1.6;color:#64748b;">
-            <div>본 메일은 SUNG SAN SCUBA 예약 시스템에서 자동 발송되었습니다.</div>
+            <div>본 메일은 SEONG SAN SCUBA 예약 시스템에서 자동 발송되었습니다.</div>
             <div>예약 변경이나 문의가 필요하시면 매장으로 연락해주세요.</div>
           </div>
         </div>
@@ -116,13 +116,13 @@ export function customerReservationReceivedEmail(
   reservation: Reservation
 ): EmailTemplate {
   return {
-    subject: "[SUNG SAN SCUBA] 예약 요청이 접수되었습니다.",
+    subject: "[SEONG SAN SCUBA] 예약 요청이 접수되었습니다.",
     html: baseLayout(
       "예약 요청이 접수되었습니다.",
       `
         <p style="margin:0;font-size:15px;line-height:1.8;color:#334155;">
           안녕하세요, ${escapeHtml(reservation.name)}님.<br />
-          SUNG SAN SCUBA 예약 요청이 정상적으로 접수되었습니다.
+          SEONG SAN SCUBA 예약 요청이 정상적으로 접수되었습니다.
         </p>
 
         <p style="margin:16px 0 0;font-size:15px;line-height:1.8;color:#334155;">
@@ -140,7 +140,7 @@ export function adminReservationReceivedEmail(
   reservation: Reservation
 ): EmailTemplate {
   return {
-    subject: `[SUNG SAN SCUBA] 새 예약 접수 - ${reservation.name}`,
+    subject: `[SEONG SAN SCUBA] 새 예약 접수 - ${reservation.name}`,
     html: baseLayout(
       "새 예약이 접수되었습니다.",
       `
@@ -163,13 +163,13 @@ export function customerReservationConfirmedEmail(
   reservation: Reservation
 ): EmailTemplate {
   return {
-    subject: "[SUNG SAN SCUBA] 예약이 확정되었습니다.",
+    subject: "[SEONG SAN SCUBA] 예약이 확정되었습니다.",
     html: baseLayout(
       "예약이 확정되었습니다.",
       `
         <p style="margin:0;font-size:15px;line-height:1.8;color:#334155;">
           안녕하세요, ${escapeHtml(reservation.name)}님.<br />
-          요청하신 SUNG SAN SCUBA 예약이 확정되었습니다.
+          요청하신 SEONG SAN SCUBA 예약이 확정되었습니다.
         </p>
 
         <p style="margin:16px 0 0;font-size:15px;line-height:1.8;color:#334155;">
@@ -193,13 +193,13 @@ export function customerReservationCancelledEmail(
   reservation: Reservation
 ): EmailTemplate {
   return {
-    subject: "[SUNG SAN SCUBA] 예약이 취소되었습니다.",
+    subject: "[SEONG SAN SCUBA] 예약이 취소되었습니다.",
     html: baseLayout(
       "예약이 취소되었습니다.",
       `
         <p style="margin:0;font-size:15px;line-height:1.8;color:#334155;">
           안녕하세요, ${escapeHtml(reservation.name)}님.<br />
-          요청하신 SUNG SAN SCUBA 예약이 취소 처리되었습니다.
+          요청하신 SEONG SAN SCUBA 예약이 취소 처리되었습니다.
         </p>
 
         <p style="margin:16px 0 0;font-size:15px;line-height:1.8;color:#334155;">

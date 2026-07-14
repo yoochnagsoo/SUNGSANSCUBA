@@ -11,6 +11,7 @@ export type AdminMenuKey =
   | "EXPENSES"
   | "GALLERY"
   | "REVIEWS"
+  | "DISCOVER_SCUBA_FISH"
   | "DIVE_DESTINATIONS"
   | "ACCOUNTS"
   | "SETTINGS";
@@ -97,6 +98,13 @@ export const ADMIN_MENU_DEFINITIONS: AdminMenuDefinition[] = [
     assignable: true,
   },
   {
+    key: "DISCOVER_SCUBA_FISH",
+    name: "체험 생물 관리",
+    href: "/admin/discover-scuba-fish",
+    description: "체험다이빙 상세 페이지에 노출되는 바다 생물 정보를 관리합니다.",
+    assignable: true,
+  },
+  {
     key: "DIVE_DESTINATIONS",
     name: "다이빙 포인트 관리",
     href: "/admin/dive-destinations",
@@ -138,6 +146,7 @@ const MANAGER_DEFAULT_MENU_KEYS: AdminMenuKey[] = [
   "EXPENSES",
   "GALLERY",
   "REVIEWS",
+  "DISCOVER_SCUBA_FISH",
   "DIVE_DESTINATIONS",
 ];
 
@@ -147,6 +156,7 @@ const STAFF_DEFAULT_MENU_KEYS: AdminMenuKey[] = [
   "CALENDAR",
   "GALLERY",
   "REVIEWS",
+  "DISCOVER_SCUBA_FISH",
   "DIVE_DESTINATIONS",
 ];
 

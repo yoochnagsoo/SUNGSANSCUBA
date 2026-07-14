@@ -690,7 +690,7 @@ export default function AdminBoatSchedulesPage() {
           body: JSON.stringify({
             date: selectedDate,
             departureTime: form.departureTime,
-            boatName: "SUNG SAN SCUBA",
+            boatName: "SEONG SAN SCUBA",
             plannedPointName:
               form.plannedPointName.trim(),
             passengerCapacity:
