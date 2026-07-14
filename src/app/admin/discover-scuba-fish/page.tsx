@@ -1,6 +1,13 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  ChangeEvent,
+  DragEvent,
+  FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   Eye,
   EyeOff,
@@ -77,8 +84,11 @@ export default function AdminDiscoverScubaFishPage() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isReordering, setIsReordering] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [draggedFishId, setDraggedFishId] = useState<string | null>(null);
+  const [dragOverFishId, setDragOverFishId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -285,6 +295,106 @@ export default function AdminDiscoverScubaFishPage() {
           : "노출 상태를 변경하지 못했습니다.",
       );
     }
+  }
+
+  async function persistReorderedItems(items: Fish[]) {
+    const reorderedItems = items.map((fish, index) => ({
+      ...fish,
+      sortOrder: (index + 1) * 10,
+    }));
+
+    setFishItems(reorderedItems);
+    setIsReordering(true);
+    setError("");
+    setMessage("");
+
+    try {
+      await Promise.all(
+        reorderedItems.map((fish) =>
+          fetch(`/api/admin/discover-scuba-fish/${fish.id}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              sortOrder: fish.sortOrder,
+            }),
+          }).then(async (response) => {
+            const data = await response.json();
+
+            if (!response.ok || !data.ok) {
+              throw new Error(data.message || "순서를 저장하지 못했습니다.");
+            }
+          }),
+        ),
+      );
+
+      if (editingId) {
+        const editingItem = reorderedItems.find((fish) => fish.id === editingId);
+
+        if (editingItem) {
+          setForm((prev) => ({
+            ...prev,
+            sortOrder: String(editingItem.sortOrder),
+          }));
+        }
+      }
+
+      setMessage("노출 순서를 변경했습니다.");
+    } catch (reorderError) {
+      setError(
+        reorderError instanceof Error
+          ? reorderError.message
+          : "순서를 저장하지 못했습니다.",
+      );
+      await loadFish();
+    } finally {
+      setIsReordering(false);
+    }
+  }
+
+  function handleDragStart(event: DragEvent<HTMLElement>, fishId: string) {
+    setDraggedFishId(fishId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", fishId);
+  }
+
+  function handleDragOver(event: DragEvent<HTMLElement>, fishId: string) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDragOverFishId(fishId);
+  }
+
+  function handleDragEnd() {
+    setDraggedFishId(null);
+    setDragOverFishId(null);
+  }
+
+  function handleDrop(event: DragEvent<HTMLElement>, targetFishId: string) {
+    event.preventDefault();
+
+    const sourceFishId =
+      draggedFishId || event.dataTransfer.getData("text/plain");
+
+    setDraggedFishId(null);
+    setDragOverFishId(null);
+
+    if (!sourceFishId || sourceFishId === targetFishId) {
+      return;
+    }
+
+    const sourceIndex = sortedFish.findIndex((fish) => fish.id === sourceFishId);
+    const targetIndex = sortedFish.findIndex((fish) => fish.id === targetFishId);
+
+    if (sourceIndex < 0 || targetIndex < 0) {
+      return;
+    }
+
+    const nextItems = [...sortedFish];
+    const [movedItem] = nextItems.splice(sourceIndex, 1);
+    nextItems.splice(targetIndex, 0, movedItem);
+
+    void persistReorderedItems(nextItems);
   }
 
   return (
@@ -505,7 +615,21 @@ export default function AdminDiscoverScubaFishPage() {
                 {sortedFish.map((fish) => (
                   <article
                     key={fish.id}
-                    className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                    draggable={!isReordering}
+                    onDragStart={(event) => handleDragStart(event, fish.id)}
+                    onDragOver={(event) => handleDragOver(event, fish.id)}
+                    onDragLeave={() => setDragOverFishId(null)}
+                    onDrop={(event) => handleDrop(event, fish.id)}
+                    onDragEnd={handleDragEnd}
+                    className={[
+                      "overflow-hidden rounded-2xl border bg-white transition",
+                      isReordering ? "cursor-wait" : "cursor-grab active:cursor-grabbing",
+                      draggedFishId === fish.id
+                        ? "border-cyan-300 opacity-60"
+                        : dragOverFishId === fish.id
+                          ? "border-cyan-400 ring-4 ring-cyan-100"
+                          : "border-slate-200",
+                    ].join(" ")}
                   >
                     <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-slate-100">
                       {fish.imageUrl ? (
@@ -546,7 +670,11 @@ export default function AdminDiscoverScubaFishPage() {
                         </span>
                       </div>
 
-                      <div className="mt-4 grid grid-cols-3 gap-2">
+                      <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs font-black text-slate-500">
+                        드래그해서 순서 변경
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-3 gap-2">
                         <button
                           type="button"
                           onClick={() => startEdit(fish)}
