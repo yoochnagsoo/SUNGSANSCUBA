@@ -3,8 +3,6 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
-import { discoverScubaFish } from "@/data/discoverScuba";
-
 type Fish = {
   id: string;
   name: string;
@@ -13,7 +11,8 @@ type Fish = {
 };
 
 export default function FishPreview() {
-  const [fishItems, setFishItems] = useState<Fish[]>(discoverScubaFish);
+  const [fishItems, setFishItems] = useState<Fish[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadFish() {
@@ -28,11 +27,25 @@ export default function FishPreview() {
         }
       } catch (error) {
         console.error("[DISCOVER_SCUBA_FISH_LOAD_ERROR]", error);
+      } finally {
+        setIsLoading(false);
       }
     }
 
     void loadFish();
   }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-40 items-center justify-center rounded-3xl border border-slate-200 bg-white text-sm font-bold text-slate-500">
+        바다 생물 정보를 불러오는 중입니다.
+      </div>
+    );
+  }
+
+  if (fishItems.length === 0) {
+    return null;
+  }
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
