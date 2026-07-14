@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Mail, MapPin, Phone } from "lucide-react";
+import { Mail, MapPin, Phone, Printer } from "lucide-react";
 
 function InstagramIcon({ size = 20 }: { size?: number }) {
   return (
@@ -74,7 +74,8 @@ export default function Footer() {
 
                 <div className="min-w-0">
                   <p className="leading-7">
-                    제주 서귀포시 성산읍 일출로 258-5 성산스쿠버리조트
+                    제주특별자치도 서귀포시 성산읍 일출로 258-5
+                    (성산포리조트)
                   </p>
 
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -119,15 +120,20 @@ export default function Footer() {
                 className="flex gap-3 transition hover:text-sky-400"
               >
                 <Phone className="shrink-0 text-sky-400" size={20} />
-                064-782-6117
+                064) 782-6117
               </a>
 
+              <div className="flex gap-3">
+                <Printer className="shrink-0 text-sky-400" size={20} />
+                <span>064) 782-4117</span>
+              </div>
+
               <a
-                href="mailto:info@sungsanscuba.com"
+                href="mailto:songjs147@naver.com"
                 className="flex gap-3 transition hover:text-sky-400"
               >
                 <Mail className="shrink-0 text-sky-400" size={20} />
-                info@sungsanscuba.com
+                songjs147@naver.com
               </a>
 
               <a
@@ -169,8 +175,24 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-16 border-t border-white/10 pt-8 text-sm text-slate-500">
-          © 2026 SEONG SAN SCUBA Dive Center. All rights reserved.
+        <div className="mt-16 border-t border-white/10 pt-8">
+          <div className="grid gap-3 text-sm leading-6 text-slate-500 sm:grid-cols-2 lg:grid-cols-4">
+            <p>
+              <span className="font-bold text-slate-400">대표자</span> 송지선
+            </p>
+            <p>
+              <span className="font-bold text-slate-400">사업자번호</span>{" "}
+              804-24-02099
+            </p>
+            <p className="lg:col-span-2">
+              <span className="font-bold text-slate-400">통신판매업신고</span>{" "}
+              제 2017-제주성산-0114호
+            </p>
+          </div>
+
+          <div className="mt-6 text-sm text-slate-500">
+            © 2026 SEONG SAN SCUBA Dive Center. All rights reserved.
+          </div>
         </div>
       </div>
     </footer>
