@@ -30,6 +30,7 @@ function ReservationPageContent() {
   const searchParams = useSearchParams();
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const phoneInputRef = useRef<HTMLInputElement | null>(null);
+  const reservationDateInputRef = useRef<HTMLInputElement | null>(null);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -96,6 +97,20 @@ function ReservationPageContent() {
     setTimeout(() => {
       nameInputRef.current?.focus();
     }, 300);
+  }
+
+  function handleOpenReservationDatePicker() {
+    const input = reservationDateInputRef.current;
+
+    input?.focus();
+
+    if (typeof input?.showPicker === "function") {
+      try {
+        input.showPicker();
+      } catch {
+        // Some browsers only allow the picker during a direct user action.
+      }
+    }
   }
 
   function clearForm() {
@@ -488,8 +503,11 @@ function ReservationPageContent() {
 
                 <FormField label="예약 희망일" required>
                   <input
+                    ref={reservationDateInputRef}
                     type="date"
                     value={reservationDate}
+                    onClick={handleOpenReservationDatePicker}
+                    onFocus={handleOpenReservationDatePicker}
                     onChange={(event) => setReservationDate(event.target.value)}
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
                   />
