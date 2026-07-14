@@ -25,6 +25,29 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+a,
+button,
+summary,
+label,
+select,
+input[type="button"],
+input[type="checkbox"],
+input[type="file"],
+input[type="radio"],
+input[type="reset"],
+input[type="submit"],
+[role="button"],
+[tabindex]:not([tabindex="-1"]) {
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled,
+input:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 /*
  * 관리자 화면 공통 폼 가독성
  * 인증된 관리자 레이아웃의 .admin-ui 내부에만 적용됩니다.

@@ -34,7 +34,8 @@ type ImageViewerState = {
   currentIndex: number;
 };
 
-const MAX_HOME_REVIEWS = 3;
+const INITIAL_HOME_REVIEW_COUNT = 3;
+const HOME_REVIEW_COUNT_STEP = 3;
 
 function ImageViewer({
   viewer,
@@ -356,10 +357,15 @@ export default function Reviews() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [viewer, setViewer] = useState<ImageViewerState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [visibleReviewCount, setVisibleReviewCount] = useState(
+    INITIAL_HOME_REVIEW_COUNT,
+  );
 
   const homeReviews = useMemo(() => {
-    return reviews.slice(0, MAX_HOME_REVIEWS);
-  }, [reviews]);
+    return reviews.slice(0, visibleReviewCount);
+  }, [reviews, visibleReviewCount]);
+
+  const hasMoreReviews = visibleReviewCount < reviews.length;
 
   useEffect(() => {
     async function loadReviews() {
@@ -434,59 +440,77 @@ export default function Reviews() {
               ))}
             </div>
           ) : (
-            <div className="grid gap-6 lg:grid-cols-3">
-              {homeReviews.map((review) => (
-                <article
-                  key={review.id}
-                  className="group overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.06] shadow-2xl shadow-black/20 backdrop-blur transition hover:-translate-y-1 hover:border-cyan-300/40 hover:bg-white/[0.09]"
-                >
-                  <div className="border-b border-white/10 p-5">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-400">
-                          작성자
-                        </p>
-                        <p className="mt-1 text-lg font-black text-white">
-                          {review.userId}
-                        </p>
-                      </div>
+            <>
+              <div className="grid gap-6 lg:grid-cols-3">
+                {homeReviews.map((review) => (
+                  <article
+                    key={review.id}
+                    className="group overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.06] shadow-2xl shadow-black/20 backdrop-blur transition hover:-translate-y-1 hover:border-cyan-300/40 hover:bg-white/[0.09]"
+                  >
+                    <div className="border-b border-white/10 p-5">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-400">
+                            작성자
+                          </p>
+                          <p className="mt-1 text-lg font-black text-white">
+                            {review.userId}
+                          </p>
+                        </div>
 
-                      <div className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-bold text-cyan-100">
-                        {review.program}
+                        <div className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-bold text-cyan-100">
+                          {review.program}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-5 p-5">
-                    <ReviewImageSlider
-                      reviewId={review.id}
-                      userId={review.userId}
-                      program={review.program}
-                      comment={review.comment}
-                      images={review.images}
-                      onOpenViewer={setViewer}
-                    />
+                    <div className="space-y-5 p-5">
+                      <ReviewImageSlider
+                        reviewId={review.id}
+                        userId={review.userId}
+                        program={review.program}
+                        comment={review.comment}
+                        images={review.images}
+                        onOpenViewer={setViewer}
+                      />
 
-                    <div className="rounded-3xl bg-slate-950/50 p-5">
-                      <div className="mb-3 flex items-center gap-2 text-cyan-200">
-                        <Waves className="h-4 w-4" />
-                        <span className="text-sm font-bold">
-                          Review Comment
-                        </span>
+                      <div className="rounded-3xl bg-slate-950/50 p-5">
+                        <div className="mb-3 flex items-center gap-2 text-cyan-200">
+                          <Waves className="h-4 w-4" />
+                          <span className="text-sm font-bold">
+                            Review Comment
+                          </span>
+                        </div>
+
+                        <p className="line-clamp-3 text-base leading-8 text-slate-100">
+                          “{review.comment}”
+                        </p>
+
+                        <p className="mt-4 text-xs font-semibold text-cyan-200/80">
+                          사진을 클릭하면 전체 후기를 볼 수 있습니다.
+                        </p>
                       </div>
-
-                      <p className="line-clamp-3 text-base leading-8 text-slate-100">
-                        “{review.comment}”
-                      </p>
-
-                      <p className="mt-4 text-xs font-semibold text-cyan-200/80">
-                        사진을 클릭하면 전체 후기를 볼 수 있습니다.
-                      </p>
                     </div>
-                  </div>
-                </article>
-              ))}
-            </div>
+                  </article>
+                ))}
+              </div>
+
+              {hasMoreReviews ? (
+                <div className="mt-10 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVisibleReviewCount(
+                        (current) => current + HOME_REVIEW_COUNT_STEP,
+                      )
+                    }
+                    className="inline-flex rounded-full border border-white/15 bg-white/10 px-6 py-3 text-sm font-black text-white backdrop-blur transition hover:bg-white/20"
+                  >
+                    리뷰 더보기
+                  </button>
+                </div>
+              ) : null}
+            </>
           )}
 
           <p className="mt-8 text-center text-sm text-slate-500">
