@@ -15,6 +15,8 @@ import type {
   Reservation,
   ReservationStatus,
 } from "@/lib/reservations/types";
+import { customerReservationReceivedSms } from "@/lib/sms/reservationSmsTemplate";
+import { sendSms } from "@/lib/sms/smsProxyClient";
 
 const allowedStatuses: ReservationStatus[] = [
   "PENDING",
@@ -310,6 +312,18 @@ export async function POST(request: Request) {
           customerEmailError,
         );
       }
+    }
+
+    try {
+      await sendSms({
+        to: reservation.phone,
+        message: customerReservationReceivedSms(reservation),
+      });
+    } catch (customerSmsError) {
+      console.error(
+        "[POST /api/reservations] customer sms error:",
+        customerSmsError,
+      );
     }
 
     try {
