@@ -217,7 +217,7 @@ async function createZipBuffer(
   }
 
   const readme = [
-    "SEONG SAN SCUBA Dive Center",
+    "성산스쿠버",
     "",
     `고객명: ${reservationName}`,
     `예약일: ${reservationDate || "-"}`,
@@ -357,12 +357,12 @@ async function sendPhotoZipEmail(params: {
 
   const sesClient = createSesClient();
 
-  const subject = `[SEONG SAN SCUBA] ${params.customerName}님 사진을 보내드립니다.`;
+  const subject = `[성산스쿠버] ${params.customerName}님 사진을 보내드립니다.`;
 
   const text = [
     `${params.customerName}님, 안녕하세요.`,
     "",
-    "SEONG SAN SCUBA Dive Center입니다.",
+    "성산스쿠버입니다.",
     "체험/다이빙 사진을 ZIP 파일로 첨부해드립니다.",
     "",
     params.reservationDate ? `예약일: ${params.reservationDate}` : "",
@@ -370,14 +370,14 @@ async function sendPhotoZipEmail(params: {
     "소중한 추억으로 간직해 주세요.",
     "",
     "감사합니다.",
-    "SEONG SAN SCUBA Dive Center",
+    "성산스쿠버",
   ]
     .filter(Boolean)
     .join("\n");
 
   const html = `
     <div style="font-family: Arial, sans-serif; line-height: 1.7; color: #0f172a;">
-      <h2 style="margin: 0 0 16px; color: #0369a1;">SEONG SAN SCUBA Dive Center</h2>
+      <h2 style="margin: 0 0 16px; color: #0369a1;">성산스쿠버</h2>
       <p>${params.customerName}님, 안녕하세요.</p>
       <p>체험/다이빙 사진을 ZIP 파일로 첨부해드립니다.</p>
       ${
@@ -386,7 +386,7 @@ async function sendPhotoZipEmail(params: {
           : ""
       }
       <p>소중한 추억으로 간직해 주세요.</p>
-      <p style="margin-top: 24px;">감사합니다.<br />SEONG SAN SCUBA Dive Center</p>
+      <p style="margin-top: 24px;">감사합니다.<br />성산스쿠버</p>
     </div>
   `;
 

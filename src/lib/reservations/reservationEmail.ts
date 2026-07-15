@@ -28,7 +28,8 @@ const sesClient = new SESClient({
   region: process.env.AWS_REGION || "ap-northeast-2",
 });
 
-const SHOP_NAME = process.env.SHOP_NAME || "SEONG SAN SCUBA Dive Center";
+const SHOP_NAME = process.env.SHOP_NAME || "성산스쿠버";
+const SUBJECT_SHOP_NAME = "성산스쿠버";
 const SHOP_LOCATION =
   process.env.SHOP_LOCATION || "제주 성산 일대, 예약 확정 후 상세 위치 안내";
 const SHOP_PHONE = process.env.SHOP_PHONE || "예약 확정 후 안내";
@@ -47,7 +48,7 @@ export async function sendReservationConfirmedEmail(
     };
   }
 
-  const subject = `[${SHOP_NAME}] 예약이 확정되었습니다.`;
+  const subject = `[${SUBJECT_SHOP_NAME}] 예약이 확정되었습니다.`;
 
   const textBody = [
     `${reservation.name}님, 안녕하세요.`,
@@ -169,7 +170,7 @@ export async function sendReservationCancelledEmail(
     };
   }
 
-  const subject = `[${SHOP_NAME}] 예약이 취소되었습니다.`;
+  const subject = `[${SUBJECT_SHOP_NAME}] 예약이 취소되었습니다.`;
 
   const textBody = [
     `${reservation.name}님, 안녕하세요.`,
