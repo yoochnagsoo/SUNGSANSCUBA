@@ -39,7 +39,7 @@ export function customerReservationReceivedSms(reservation: Reservation) {
     "",
     "- 주소 : 제주도 서귀포시 성산읍 일출로 258-5",
     "",
-    "- 환불 규정",
+    "- 환불 규정 : 당일취소불가",
     "",
     "- 업무시간 : 08:30 ~ 18:30",
     "",
