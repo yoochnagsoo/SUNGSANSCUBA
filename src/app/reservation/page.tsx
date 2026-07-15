@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   FormEvent,
+  KeyboardEvent,
   Suspense,
   useEffect,
   useMemo,
@@ -110,6 +111,15 @@ function ReservationPageContent() {
       } catch {
         // Some browsers only allow the picker during a direct user action.
       }
+    }
+  }
+
+  function handleReservationNameKeyDown(
+    event: KeyboardEvent<HTMLInputElement>,
+  ) {
+    if ((event.key === "Tab" && !event.shiftKey) || event.key === "Enter") {
+      event.preventDefault();
+      phoneInputRef.current?.focus();
     }
   }
 
@@ -453,7 +463,12 @@ function ReservationPageContent() {
                 <FormField label="이름" required>
                   <input
                     ref={nameInputRef}
+                    id="reservation-name"
+                    name="name"
+                    autoComplete="name"
+                    enterKeyHint="next"
                     value={name}
+                    onKeyDown={handleReservationNameKeyDown}
                     onChange={(event) => setName(event.target.value)}
                     placeholder="홍길동"
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-base text-slate-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
@@ -463,8 +478,12 @@ function ReservationPageContent() {
                 <FormField label="연락처" required>
                   <input
                     ref={phoneInputRef}
+                    id="reservation-phone"
+                    name="phone"
                     type="tel"
                     inputMode="numeric"
+                    autoComplete="tel"
+                    enterKeyHint="next"
                     value={phone}
                     onChange={(event) => {
                       setPhone(formatKoreanMobilePhone(event.target.value));
