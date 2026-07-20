@@ -4,8 +4,6 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 
-const STORAGE_KEY = "sungsan-scuba-renewal-notice-closed";
-
 export default function RenewalNoticePopup() {
   const pathname = usePathname();
   const [visible, setVisible] = useState(false);
@@ -16,11 +14,10 @@ export default function RenewalNoticePopup() {
       return;
     }
 
-    setVisible(sessionStorage.getItem(STORAGE_KEY) !== "true");
+    setVisible(true);
   }, [pathname]);
 
   function handleClose() {
-    sessionStorage.setItem(STORAGE_KEY, "true");
     setVisible(false);
   }
 
