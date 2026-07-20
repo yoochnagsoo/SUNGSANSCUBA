@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 
 export default function RenewalNoticePopup() {
   const pathname = usePathname();
+  const hasShownRef = useRef(false);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -14,6 +15,11 @@ export default function RenewalNoticePopup() {
       return;
     }
 
+    if (hasShownRef.current) {
+      return;
+    }
+
+    hasShownRef.current = true;
     setVisible(true);
   }, [pathname]);
 
