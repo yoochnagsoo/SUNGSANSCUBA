@@ -243,6 +243,147 @@ function extractUploadedImageUrl(result: unknown): string {
   return "";
 }
 
+const maxUploadPayloadSize = 3.5 * 1024 * 1024;
+const maxUploadImageDimension = 2200;
+
+function getFileExtension(fileName: string) {
+  return fileName.split(".").pop()?.toLowerCase().trim() ?? "";
+}
+
+function isImageUploadFile(file: File) {
+  const extension = getFileExtension(file.name);
+
+  return (
+    file.type.startsWith("image/") ||
+    ["jpg", "jpeg", "png", "webp", "gif", "avif", "heic", "heif"].includes(
+      extension,
+    )
+  );
+}
+
+function stripFileExtension(fileName: string) {
+  return fileName.replace(/\.[^.]+$/, "") || "dive-destination-image";
+}
+
+function loadImageElement(file: File) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new window.Image();
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("이미지를 브라우저에서 읽지 못했습니다."));
+    };
+    image.src = objectUrl;
+  });
+}
+
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  type: string,
+  quality: number,
+) {
+  return new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, type, quality);
+  });
+}
+
+async function prepareImageFileForUpload(file: File) {
+  const extension = getFileExtension(file.name);
+  const shouldConvertHeic =
+    extension === "heic" ||
+    extension === "heif" ||
+    file.type === "image/heic" ||
+    file.type === "image/heif";
+
+  if (file.size <= maxUploadPayloadSize && !shouldConvertHeic) {
+    return file;
+  }
+
+  const image = await loadImageElement(file);
+  const scale = Math.min(
+    1,
+    maxUploadImageDimension /
+      Math.max(image.naturalWidth, image.naturalHeight),
+  );
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("이미지 압축을 준비하지 못했습니다.");
+  }
+
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  let compressedBlob: Blob | null = null;
+  let quality = 0.84;
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    compressedBlob = await canvasToBlob(canvas, "image/webp", quality);
+
+    if (
+      compressedBlob &&
+      compressedBlob.size <= maxUploadPayloadSize
+    ) {
+      break;
+    }
+
+    quality -= 0.12;
+  }
+
+  if (!compressedBlob) {
+    throw new Error("이미지 압축에 실패했습니다.");
+  }
+
+  if (compressedBlob.size > maxUploadPayloadSize) {
+    throw new Error(
+      "이미지 용량이 너무 큽니다. 사진 크기를 줄인 뒤 다시 업로드해주세요.",
+    );
+  }
+
+  return new File(
+    [compressedBlob],
+    `${stripFileExtension(file.name)}.webp`,
+    {
+      type: "image/webp",
+      lastModified: Date.now(),
+    },
+  );
+}
+
+function getUploadFailureMessage(
+  response: Response,
+  data: Record<string, unknown> | null,
+  responseText: string,
+) {
+  const apiMessage =
+    typeof data?.message === "string"
+      ? data.message
+      : typeof data?.error === "string"
+        ? data.error
+        : "";
+
+  if (apiMessage.trim()) {
+    return apiMessage.trim();
+  }
+
+  const text = responseText.trim();
+
+  if (text) {
+    return `이미지 업로드 실패 (${response.status}): ${text.slice(0, 160)}`;
+  }
+
+  return `이미지 업로드 실패 (${response.status})`;
+}
+
 export default function AdminDiveDestinationsPage() {
   const [destinations, setDestinations] = useState<DiveDestination[]>([]);
   const [form, setForm] = useState<FormState>(() => createEmptyForm());
@@ -520,7 +661,7 @@ export default function AdminDiveDestinationsPage() {
   }
 
   async function uploadFiles(files: File[]) {
-    const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+    const imageFiles = files.filter(isImageUploadFile);
 
     if (imageFiles.length === 0) {
       setMessage("이미지 파일만 업로드할 수 있습니다.");
@@ -532,8 +673,9 @@ export default function AdminDiveDestinationsPage() {
 
     try {
       for (const file of imageFiles) {
+        const uploadFile = await prepareImageFileForUpload(file);
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("file", uploadFile);
 
         const response = await fetch(
           "/api/admin/dive-destinations/upload-image",
@@ -543,7 +685,22 @@ export default function AdminDiveDestinationsPage() {
           }
         );
 
-        const data = await response.json().catch(() => null);
+        const responseText = await response.text();
+        let data: Record<string, any> | null = null;
+
+        if (responseText) {
+          try {
+            data = JSON.parse(responseText) as Record<string, any>;
+          } catch {
+            data = null;
+          }
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            getUploadFailureMessage(response, data, responseText),
+          );
+        }
 
         if (!response.ok) {
           throw new Error(
