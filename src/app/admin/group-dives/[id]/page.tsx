@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   CalendarDays,
   Check,
+  Download,
   Loader2,
   Pencil,
   Phone,
@@ -147,6 +148,8 @@ type TripFormState = {
   actualPointName: string;
   guideName: string;
   boardedCount: string;
+  focCount: string;
+  unitPrice: string;
   status: GroupDiveTripStatus;
   memo: string;
 };
@@ -167,6 +170,8 @@ const initialTripForm: TripFormState = {
   actualPointName: "",
   guideName: "",
   boardedCount: "0",
+  focCount: "0",
+  unitPrice: "",
   status: "SCHEDULED",
   memo: "",
 };
@@ -407,10 +412,26 @@ function getTripBoardedCount(trip: GroupDiveTrip) {
   ).length;
 }
 
+function getTripFocCount(trip: GroupDiveTrip) {
+  if (
+    typeof trip.focCount === "number" &&
+    Number.isFinite(trip.focCount)
+  ) {
+    return Math.max(Math.floor(trip.focCount), 0);
+  }
+
+  return 0;
+}
+
 function getTripBaseAmount(
   trip: GroupDiveTrip,
   defaultDiveUnitPrice?: number,
 ) {
+  const fallbackUnitPrice =
+    typeof trip.unitPrice === "number" &&
+    Number.isFinite(trip.unitPrice)
+      ? trip.unitPrice
+      : defaultDiveUnitPrice;
   const participantAmount = trip.participants.reduce(
     (tripTotal, participant) => {
       if (!participant.boarded) {
@@ -419,17 +440,26 @@ function getTripBaseAmount(
 
       return (
         tripTotal +
-        (participant.unitPrice ?? defaultDiveUnitPrice ?? 0)
+        (participant.unitPrice ?? fallbackUnitPrice ?? 0)
       );
     },
     0,
   );
 
   if (participantAmount > 0) {
-    return participantAmount;
+    return Math.max(
+      participantAmount -
+        getTripFocCount(trip) * (fallbackUnitPrice ?? 0),
+      0,
+    );
   }
 
-  return getTripBoardedCount(trip) * (defaultDiveUnitPrice ?? 0);
+  return (
+    Math.max(
+      getTripBoardedCount(trip) - getTripFocCount(trip),
+      0,
+    ) * (fallbackUnitPrice ?? 0)
+  );
 }
 
 export default function AdminGroupDiveDetailPage() {
@@ -445,6 +475,8 @@ export default function AdminGroupDiveDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [statementDownloading, setStatementDownloading] =
+    useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const [groupFormOpen, setGroupFormOpen] = useState(false);
@@ -1097,6 +1129,10 @@ export default function AdminGroupDiveDetailPage() {
     setTripForm({
       ...initialTripForm,
       date: groupDive.startDate,
+      unitPrice:
+        typeof groupDive.defaultDiveUnitPrice === "number"
+          ? String(groupDive.defaultDiveUnitPrice)
+          : "",
     });
 
     setTripMessage("");
@@ -1113,6 +1149,13 @@ export default function AdminGroupDiveDetailPage() {
       actualPointName: trip.actualPointName,
       guideName: trip.guideName,
       boardedCount: String(getTripBoardedCount(trip)),
+      focCount: String(getTripFocCount(trip)),
+      unitPrice:
+        typeof trip.unitPrice === "number"
+          ? String(trip.unitPrice)
+          : typeof groupDive?.defaultDiveUnitPrice === "number"
+            ? String(groupDive.defaultDiveUnitPrice)
+            : "",
       status: trip.status,
       memo: trip.memo,
     });
@@ -1164,6 +1207,7 @@ export default function AdminGroupDiveDetailPage() {
     }
 
     const boardedCount = Number(tripForm.boardedCount);
+    const focCount = Number(tripForm.focCount);
 
     if (
       !Number.isFinite(boardedCount) ||
@@ -1171,6 +1215,34 @@ export default function AdminGroupDiveDetailPage() {
     ) {
       setTripMessage(
         "승선 인원을 0명 이상으로 입력해주세요.",
+      );
+      return;
+    }
+
+    if (!Number.isFinite(focCount) || focCount < 0) {
+      setTripMessage(
+        "FOC 인원은 0명 이상으로 입력해주세요.",
+      );
+      return;
+    }
+
+    if (focCount > boardedCount) {
+      setTripMessage(
+        "FOC 인원은 승선인원보다 많을 수 없습니다.",
+      );
+      return;
+    }
+
+    const unitPrice = tripForm.unitPrice.trim()
+      ? Number(tripForm.unitPrice)
+      : undefined;
+
+    if (
+      typeof unitPrice !== "undefined" &&
+      (!Number.isFinite(unitPrice) || unitPrice < 0)
+    ) {
+      setTripMessage(
+        "회차 단가를 올바르게 입력해주세요.",
       );
       return;
     }
@@ -1196,6 +1268,11 @@ export default function AdminGroupDiveDetailPage() {
               tripForm.actualPointName.trim(),
             guideName: tripForm.guideName.trim(),
             boardedCount: Math.floor(boardedCount),
+            focCount: Math.floor(focCount),
+            unitPrice:
+              typeof unitPrice === "number"
+                ? Math.round(unitPrice)
+                : "",
             status: tripForm.status,
             ...(editingTripId
               ? {}
@@ -1308,6 +1385,7 @@ export default function AdminGroupDiveDetailPage() {
             nitrox: participant.nitroxDefault,
             rentalItems: [...participant.rentalItems],
             unitPrice:
+              trip.unitPrice ??
               groupDive.defaultDiveUnitPrice,
             memo: "",
           };
@@ -1926,6 +2004,61 @@ export default function AdminGroupDiveDetailPage() {
     }
   }
 
+  async function handleDownloadStatement() {
+    if (!groupDive || statementDownloading) {
+      return;
+    }
+
+    setStatementDownloading(true);
+    setErrorMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/admin/group-dives/${groupDive.id}/statement`,
+      );
+
+      if (!response.ok) {
+        const data = (await response
+          .json()
+          .catch(() => null)) as {
+          message?: string;
+        } | null;
+
+        throw new Error(
+          data?.message ??
+            "그룹 다이빙 내역서를 다운로드하지 못했습니다.",
+        );
+      }
+
+      const blob = await response.blob();
+      const disposition =
+        response.headers.get("Content-Disposition") ?? "";
+      const fileNameMatch = disposition.match(
+        /filename\*=UTF-8''([^;]+)/,
+      );
+      const fileName = fileNameMatch?.[1]
+        ? decodeURIComponent(fileNameMatch[1])
+        : `${groupDive.groupName}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "그룹 다이빙 내역서를 다운로드하지 못했습니다.",
+      );
+    } finally {
+      setStatementDownloading(false);
+    }
+  }
+
   async function handleDeleteGroupDive() {
     if (
       !groupDive ||
@@ -2081,6 +2214,20 @@ export default function AdminGroupDiveDetailPage() {
           >
             <Pencil className="h-4 w-4" />
             기본정보 수정
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void handleDownloadStatement()}
+            disabled={statementDownloading}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-4 text-sm font-bold text-cyan-700 shadow-sm hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {statementDownloading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            엑셀 다운로드
           </button>
 
           <button
@@ -2634,6 +2781,7 @@ export default function AdminGroupDiveDetailPage() {
             <div className="divide-y divide-slate-100">
               {groupDive.trips.map((trip) => {
                 const boardedCount = getTripBoardedCount(trip);
+                const focCount = getTripFocCount(trip);
 
 
                 return (
@@ -2727,6 +2875,13 @@ export default function AdminGroupDiveDetailPage() {
                               ? `${trip.capacity}명`
                               : "제한 없음"}
                           </span>
+                          <span>
+                            단가:{" "}
+                            {formatCurrency(
+                              trip.unitPrice ??
+                                groupDive.defaultDiveUnitPrice,
+                            )}
+                          </span>
                         </div>
                       </div>
 
@@ -2758,13 +2913,24 @@ export default function AdminGroupDiveDetailPage() {
                     </div>
 
                     <div className="mt-4 rounded-2xl border border-slate-300">
-                      <div className="px-3 py-3 text-center">
+                      <div className="grid grid-cols-2 divide-x divide-slate-200">
+                        <div className="px-3 py-3 text-center">
+                          <p className="text-xs font-semibold text-slate-600">
+                            FOC
+                          </p>
+                          <p className="mt-1 font-black text-amber-600">
+                            {focCount}
+                          </p>
+                        </div>
+
+                        <div className="px-3 py-3 text-center">
                         <p className="text-xs font-semibold text-slate-600">
                           승선 · 정산 대상
                         </p>
                         <p className="mt-1 font-black text-cyan-600">
-                          {boardedCount}
+                          {Math.max(boardedCount - focCount, 0)}
                         </p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -3939,6 +4105,50 @@ export default function AdminGroupDiveDetailPage() {
                         ...previous,
                         boardedCount: event.target.value,
                       }))
+                    }
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4"
+                  />
+                </label>
+
+                <label>
+                  <span className="text-sm font-bold text-slate-700">
+                    FOC 인원
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={tripForm.focCount}
+                    onChange={(event) =>
+                      setTripForm((previous) => ({
+                        ...previous,
+                        focCount: event.target.value,
+                      }))
+                    }
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4"
+                  />
+                </label>
+
+                <label>
+                  <span className="text-sm font-bold text-slate-700">
+                    회차 단가
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1000}
+                    value={tripForm.unitPrice}
+                    onChange={(event) =>
+                      setTripForm((previous) => ({
+                        ...previous,
+                        unitPrice: event.target.value,
+                      }))
+                    }
+                    placeholder={
+                      typeof groupDive.defaultDiveUnitPrice ===
+                      "number"
+                        ? `${groupDive.defaultDiveUnitPrice}`
+                        : "0"
                     }
                     className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4"
                   />

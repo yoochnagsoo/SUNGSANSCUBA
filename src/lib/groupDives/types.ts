@@ -101,6 +101,8 @@ export type GroupDiveTrip = {
 
   capacity: number;
   boardedCount?: number;
+  focCount?: number;
+  unitPrice?: number;
   status: GroupDiveTripStatus;
 
   participants: GroupDiveTripParticipant[];
@@ -269,6 +271,8 @@ export type GroupDiveTripInput = {
 
   capacity?: number;
   boardedCount?: number;
+  focCount?: number;
+  unitPrice?: number;
   status?: GroupDiveTripStatus;
 
   participantIds?: string[];
@@ -294,6 +298,8 @@ export type GroupDiveTripUpdateInput = {
 
   capacity?: number;
   boardedCount?: number;
+  focCount?: number;
+  unitPrice?: number;
   status?: GroupDiveTripStatus;
 
   participants?: GroupDiveTripParticipant[];

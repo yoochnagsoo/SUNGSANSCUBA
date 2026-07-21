@@ -65,6 +65,24 @@ function normalizeBoardedCount(value: unknown) {
   return Math.max(Math.floor(parsed), 0);
 }
 
+function normalizeFocCount(value: unknown) {
+  if (
+    value === null ||
+    value === "" ||
+    typeof value === "undefined"
+  ) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+
+  return Math.max(Math.floor(parsed), 0);
+}
+
 function normalizeOptionalPrice(value: unknown) {
   if (
     value === null ||
@@ -81,6 +99,16 @@ function normalizeOptionalPrice(value: unknown) {
   }
 
   return parsed;
+}
+
+function normalizeTripUnitPrice(value: unknown) {
+  const price = normalizeOptionalPrice(value);
+
+  if (typeof price === "undefined") {
+    return undefined;
+  }
+
+  return Math.round(price);
 }
 
 function normalizeStringArray(value: unknown) {
@@ -627,6 +655,51 @@ export async function PATCH(
       input.boardedCount = boardedCount;
     }
 
+    if (typeof body.focCount !== "undefined") {
+      const focCount = normalizeFocCount(
+        body.focCount,
+      );
+
+      if (typeof focCount === "undefined") {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "FOC 인원을 확인해주세요.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      input.focCount = focCount;
+    }
+
+    if (typeof body.unitPrice !== "undefined") {
+      const unitPrice = normalizeTripUnitPrice(
+        body.unitPrice,
+      );
+
+      if (
+        body.unitPrice !== "" &&
+        body.unitPrice !== null &&
+        typeof unitPrice === "undefined"
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message:
+              "회차 단가를 올바르게 입력해주세요.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      input.unitPrice = unitPrice;
+    }
+
     if (typeof body.status !== "undefined") {
       if (!isTripStatus(body.status)) {
         return NextResponse.json(
@@ -651,7 +724,9 @@ export async function PATCH(
         parseTripParticipants(
           body.participants,
           groupDive.participants,
-          groupDive.defaultDiveUnitPrice,
+          input.unitPrice ??
+            previous.unitPrice ??
+            groupDive.defaultDiveUnitPrice,
         );
 
       if (!parsedParticipants.ok) {
@@ -693,6 +768,8 @@ export async function PATCH(
       nextParticipants.filter(
         (participant) => participant.boarded,
       ).length;
+    const focCount =
+      input.focCount ?? previous.focCount ?? 0;
 
     if (
       nextCapacity > 0 &&
@@ -703,6 +780,19 @@ export async function PATCH(
           ok: false,
           message:
             "승선 인원이 보트 정원을 초과합니다.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    if (focCount > boardedCount) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "FOC 인원은 승선인원보다 많을 수 없습니다.",
         },
         {
           status: 400,
@@ -748,6 +838,13 @@ export async function PATCH(
 
       boardedCount,
 
+      focCount,
+
+      unitPrice:
+        typeof body.unitPrice !== "undefined"
+          ? input.unitPrice
+          : previous.unitPrice,
+
       status:
         input.status ?? previous.status,
 
@@ -782,6 +879,7 @@ export async function PATCH(
       ok: true,
       trip: updatedTrip,
       boardedCount,
+      focCount,
     });
   } catch (error) {
     console.error(

@@ -357,11 +357,17 @@ function normalizeTrips(
     const boardedCount = Number.isFinite(parsedBoardedCount)
       ? Math.max(Math.floor(parsedBoardedCount), 0)
       : participants.filter((participant) => participant.boarded).length;
+    const parsedFocCount = Number(trip.focCount);
+    const focCount = Number.isFinite(parsedFocCount)
+      ? Math.max(Math.floor(parsedFocCount), 0)
+      : 0;
 
     return {
       ...trip,
       participants,
       boardedCount,
+      focCount,
+      unitPrice: normalizeUnitPrice(trip.unitPrice),
     };
   });
 }

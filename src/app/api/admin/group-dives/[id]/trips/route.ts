@@ -68,6 +68,42 @@ function normalizeBoardedCount(value: unknown) {
   return Math.max(Math.floor(parsed), 0);
 }
 
+function normalizeFocCount(value: unknown) {
+  if (
+    value === null ||
+    value === "" ||
+    typeof value === "undefined"
+  ) {
+    return 0;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+
+  return Math.max(Math.floor(parsed), 0);
+}
+
+function normalizeOptionalPrice(value: unknown) {
+  if (
+    value === null ||
+    value === "" ||
+    typeof value === "undefined"
+  ) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return undefined;
+  }
+
+  return Math.round(parsed);
+}
+
 function normalizeParticipantIds(value: unknown) {
   if (!Array.isArray(value)) {
     return [];
@@ -225,6 +261,11 @@ export async function POST(
       boardedCount: normalizeBoardedCount(
         body.boardedCount,
       ),
+      focCount: normalizeFocCount(body.focCount),
+      unitPrice:
+        typeof body.unitPrice !== "undefined"
+          ? normalizeOptionalPrice(body.unitPrice)
+          : groupDive.defaultDiveUnitPrice,
 
       status: isTripStatus(body.status)
         ? body.status
@@ -236,6 +277,40 @@ export async function POST(
 
       memo: normalizeText(body.memo),
     };
+
+    if (
+      body.unitPrice !== "" &&
+      body.unitPrice !== null &&
+      typeof body.unitPrice !== "undefined" &&
+      typeof input.unitPrice === "undefined"
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "회차 단가를 올바르게 입력해주세요.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    if (
+      (input.focCount ?? 0) >
+      (input.boardedCount ?? 0)
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "FOC 인원은 승선인원보다 많을 수 없습니다.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
 
     if (!isValidDate(input.date)) {
       return NextResponse.json(
@@ -361,7 +436,8 @@ export async function POST(
         nitrox: participant.nitroxDefault,
         rentalItems: [...participant.rentalItems],
 
-        unitPrice: groupDive.defaultDiveUnitPrice,
+        unitPrice:
+          input.unitPrice ?? groupDive.defaultDiveUnitPrice,
         memo: "",
       }));
 
@@ -407,6 +483,8 @@ export async function POST(
 
       capacity,
       boardedCount: input.boardedCount ?? 0,
+      focCount: input.focCount ?? 0,
+      unitPrice: input.unitPrice,
       status: input.status ?? "SCHEDULED",
 
       participants: tripParticipants,

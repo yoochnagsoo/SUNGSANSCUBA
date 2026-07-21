@@ -31,15 +31,22 @@ function calculateBaseAmount(groupDive: GroupDive) {
       trip.participants.length === 0
     ) {
       const unitPrice =
-        typeof groupDive.defaultDiveUnitPrice ===
-          "number" &&
-        Number.isFinite(groupDive.defaultDiveUnitPrice)
-          ? Math.max(groupDive.defaultDiveUnitPrice, 0)
-          : 0;
+        typeof trip.unitPrice === "number" &&
+        Number.isFinite(trip.unitPrice)
+          ? Math.max(trip.unitPrice, 0)
+          : typeof groupDive.defaultDiveUnitPrice ===
+                "number" &&
+              Number.isFinite(groupDive.defaultDiveUnitPrice)
+            ? Math.max(groupDive.defaultDiveUnitPrice, 0)
+            : 0;
 
       return (
         total +
-        Math.max(Math.floor(trip.boardedCount), 0) *
+        Math.max(
+          Math.floor(trip.boardedCount) -
+            Math.max(Math.floor(trip.focCount ?? 0), 0),
+          0,
+        ) *
           unitPrice
       );
     }
@@ -47,8 +54,15 @@ function calculateBaseAmount(groupDive: GroupDive) {
     return (
       total +
       trip.participants.reduce(
-        (tripTotal, participant) => {
+        (tripTotal, participant, index) => {
           if (!participant.boarded) {
+            return tripTotal;
+          }
+
+          if (
+            index <
+            Math.max(Math.floor(trip.focCount ?? 0), 0)
+          ) {
             return tripTotal;
           }
 
@@ -56,7 +70,10 @@ function calculateBaseAmount(groupDive: GroupDive) {
             typeof participant.unitPrice === "number" &&
             Number.isFinite(participant.unitPrice)
               ? Math.max(participant.unitPrice, 0)
-              : typeof groupDive.defaultDiveUnitPrice ===
+              : typeof trip.unitPrice === "number" &&
+                  Number.isFinite(trip.unitPrice)
+                ? Math.max(trip.unitPrice, 0)
+                : typeof groupDive.defaultDiveUnitPrice ===
                     "number" &&
                   Number.isFinite(
                     groupDive.defaultDiveUnitPrice,

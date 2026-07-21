@@ -181,17 +181,26 @@ function calculateBaseAmount(groupDive: GroupDive) {
       (trip.participants.length === 0 &&
       typeof trip.boardedCount === "number" &&
       Number.isFinite(trip.boardedCount)
-        ? Math.max(Math.floor(trip.boardedCount), 0) *
-          (groupDive.defaultDiveUnitPrice ?? 0)
+        ? Math.max(
+            Math.floor(trip.boardedCount) -
+              Math.max(Math.floor(trip.focCount ?? 0), 0),
+            0,
+          ) *
+          (trip.unitPrice ?? groupDive.defaultDiveUnitPrice ?? 0)
         : trip.participants.reduce(
-            (tripTotal, participant) => {
+            (tripTotal, participant, index) => {
               if (!participant.boarded) {
+                return tripTotal;
+              }
+
+              if (index < Math.max(Math.floor(trip.focCount ?? 0), 0)) {
                 return tripTotal;
               }
 
               return (
                 tripTotal +
                 (participant.unitPrice ??
+                  trip.unitPrice ??
                   groupDive.defaultDiveUnitPrice ??
                   0)
               );

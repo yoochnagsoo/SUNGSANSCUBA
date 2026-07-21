@@ -141,6 +141,8 @@ function calculateBaseAmount(
   trips: {
     status: string;
     boardedCount?: number;
+    focCount?: number;
+    unitPrice?: number;
     participants: {
       boarded: boolean;
       unitPrice?: number;
@@ -162,19 +164,37 @@ function calculateBaseAmount(
       trip.participants.length === 0
     ) {
       const unitPrice =
-        typeof defaultDiveUnitPrice === "number" &&
-        Number.isFinite(defaultDiveUnitPrice)
-          ? Math.max(defaultDiveUnitPrice, 0)
-          : 0;
+        typeof trip.unitPrice === "number" &&
+        Number.isFinite(trip.unitPrice)
+          ? Math.max(trip.unitPrice, 0)
+          : typeof defaultDiveUnitPrice === "number" &&
+              Number.isFinite(defaultDiveUnitPrice)
+            ? Math.max(defaultDiveUnitPrice, 0)
+            : 0;
 
-      return total + Math.max(Math.floor(trip.boardedCount), 0) * unitPrice;
+      return (
+        total +
+        Math.max(
+          Math.floor(trip.boardedCount) -
+            Math.max(Math.floor(trip.focCount ?? 0), 0),
+          0,
+        ) *
+          unitPrice
+      );
     }
 
     return (
       total +
       trip.participants.reduce(
-        (tripTotal, participant) => {
+        (tripTotal, participant, index) => {
           if (!participant.boarded) {
+            return tripTotal;
+          }
+
+          if (
+            index <
+            Math.max(Math.floor(trip.focCount ?? 0), 0)
+          ) {
             return tripTotal;
           }
 
@@ -182,6 +202,9 @@ function calculateBaseAmount(
             typeof participant.unitPrice === "number" &&
             Number.isFinite(participant.unitPrice)
               ? Math.max(participant.unitPrice, 0)
+              : typeof trip.unitPrice === "number" &&
+                  Number.isFinite(trip.unitPrice)
+                ? Math.max(trip.unitPrice, 0)
               : typeof defaultDiveUnitPrice === "number" &&
                   Number.isFinite(defaultDiveUnitPrice)
                 ? Math.max(defaultDiveUnitPrice, 0)
