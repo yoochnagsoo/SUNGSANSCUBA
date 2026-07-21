@@ -221,16 +221,14 @@ function buildBoatScheduleItem(
   const totalPeople = trips.reduce(
     (sum, trip) =>
       sum +
-      trip.participants.filter((participant) => participant.boarded).length,
+      getGroupDiveTripBoardedCount(trip),
     0,
   );
   const pointName =
     schedule.actualPointName || schedule.plannedPointName || "포인트 미정";
   const tripDetails = trips.map((trip) => {
     const groupDive = groupDiveById.get(trip.groupDiveId);
-    const boardedCount = trip.participants.filter(
-      (participant) => participant.boarded,
-    ).length;
+    const boardedCount = getGroupDiveTripBoardedCount(trip);
 
     return `- ${groupDive?.groupName || "그룹"}: ${boardedCount}명`;
   });
@@ -252,6 +250,17 @@ function buildBoatScheduleItem(
     GOOGLE_CALENDAR_COLOR.BOAT_SCHEDULE,
     pointName,
   );
+}
+
+function getGroupDiveTripBoardedCount(trip: GroupDiveTrip) {
+  if (
+    typeof trip.boardedCount === "number" &&
+    Number.isFinite(trip.boardedCount)
+  ) {
+    return Math.max(Math.floor(trip.boardedCount), 0);
+  }
+
+  return trip.participants.filter((participant) => participant.boarded).length;
 }
 
 function buildStaffScheduleItem(schedule: StaffSchedule) {

@@ -21,6 +21,7 @@ function normalizeText(value: unknown) {
 function calculateBaseAmount(
   trips: {
     status: string;
+    boardedCount?: number;
     participants: {
       boarded: boolean;
       unitPrice?: number;
@@ -34,6 +35,23 @@ function calculateBaseAmount(
       trip.status === "WEATHER_CANCELLED"
     ) {
       return total;
+    }
+
+    if (
+      typeof trip.boardedCount === "number" &&
+      Number.isFinite(trip.boardedCount) &&
+      trip.participants.length === 0
+    ) {
+      const unitPrice =
+        typeof defaultDiveUnitPrice === "number" &&
+        Number.isFinite(defaultDiveUnitPrice)
+          ? Math.max(defaultDiveUnitPrice, 0)
+          : 0;
+
+      return (
+        total +
+        Math.max(Math.floor(trip.boardedCount), 0) * unitPrice
+      );
     }
 
     const tripAmount = trip.participants.reduce(

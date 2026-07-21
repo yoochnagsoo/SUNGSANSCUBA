@@ -139,6 +139,7 @@ type TripFormState = {
   plannedPointName: string;
   actualPointName: string;
   guideName: string;
+  boardedCount: string;
   status: GroupDiveTripStatus;
   memo: string;
 };
@@ -158,6 +159,7 @@ const initialTripForm: TripFormState = {
   plannedPointName: "",
   actualPointName: "",
   guideName: "",
+  boardedCount: "0",
   status: "SCHEDULED",
   memo: "",
 };
@@ -319,6 +321,44 @@ function sortTrips(trips: GroupDiveTrip[]) {
 
     return a.createdAt.localeCompare(b.createdAt);
   });
+}
+
+function getTripBoardedCount(trip: GroupDiveTrip) {
+  if (
+    typeof trip.boardedCount === "number" &&
+    Number.isFinite(trip.boardedCount)
+  ) {
+    return Math.max(Math.floor(trip.boardedCount), 0);
+  }
+
+  return trip.participants.filter(
+    (participant) => participant.boarded,
+  ).length;
+}
+
+function getTripBaseAmount(
+  trip: GroupDiveTrip,
+  defaultDiveUnitPrice?: number,
+) {
+  const participantAmount = trip.participants.reduce(
+    (tripTotal, participant) => {
+      if (!participant.boarded) {
+        return tripTotal;
+      }
+
+      return (
+        tripTotal +
+        (participant.unitPrice ?? defaultDiveUnitPrice ?? 0)
+      );
+    },
+    0,
+  );
+
+  if (participantAmount > 0) {
+    return participantAmount;
+  }
+
+  return getTripBoardedCount(trip) * (defaultDiveUnitPrice ?? 0);
 }
 
 export default function AdminGroupDiveDetailPage() {
@@ -603,10 +643,7 @@ export default function AdminGroupDiveDetailPage() {
 
     const boardedCount = groupDive.trips.reduce(
       (total, trip) =>
-        total +
-        trip.participants.filter(
-          (participant) => participant.boarded,
-        ).length,
+        total + getTripBoardedCount(trip),
       0,
     );
 
@@ -614,20 +651,9 @@ export default function AdminGroupDiveDetailPage() {
     const estimatedAmount = groupDive.trips.reduce(
       (total, trip) =>
         total +
-        trip.participants.reduce(
-          (tripTotal, participant) => {
-            if (!participant.boarded) {
-              return tripTotal;
-            }
-
-            return (
-              tripTotal +
-              (participant.unitPrice ??
-                groupDive.defaultDiveUnitPrice ??
-                0)
-            );
-          },
-          0,
+        getTripBaseAmount(
+          trip,
+          groupDive.defaultDiveUnitPrice,
         ),
       0,
     );
@@ -1015,6 +1041,7 @@ export default function AdminGroupDiveDetailPage() {
       plannedPointName: trip.plannedPointName,
       actualPointName: trip.actualPointName,
       guideName: trip.guideName,
+      boardedCount: String(getTripBoardedCount(trip)),
       status: trip.status,
       memo: trip.memo,
     });
@@ -1065,6 +1092,18 @@ export default function AdminGroupDiveDetailPage() {
       return;
     }
 
+    const boardedCount = Number(tripForm.boardedCount);
+
+    if (
+      !Number.isFinite(boardedCount) ||
+      boardedCount < 0
+    ) {
+      setTripMessage(
+        "승선 인원을 0명 이상으로 입력해주세요.",
+      );
+      return;
+    }
+
     setTripSubmitting(true);
 
     try {
@@ -1085,6 +1124,7 @@ export default function AdminGroupDiveDetailPage() {
             actualPointName:
               tripForm.actualPointName.trim(),
             guideName: tripForm.guideName.trim(),
+            boardedCount: Math.floor(boardedCount),
             status: tripForm.status,
             ...(editingTripId
               ? {}
@@ -1980,7 +2020,7 @@ export default function AdminGroupDiveDetailPage() {
             </div>
 
             <p className="mt-1 text-xs font-semibold text-slate-700">
-              승선 인원과 참가자별 단가를 기준으로 계산합니다.
+              회차별 승선 인원과 기본 단가를 기준으로 계산합니다.
             </p>
           </div>
 
@@ -2371,7 +2411,7 @@ export default function AdminGroupDiveDetailPage() {
                 다이빙 회차
               </h2>
               <p className="mt-1 text-xs font-semibold text-slate-700">
-                포인트별 승선 인원과 정산 대상을 관리합니다.
+                포인트별 승선 인원을 직접 입력해 관리합니다.
               </p>
             </div>
 
@@ -2396,11 +2436,7 @@ export default function AdminGroupDiveDetailPage() {
           ) : (
             <div className="divide-y divide-slate-100">
               {groupDive.trips.map((trip) => {
-                const boardedCount =
-                  trip.participants.filter(
-                    (participant) =>
-                      participant.boarded,
-                  ).length;
+                const boardedCount = getTripBoardedCount(trip);
 
 
                 return (
@@ -2539,7 +2575,7 @@ export default function AdminGroupDiveDetailPage() {
                     <div className="mt-4 grid grid-cols-2 divide-x divide-slate-200 rounded-2xl border border-slate-300">
                       <div className="px-3 py-3 text-center">
                         <p className="text-xs font-semibold text-slate-600">
-                          배정
+                          명단
                         </p>
                         <p className="mt-1 font-black text-slate-900">
                           {trip.participants.length}
@@ -3619,6 +3655,25 @@ export default function AdminGroupDiveDetailPage() {
                       setTripForm((previous) => ({
                         ...previous,
                         guideName: event.target.value,
+                      }))
+                    }
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4"
+                  />
+                </label>
+
+                <label>
+                  <span className="text-sm font-bold text-slate-700">
+                    승선인원
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={tripForm.boardedCount}
+                    onChange={(event) =>
+                      setTripForm((previous) => ({
+                        ...previous,
+                        boardedCount: event.target.value,
                       }))
                     }
                     className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4"

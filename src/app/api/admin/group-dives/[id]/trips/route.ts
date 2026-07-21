@@ -50,6 +50,24 @@ function normalizeCapacity(value: unknown) {
   return Math.max(Math.floor(parsed), 0);
 }
 
+function normalizeBoardedCount(value: unknown) {
+  if (
+    value === null ||
+    value === "" ||
+    typeof value === "undefined"
+  ) {
+    return 0;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+
+  return Math.max(Math.floor(parsed), 0);
+}
+
 function normalizeParticipantIds(value: unknown) {
   if (!Array.isArray(value)) {
     return [];
@@ -204,6 +222,9 @@ export async function POST(
       guideName: normalizeText(body.guideName),
 
       capacity: normalizeCapacity(body.capacity),
+      boardedCount: normalizeBoardedCount(
+        body.boardedCount,
+      ),
 
       status: isTripStatus(body.status)
         ? body.status
@@ -324,7 +345,7 @@ export async function POST(
         ? activeParticipants.filter((participant) =>
             selectedIds.has(participant.id),
           )
-        : activeParticipants;
+        : [];
 
     const tripParticipants: GroupDiveTripParticipant[] =
       selectedParticipants.map((participant) => ({
@@ -348,7 +369,7 @@ export async function POST(
 
     if (
       capacity > 0 &&
-      tripParticipants.length > capacity
+      (input.boardedCount ?? 0) > capacity
     ) {
       return NextResponse.json(
         {
@@ -385,6 +406,7 @@ export async function POST(
       guideName: input.guideName ?? "",
 
       capacity,
+      boardedCount: input.boardedCount ?? 0,
       status: input.status ?? "SCHEDULED",
 
       participants: tripParticipants,

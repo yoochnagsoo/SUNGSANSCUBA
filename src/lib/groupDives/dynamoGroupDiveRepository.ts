@@ -221,7 +221,21 @@ function normalizeTrips(
     return [];
   }
 
-  return value as GroupDiveTrip[];
+  return (value as GroupDiveTrip[]).map((trip) => {
+    const participants = Array.isArray(trip.participants)
+      ? trip.participants
+      : [];
+    const parsedBoardedCount = Number(trip.boardedCount);
+    const boardedCount = Number.isFinite(parsedBoardedCount)
+      ? Math.max(Math.floor(parsedBoardedCount), 0)
+      : participants.filter((participant) => participant.boarded).length;
+
+    return {
+      ...trip,
+      participants,
+      boardedCount,
+    };
+  });
 }
 
 function normalizePayment(

@@ -47,6 +47,24 @@ function normalizeCapacity(value: unknown) {
   return Math.max(Math.floor(parsed), 0);
 }
 
+function normalizeBoardedCount(value: unknown) {
+  if (
+    value === null ||
+    value === "" ||
+    typeof value === "undefined"
+  ) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+
+  return Math.max(Math.floor(parsed), 0);
+}
+
 function normalizeOptionalPrice(value: unknown) {
   if (
     value === null ||
@@ -122,6 +140,19 @@ function sortTrips(trips: GroupDiveTrip[]) {
 
     return a.createdAt.localeCompare(b.createdAt);
   });
+}
+
+function getTripBoardedCount(trip: GroupDiveTrip) {
+  if (
+    typeof trip.boardedCount === "number" &&
+    Number.isFinite(trip.boardedCount)
+  ) {
+    return Math.max(Math.floor(trip.boardedCount), 0);
+  }
+
+  return trip.participants.filter(
+    (participant) => participant.boarded,
+  ).length;
 }
 
 function normalizeStoredTripParticipants(
@@ -359,9 +390,7 @@ export async function GET(
     return NextResponse.json({
       ok: true,
       trip: normalizedTrip,
-      boardedCount: normalizedTrip.participants.filter(
-        (participant) => participant.boarded,
-      ).length,
+      boardedCount: getTripBoardedCount(normalizedTrip),
     });
   } catch (error) {
     console.error(
@@ -578,6 +607,26 @@ export async function PATCH(
       input.capacity = capacity;
     }
 
+    if (typeof body.boardedCount !== "undefined") {
+      const boardedCount = normalizeBoardedCount(
+        body.boardedCount,
+      );
+
+      if (typeof boardedCount === "undefined") {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "승선 인원을 확인해주세요.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      input.boardedCount = boardedCount;
+    }
+
     if (typeof body.status !== "undefined") {
       if (!isTripStatus(body.status)) {
         return NextResponse.json(
@@ -634,9 +683,16 @@ export async function PATCH(
     const nextCapacity =
       input.capacity ?? previous.capacity;
 
-    const boardedCount = nextParticipants.filter(
-      (participant) => participant.boarded,
-    ).length;
+    const boardedCount =
+      input.boardedCount ??
+      (typeof body.participants !== "undefined"
+        ? nextParticipants.filter(
+            (participant) => participant.boarded,
+          ).length
+        : previous.boardedCount) ??
+      nextParticipants.filter(
+        (participant) => participant.boarded,
+      ).length;
 
     if (
       nextCapacity > 0 &&
@@ -689,6 +745,8 @@ export async function PATCH(
 
       capacity:
         input.capacity ?? previous.capacity,
+
+      boardedCount,
 
       status:
         input.status ?? previous.status,

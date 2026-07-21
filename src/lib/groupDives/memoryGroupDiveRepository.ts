@@ -7,6 +7,7 @@ import type {
   GroupDiveRepository,
   GroupDiveSettlement,
   GroupDiveSettlementStatus,
+  GroupDiveTrip,
   GroupDiveUpdateInput,
 } from "./types";
 
@@ -280,6 +281,30 @@ function normalizePayments(
     );
 }
 
+function normalizeTrips(
+  value: unknown,
+): GroupDiveTrip[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return (value as GroupDiveTrip[]).map((trip) => {
+    const participants = Array.isArray(trip.participants)
+      ? trip.participants
+      : [];
+    const parsedBoardedCount = Number(trip.boardedCount);
+    const boardedCount = Number.isFinite(parsedBoardedCount)
+      ? Math.max(Math.floor(parsedBoardedCount), 0)
+      : participants.filter((participant) => participant.boarded).length;
+
+    return {
+      ...trip,
+      participants,
+      boardedCount,
+    };
+  });
+}
+
 function normalizeGroupDive(
   groupDive: GroupDive,
 ): GroupDive {
@@ -300,9 +325,7 @@ function normalizeGroupDive(
       ? groupDive.participants
       : [],
 
-    trips: Array.isArray(groupDive.trips)
-      ? groupDive.trips
-      : [],
+    trips: normalizeTrips(groupDive.trips),
 
     settlement: normalizeSettlement(
       groupDive.settlement,

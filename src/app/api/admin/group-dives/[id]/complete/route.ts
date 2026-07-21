@@ -25,6 +25,25 @@ function calculateBaseAmount(groupDive: GroupDive) {
       return total;
     }
 
+    if (
+      typeof trip.boardedCount === "number" &&
+      Number.isFinite(trip.boardedCount) &&
+      trip.participants.length === 0
+    ) {
+      const unitPrice =
+        typeof groupDive.defaultDiveUnitPrice ===
+          "number" &&
+        Number.isFinite(groupDive.defaultDiveUnitPrice)
+          ? Math.max(groupDive.defaultDiveUnitPrice, 0)
+          : 0;
+
+      return (
+        total +
+        Math.max(Math.floor(trip.boardedCount), 0) *
+          unitPrice
+      );
+    }
+
     return (
       total +
       trip.participants.reduce(

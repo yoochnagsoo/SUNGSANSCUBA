@@ -178,21 +178,26 @@ function calculateBaseAmount(groupDive: GroupDive) {
 
     return (
       total +
-      trip.participants.reduce(
-        (tripTotal, participant) => {
-          if (!participant.boarded) {
-            return tripTotal;
-          }
+      (trip.participants.length === 0 &&
+      typeof trip.boardedCount === "number" &&
+      Number.isFinite(trip.boardedCount)
+        ? Math.max(Math.floor(trip.boardedCount), 0) *
+          (groupDive.defaultDiveUnitPrice ?? 0)
+        : trip.participants.reduce(
+            (tripTotal, participant) => {
+              if (!participant.boarded) {
+                return tripTotal;
+              }
 
-          return (
-            tripTotal +
-            (participant.unitPrice ??
-              groupDive.defaultDiveUnitPrice ??
-              0)
-          );
-        },
-        0,
-      )
+              return (
+                tripTotal +
+                (participant.unitPrice ??
+                  groupDive.defaultDiveUnitPrice ??
+                  0)
+              );
+            },
+            0,
+          ))
     );
   }, 0);
 }
