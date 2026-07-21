@@ -2,9 +2,7 @@ import { randomUUID } from "crypto";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { NextRequest, NextResponse } from "next/server";
 
-const s3 = new S3Client({
-  region: process.env.AWS_REGION ?? "ap-northeast-2",
-});
+export const runtime = "nodejs";
 
 const allowedImageTypes = new Set([
   "image/jpeg",
@@ -33,39 +31,59 @@ const contentTypeByExtension: Record<string, string> = {
   avif: "image/avif",
 };
 
-function getExtension(fileName: string) {
-  const extension = fileName.split(".").pop()?.toLowerCase().trim();
+function createS3Client() {
+  return new S3Client({
+    region:
+      process.env.AWS_REGION ||
+      process.env.AWS_DEFAULT_REGION ||
+      "ap-northeast-2",
+  });
+}
 
-  if (!extension) {
-    return "";
+function getBucketName() {
+  const bucketName =
+    process.env.S3_GALLERY_BUCKET ||
+    process.env.S3_BUCKET_NAME ||
+    process.env.AWS_S3_BUCKET;
+
+  if (!bucketName) {
+    throw new Error("S3 버킷 환경변수가 설정되지 않았습니다.");
   }
 
-  return extension;
+  return bucketName;
+}
+
+function getPublicBaseUrl() {
+  const publicBaseUrl =
+    process.env.S3_GALLERY_PUBLIC_BASE_URL ||
+    process.env.S3_PUBLIC_BASE_URL ||
+    process.env.CLOUDFRONT_URL;
+
+  if (!publicBaseUrl) {
+    throw new Error("S3 공개 URL 환경변수가 설정되지 않았습니다.");
+  }
+
+  return publicBaseUrl.replace(/\/+$/, "");
+}
+
+function getExtension(fileName: string) {
+  return fileName.split(".").pop()?.toLowerCase().trim() ?? "";
 }
 
 function isAllowedImage(fileName: string, contentType: string) {
   const extension = getExtension(fileName);
 
-  if (allowedImageTypes.has(contentType)) {
-    return true;
-  }
-
-  if (allowedImageExtensions.has(extension)) {
-    return true;
-  }
-
-  return false;
+  return (
+    allowedImageTypes.has(contentType) ||
+    allowedImageExtensions.has(extension)
+  );
 }
 
 function getSafeContentType(fileName: string, contentType: string) {
   const extension = getExtension(fileName);
 
   if (allowedImageTypes.has(contentType)) {
-    if (contentType === "image/jpg") {
-      return "image/jpeg";
-    }
-
-    return contentType;
+    return contentType === "image/jpg" ? "image/jpeg" : contentType;
   }
 
   return contentTypeByExtension[extension] ?? "image/jpeg";
@@ -103,32 +121,9 @@ function getSafeExtension(fileName: string, contentType: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const bucket = process.env.S3_GALLERY_BUCKET;
-    const publicBaseUrl = process.env.S3_GALLERY_PUBLIC_BASE_URL;
-
-    if (!bucket) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "S3_GALLERY_BUCKET 환경변수가 설정되지 않았습니다.",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
-
-    if (!publicBaseUrl) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "S3_GALLERY_PUBLIC_BASE_URL 환경변수가 설정되지 않았습니다.",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
+    const s3 = createS3Client();
+    const bucket = getBucketName();
+    const publicBaseUrl = getPublicBaseUrl();
 
     const formData = await request.formData();
     const file = formData.get("file");
@@ -141,7 +136,7 @@ export async function POST(request: NextRequest) {
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
@@ -161,7 +156,7 @@ export async function POST(request: NextRequest) {
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
@@ -175,11 +170,14 @@ export async function POST(request: NextRequest) {
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
-    const extension = getSafeExtension(originalFileName, originalContentType);
+    const extension = getSafeExtension(
+      originalFileName,
+      originalContentType,
+    );
 
     if (!extension) {
       return NextResponse.json(
@@ -190,11 +188,14 @@ export async function POST(request: NextRequest) {
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
-    const contentType = getSafeContentType(originalFileName, originalContentType);
+    const contentType = getSafeContentType(
+      originalFileName,
+      originalContentType,
+    );
 
     const key = `dive-destinations/${new Date()
       .toISOString()
@@ -210,28 +211,31 @@ export async function POST(request: NextRequest) {
         Body: buffer,
         ContentType: contentType,
         CacheControl: "public, max-age=31536000, immutable",
-      })
+      }),
     );
-
-    const imageUrl = `${publicBaseUrl.replace(/\/$/, "")}/${key}`;
 
     return NextResponse.json({
       ok: true,
-      imageUrl,
+      imageUrl: `${publicBaseUrl}/${key}`,
       key,
       contentType,
     });
   } catch (error) {
     console.error("[POST /api/admin/dive-destinations/upload-image]", error);
 
+    const message =
+      error instanceof Error
+        ? error.message
+        : "다이빙 포인트 이미지 업로드 중 오류가 발생했습니다.";
+
     return NextResponse.json(
       {
         ok: false,
-        message: "다이빙 포인트 이미지 업로드 중 오류가 발생했습니다.",
+        message,
       },
       {
         status: 500,
-      }
+      },
     );
   }
 }
