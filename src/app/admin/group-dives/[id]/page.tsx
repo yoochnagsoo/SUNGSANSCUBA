@@ -1580,20 +1580,21 @@ export default function AdminGroupDiveDetailPage() {
   }
 
   function removeSettlementAdditionalItem(id: string) {
+    const confirmed = window.confirm(
+      "추가비용 항목을 삭제할까요?",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     setSettlementForm((previous) =>
       previous
         ? {
             ...previous,
-            additionalItems:
-              previous.additionalItems.length > 1
-                ? previous.additionalItems.filter(
-                    (item) => item.id !== id,
-                  )
-                : [
-                    createEmptyAdditionalItem(
-                      groupDive?.startDate,
-                    ),
-                  ],
+            additionalItems: previous.additionalItems.filter(
+              (item) => item.id !== id,
+            ),
           }
         : previous,
     );

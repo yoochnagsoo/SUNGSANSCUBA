@@ -6,6 +6,7 @@ import type {
   BoatScheduleUpdateInput,
 } from "@/lib/boatSchedules/types";
 import { getGroupDiveRepository } from "@/lib/groupDives/groupDiveRepository";
+import type { GroupDiveTrip } from "@/lib/groupDives/types";
 
 type RouteContext = {
   params: Promise<{
@@ -81,6 +82,19 @@ function isStatus(
   );
 }
 
+function getBoardedCount(trip: GroupDiveTrip) {
+  if (
+    typeof trip.boardedCount === "number" &&
+    Number.isFinite(trip.boardedCount)
+  ) {
+    return Math.max(Math.floor(trip.boardedCount), 0);
+  }
+
+  return trip.participants.filter(
+    (participant) => participant.boarded,
+  ).length;
+}
+
 async function getAssignedTrips(scheduleId: string) {
   const groupDiveRepository = getGroupDiveRepository();
   const groupDives = await groupDiveRepository.findAll();
@@ -121,10 +135,7 @@ export async function GET(
 
     const assignedPeople = assignedTrips.reduce(
       (total, item) =>
-        total +
-        item.trip.participants.filter(
-          (participant) => participant.boarded,
-        ).length,
+        total + getBoardedCount(item.trip),
       0,
     );
 
@@ -315,10 +326,7 @@ export async function PATCH(
 
     const assignedPeople = assignedTrips.reduce(
       (total, item) =>
-        total +
-        item.trip.participants.filter(
-          (participant) => participant.boarded,
-        ).length,
+        total + getBoardedCount(item.trip),
       0,
     );
 

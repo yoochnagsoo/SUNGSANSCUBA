@@ -15,6 +15,13 @@ function normalizeText(value: unknown) {
 }
 
 function getBoardedCount(trip: GroupDiveTrip) {
+  if (
+    typeof trip.boardedCount === "number" &&
+    Number.isFinite(trip.boardedCount)
+  ) {
+    return Math.max(Math.floor(trip.boardedCount), 0);
+  }
+
   return trip.participants.filter((participant) => participant.boarded).length;
 }
 

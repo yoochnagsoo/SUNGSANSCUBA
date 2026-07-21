@@ -79,6 +79,7 @@ type GroupDiveTrip = {
   boatName: string;
   guideName: string;
   capacity: number;
+  boardedCount?: number;
   status: GroupDiveTripStatus;
   participants: GroupDiveTripParticipant[];
   memo: string;
@@ -261,6 +262,13 @@ function getKoreanDateLabel(dateKey: string) {
 }
 
 function getBoardedCount(trip: GroupDiveTrip) {
+  if (
+    typeof trip.boardedCount === "number" &&
+    Number.isFinite(trip.boardedCount)
+  ) {
+    return Math.max(Math.floor(trip.boardedCount), 0);
+  }
+
   return trip.participants.filter(
     (participant) => participant.boarded,
   ).length;
