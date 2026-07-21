@@ -17,7 +17,7 @@ type WorksheetModel = {
   maxRow: number;
 };
 
-const LAST_COLUMN = "AP";
+const LAST_COLUMN = "G";
 
 function escapeXml(value: string) {
   return value
@@ -181,7 +181,155 @@ function sumFormula(refs: string[]) {
   return refs.join("+");
 }
 
+function buildCompactWorksheetModel(groupDive: GroupDive) {
+  const worksheet: WorksheetModel = {
+    cells: new Map(),
+    merges: [],
+    maxRow: 1,
+  };
+
+  const headerCells: [string, string][] = [
+    ["A", "품명"],
+    ["B", "전체인원"],
+    ["C", "FOC"],
+    ["D", "횟수"],
+    ["E", "단가(원)"],
+    ["F", "공급가액"],
+    ["G", "포인트"],
+  ];
+
+  headerCells.forEach(([column, value]) => {
+    setCell(worksheet, column, 1, {
+      value,
+      style: 5,
+    });
+  });
+
+  let row = 2;
+  const tripsByDate = groupDive.trips
+    .filter(isBillableTrip)
+    .sort((a, b) => {
+      const dateCompare = a.date.localeCompare(b.date);
+
+      if (dateCompare !== 0) {
+        return dateCompare;
+      }
+
+      return (a.actualDepartureTime || a.preferredTime || "")
+        .localeCompare(
+          b.actualDepartureTime || b.preferredTime || "",
+        );
+    })
+    .reduce<Map<string, GroupDiveTrip[]>>(
+      (map, trip) => {
+        const trips = map.get(trip.date) ?? [];
+        trips.push(trip);
+        map.set(trip.date, trips);
+        return map;
+      },
+      new Map(),
+    );
+
+  for (const [date, trips] of tripsByDate) {
+    merge(worksheet, `A${row}:G${row}`);
+    setCell(worksheet, "A", row, {
+      value: formatDate(date),
+      style: 6,
+    });
+    row += 1;
+
+    trips.forEach((trip) => {
+      const people = getTripBoardedCount(trip);
+      const focCount = Math.min(getTripFocCount(trip), people);
+      const unitPrice = getTripUnitPrice(
+        trip,
+        groupDive.defaultDiveUnitPrice,
+      );
+
+      setCell(worksheet, "A", row, {
+        value: getTripName(trip),
+        style: 7,
+      });
+      setCell(worksheet, "B", row, {
+        value: people,
+        style: 8,
+      });
+      setCell(worksheet, "C", row, {
+        value: focCount,
+        style: 8,
+      });
+      setCell(worksheet, "D", row, {
+        value: 1,
+        style: 8,
+      });
+      setCell(worksheet, "E", row, {
+        value: unitPrice,
+        style: 9,
+      });
+      setCell(worksheet, "F", row, {
+        formula: `(B${row}-C${row})*D${row}*E${row}`,
+        style: 9,
+      });
+      setCell(worksheet, "G", row, {
+        value:
+          trip.actualPointName ||
+          trip.plannedPointName ||
+          "",
+        style: 7,
+      });
+      row += 1;
+    });
+  }
+
+  if (groupDive.settlement.additionalItems.length > 0) {
+    merge(worksheet, `A${row}:G${row}`);
+    setCell(worksheet, "A", row, {
+      value: "추가조정",
+      style: 10,
+    });
+    row += 1;
+
+    groupDive.settlement.additionalItems.forEach((item) => {
+      setCell(worksheet, "A", row, {
+        value: `${formatDate(item.date)} ${item.title}`,
+        style: 7,
+      });
+      setCell(worksheet, "B", row, {
+        value: 1,
+        style: 8,
+      });
+      setCell(worksheet, "C", row, {
+        value: 0,
+        style: 8,
+      });
+      setCell(worksheet, "D", row, {
+        value: 1,
+        style: 8,
+      });
+      setCell(worksheet, "E", row, {
+        value: item.amount,
+        style: 9,
+      });
+      setCell(worksheet, "F", row, {
+        formula: `E${row}`,
+        style: 9,
+      });
+      setCell(worksheet, "G", row, {
+        value: "추가비용",
+        style: 7,
+      });
+      row += 1;
+    });
+  }
+
+  worksheet.maxRow = Math.max(row - 1, 1);
+
+  return worksheet;
+}
+
 function buildWorksheetModel(groupDive: GroupDive) {
+  return buildCompactWorksheetModel(groupDive);
+
   const worksheet: WorksheetModel = {
     cells: new Map(),
     merges: [],
@@ -701,9 +849,7 @@ function renderSheet(worksheet: WorksheetModel) {
         .map(([ref, cell]) => renderCell(ref, cell))
         .join("");
 
-      return `<row r="${rowNumber}" ht="${
-        rowNumber === 2 ? 32 : 24
-      }" customHeight="1">${cellsXml}</row>`;
+      return `<row r="${rowNumber}" ht="22" customHeight="1">${cellsXml}</row>`;
     })
     .join("");
 
@@ -720,8 +866,10 @@ function renderSheet(worksheet: WorksheetModel) {
   <sheetViews><sheetView showGridLines="0" workbookViewId="0"/></sheetViews>
   <sheetFormatPr defaultRowHeight="18"/>
   <cols>
-    <col min="1" max="1" width="2" customWidth="1"/>
-    <col min="2" max="42" width="13" customWidth="1"/>
+    <col min="1" max="1" width="28" customWidth="1"/>
+    <col min="2" max="4" width="10" customWidth="1"/>
+    <col min="5" max="6" width="12" customWidth="1"/>
+    <col min="7" max="7" width="14" customWidth="1"/>
   </cols>
   <sheetData>${rowXml}</sheetData>
   ${mergeXml}
