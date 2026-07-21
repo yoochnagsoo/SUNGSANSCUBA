@@ -721,13 +721,7 @@ function renderSheet(worksheet: WorksheetModel) {
   <sheetFormatPr defaultRowHeight="18"/>
   <cols>
     <col min="1" max="1" width="2" customWidth="1"/>
-    <col min="2" max="16" width="4" customWidth="1"/>
-    <col min="17" max="20" width="6" customWidth="1"/>
-    <col min="21" max="24" width="5" customWidth="1"/>
-    <col min="25" max="27" width="5" customWidth="1"/>
-    <col min="28" max="32" width="7" customWidth="1"/>
-    <col min="33" max="37" width="8" customWidth="1"/>
-    <col min="38" max="42" width="8" customWidth="1"/>
+    <col min="2" max="42" width="13" customWidth="1"/>
   </cols>
   <sheetData>${rowXml}</sheetData>
   ${mergeXml}
