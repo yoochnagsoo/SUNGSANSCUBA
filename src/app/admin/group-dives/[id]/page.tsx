@@ -102,12 +102,20 @@ type PaymentFormState = {
 };
 
 type SettlementFormState = {
+  additionalItems: SettlementAdditionalItemFormState[];
   additionalAmount: string;
   discountAmount: string;
   paidAmount: string;
   paymentMethod: "" | GroupDivePaymentMethod;
   status: GroupDiveSettlementStatus;
   memo: string;
+};
+
+type SettlementAdditionalItemFormState = {
+  id: string;
+  date: string;
+  title: string;
+  amount: string;
 };
 
 type GroupFormState = {
@@ -272,6 +280,70 @@ function toDateTimeLocalValue(value?: string) {
   const localDate = new Date(date.getTime() - offset * 60_000);
 
   return localDate.toISOString().slice(0, 16);
+}
+
+function toDateInputValue(value?: string) {
+  if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  return new Date().toISOString().slice(0, 10);
+}
+
+function createAdditionalItemId() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
+  return `additional-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
+}
+
+function createEmptyAdditionalItem(
+  date?: string,
+): SettlementAdditionalItemFormState {
+  return {
+    id: createAdditionalItemId(),
+    date: toDateInputValue(date),
+    title: "",
+    amount: "",
+  };
+}
+
+function createAdditionalItemsFormState(
+  groupDive: GroupDive,
+): SettlementAdditionalItemFormState[] {
+  const additionalItems =
+    groupDive.settlement.additionalItems ?? [];
+
+  if (additionalItems.length > 0) {
+    return additionalItems.map((item) => ({
+      id: item.id || createAdditionalItemId(),
+      date: toDateInputValue(
+        item.date || groupDive.startDate,
+      ),
+      title: item.title,
+      amount: String(item.amount),
+    }));
+  }
+
+  if ((groupDive.settlement.additionalAmount ?? 0) > 0) {
+    return [
+      {
+        id: createAdditionalItemId(),
+        date: toDateInputValue(groupDive.startDate),
+        title: "추가 비용",
+        amount: String(
+          groupDive.settlement.additionalAmount,
+        ),
+      },
+    ];
+  }
+
+  return [
+    createEmptyAdditionalItem(groupDive.startDate),
+  ];
 }
 
 function normalizeRentalItems(value: string) {
@@ -1360,6 +1432,8 @@ export default function AdminGroupDiveDetailPage() {
     }
 
     setSettlementForm({
+      additionalItems:
+        createAdditionalItemsFormState(groupDive),
       additionalAmount: String(
         groupDive.settlement.additionalAmount ?? 0,
       ),
@@ -1389,6 +1463,64 @@ export default function AdminGroupDiveDetailPage() {
     setSettlementMessage("");
   }
 
+  function addSettlementAdditionalItem() {
+    setSettlementForm((previous) =>
+      previous
+        ? {
+            ...previous,
+            additionalItems: [
+              ...previous.additionalItems,
+              createEmptyAdditionalItem(
+                groupDive?.startDate,
+              ),
+            ],
+          }
+        : previous,
+    );
+  }
+
+  function updateSettlementAdditionalItem(
+    id: string,
+    input: Partial<SettlementAdditionalItemFormState>,
+  ) {
+    setSettlementForm((previous) =>
+      previous
+        ? {
+            ...previous,
+            additionalItems:
+              previous.additionalItems.map((item) =>
+                item.id === id
+                  ? {
+                      ...item,
+                      ...input,
+                    }
+                  : item,
+              ),
+          }
+        : previous,
+    );
+  }
+
+  function removeSettlementAdditionalItem(id: string) {
+    setSettlementForm((previous) =>
+      previous
+        ? {
+            ...previous,
+            additionalItems:
+              previous.additionalItems.length > 1
+                ? previous.additionalItems.filter(
+                    (item) => item.id !== id,
+                  )
+                : [
+                    createEmptyAdditionalItem(
+                      groupDive?.startDate,
+                    ),
+                  ],
+          }
+        : previous,
+    );
+  }
+
   async function handleSettlementSubmit(
     event: FormEvent<HTMLFormElement>,
   ) {
@@ -1402,9 +1534,55 @@ export default function AdminGroupDiveDetailPage() {
       return;
     }
 
-    const additionalAmount = Number(
-      settlementForm.additionalAmount || 0,
-    );
+    const additionalItems = settlementForm.additionalItems
+      .map((item) => ({
+        id: item.id,
+        date: item.date.trim(),
+        title: item.title.trim(),
+        amount: item.amount.trim(),
+      }))
+      .filter(
+        (item) =>
+          item.date || item.title || item.amount,
+      );
+
+    for (const item of additionalItems) {
+      if (!item.date) {
+        setSettlementMessage(
+          "추가 비용 발생일자를 입력해주세요.",
+        );
+        return;
+      }
+
+      if (!item.title) {
+        setSettlementMessage(
+          "추가 비용 항목을 입력해주세요.",
+        );
+        return;
+      }
+
+      const amount = Number(item.amount || 0);
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        setSettlementMessage(
+          "추가 비용 금액을 올바르게 입력해주세요.",
+        );
+        return;
+      }
+    }
+
+    const normalizedAdditionalItems =
+      additionalItems.map((item) => ({
+        id: item.id,
+        date: item.date,
+        title: item.title,
+        amount: Math.round(Number(item.amount)),
+      }));
+    const additionalAmount =
+      normalizedAdditionalItems.reduce(
+        (total, item) => total + item.amount,
+        0,
+      );
     const discountAmount = Number(
       settlementForm.discountAmount || 0,
     );
@@ -1454,6 +1632,7 @@ export default function AdminGroupDiveDetailPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
+            additionalItems: normalizedAdditionalItems,
             additionalAmount,
             discountAmount,
             paidAmount,
@@ -2107,6 +2286,34 @@ export default function AdminGroupDiveDetailPage() {
                 </p>
               </div>
             </div>
+
+            {groupDive.settlement.additionalItems.length > 0 ? (
+              <div className="border-t border-slate-300 px-5 py-4 sm:px-6">
+                <p className="text-xs font-bold text-slate-600">
+                  추가 비용 항목
+                </p>
+                <div className="mt-3 divide-y divide-slate-100 rounded-2xl border border-slate-200">
+                  {groupDive.settlement.additionalItems.map(
+                    (item) => (
+                      <div
+                        key={item.id}
+                        className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[130px_1fr_auto] sm:items-center"
+                      >
+                        <span className="font-bold text-slate-600">
+                          {formatDate(item.date)}
+                        </span>
+                        <span className="font-semibold text-slate-800">
+                          {item.title}
+                        </span>
+                        <span className="font-black text-amber-600">
+                          {formatCurrency(item.amount)}
+                        </span>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
+            ) : null}
 
             <div className="grid gap-4 border-t border-slate-300 bg-slate-50 px-5 py-4 text-sm sm:grid-cols-3 sm:px-6">
               <div>
@@ -2812,29 +3019,117 @@ export default function AdminGroupDiveDetailPage() {
                   </div>
                 </div>
 
-                <label>
-                  <span className="text-sm font-bold text-slate-700">
-                    추가 비용
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1000}
-                    value={settlementForm.additionalAmount}
-                    onChange={(event) =>
-                      setSettlementForm((previous) =>
-                        previous
-                          ? {
-                              ...previous,
-                              additionalAmount:
-                                event.target.value,
+                <div className="sm:col-span-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-slate-700">
+                        추가 비용
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">
+                        발생일자, 항목, 금액을 입력해주세요.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={addSettlementAdditionalItem}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
+                    >
+                      <Plus className="h-4 w-4" />
+                      항목 추가
+                    </button>
+                  </div>
+
+                  <div className="mt-3 space-y-3">
+                    {settlementForm.additionalItems.map(
+                      (item) => (
+                        <div
+                          key={item.id}
+                          className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-[150px_1fr_150px_auto]"
+                        >
+                          <input
+                            type="date"
+                            value={item.date}
+                            onChange={(event) =>
+                              updateSettlementAdditionalItem(
+                                item.id,
+                                {
+                                  date: event.target.value,
+                                },
+                              )
                             }
-                          : previous,
-                      )
-                    }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-emerald-500"
-                  />
-                </label>
+                            className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-500"
+                          />
+
+                          <input
+                            type="text"
+                            value={item.title}
+                            onChange={(event) =>
+                              updateSettlementAdditionalItem(
+                                item.id,
+                                {
+                                  title:
+                                    event.target.value,
+                                },
+                              )
+                            }
+                            placeholder="항목명"
+                            className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 focus:border-emerald-500"
+                          />
+
+                          <input
+                            type="number"
+                            min={0}
+                            step={1000}
+                            value={item.amount}
+                            onChange={(event) =>
+                              updateSettlementAdditionalItem(
+                                item.id,
+                                {
+                                  amount:
+                                    event.target.value,
+                                },
+                              )
+                            }
+                            placeholder="금액"
+                            className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 focus:border-emerald-500"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              removeSettlementAdditionalItem(
+                                item.id,
+                              )
+                            }
+                            aria-label="추가 비용 항목 삭제"
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-rose-200 bg-white text-rose-500 hover:bg-rose-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ),
+                    )}
+                  </div>
+
+                  <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+                    추가 비용 합계{" "}
+                    {formatCurrency(
+                      settlementForm.additionalItems.reduce(
+                        (total, item) => {
+                          const amount = Number(
+                            item.amount || 0,
+                          );
+
+                          return Number.isFinite(amount)
+                            ? total + amount
+                            : total;
+                        },
+                        0,
+                      ),
+                    )}
+                  </div>
+                </div>
 
                 <label>
                   <span className="text-sm font-bold text-slate-700">

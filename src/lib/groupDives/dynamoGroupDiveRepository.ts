@@ -139,6 +139,7 @@ function normalizePaymentStatus(
 
 function createDefaultSettlement(): GroupDiveSettlement {
   return {
+    additionalItems: [],
     additionalAmount: 0,
     discountAmount: 0,
     paidAmount: 0,
@@ -150,6 +151,56 @@ function createDefaultSettlement(): GroupDiveSettlement {
     memo: "",
     updatedAt: "",
   };
+}
+
+function normalizeSettlementAdditionalItems(
+  value: unknown,
+): GroupDiveSettlement["additionalItems"] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item, index) => {
+      if (
+        typeof item !== "object" ||
+        item === null ||
+        Array.isArray(item)
+      ) {
+        return null;
+      }
+
+      const candidate =
+        item as Partial<GroupDiveSettlement["additionalItems"][number]>;
+      const amount = normalizeAmount(candidate.amount);
+      const title =
+        typeof candidate.title === "string"
+          ? candidate.title.trim()
+          : "";
+
+      if (!title || amount <= 0) {
+        return null;
+      }
+
+      return {
+        id:
+          typeof candidate.id === "string" && candidate.id
+            ? candidate.id
+            : `additional-${index + 1}`,
+        date:
+          typeof candidate.date === "string"
+            ? candidate.date
+            : "",
+        title,
+        amount,
+      };
+    })
+    .filter(
+      (
+        item,
+      ): item is GroupDiveSettlement["additionalItems"][number] =>
+        item !== null,
+    );
 }
 
 function normalizeSettlement(
@@ -165,11 +216,21 @@ function normalizeSettlement(
 
   const settlement =
     value as Partial<GroupDiveSettlement>;
+  const additionalItems =
+    normalizeSettlementAdditionalItems(
+      settlement.additionalItems,
+    );
+  const additionalAmount =
+    additionalItems.length > 0
+      ? additionalItems.reduce(
+          (total, item) => total + item.amount,
+          0,
+        )
+      : normalizeAmount(settlement.additionalAmount);
 
   return {
-    additionalAmount: normalizeAmount(
-      settlement.additionalAmount,
-    ),
+    additionalItems,
+    additionalAmount,
 
     discountAmount: normalizeAmount(
       settlement.discountAmount,
@@ -475,6 +536,9 @@ function prepareSettlementForStorage(
   settlement: GroupDiveSettlement,
 ) {
   return removeUndefinedValues({
+    additionalItems:
+      settlement.additionalItems,
+
     additionalAmount:
       settlement.additionalAmount,
 

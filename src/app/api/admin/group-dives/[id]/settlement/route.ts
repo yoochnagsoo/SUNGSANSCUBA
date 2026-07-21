@@ -4,6 +4,7 @@ import { getGroupDiveRepository } from "@/lib/groupDives/groupDiveRepository";
 import type {
   GroupDivePaymentMethod,
   GroupDiveSettlement,
+  GroupDiveSettlementAdditionalItem,
   GroupDiveSettlementStatus,
 } from "@/lib/groupDives/types";
 
@@ -46,6 +47,78 @@ function normalizeAmount(value: unknown) {
   }
 
   return Math.round(parsed);
+}
+
+function normalizeAdditionalItems(value: unknown): {
+  items: GroupDiveSettlementAdditionalItem[];
+  message?: string;
+} {
+  if (typeof value === "undefined") {
+    return {
+      items: [],
+    };
+  }
+
+  if (!Array.isArray(value)) {
+    return {
+      items: [],
+      message: "추가 비용 항목 형식을 확인해주세요.",
+    };
+  }
+
+  const items: GroupDiveSettlementAdditionalItem[] = [];
+
+  for (const [index, rawItem] of value.entries()) {
+    if (
+      typeof rawItem !== "object" ||
+      rawItem === null ||
+      Array.isArray(rawItem)
+    ) {
+      return {
+        items: [],
+        message: "추가 비용 항목 형식을 확인해주세요.",
+      };
+    }
+
+    const item = rawItem as Record<string, unknown>;
+    const date = normalizeText(item.date);
+    const title = normalizeText(item.title);
+    const amount = normalizeAmount(item.amount);
+
+    if (!date) {
+      return {
+        items: [],
+        message: "추가 비용 발생일자를 입력해주세요.",
+      };
+    }
+
+    if (!title) {
+      return {
+        items: [],
+        message: "추가 비용 항목을 입력해주세요.",
+      };
+    }
+
+    if (amount === null || amount <= 0) {
+      return {
+        items: [],
+        message: "추가 비용 금액을 올바르게 입력해주세요.",
+      };
+    }
+
+    items.push({
+      id:
+        normalizeText(item.id) ||
+        `additional-${index + 1}`,
+      date,
+      title,
+      amount,
+    });
+  }
+
+  return {
+    items,
+  };
 }
 
 function isSettlementStatus(
@@ -244,10 +317,36 @@ export async function PATCH(
       unknown
     >;
 
+    const parsedAdditionalItems =
+      typeof body.additionalItems !== "undefined"
+        ? normalizeAdditionalItems(body.additionalItems)
+        : {
+            items:
+              groupDive.settlement.additionalItems ?? [],
+          };
+
+    if (parsedAdditionalItems.message) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: parsedAdditionalItems.message,
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const additionalItems = parsedAdditionalItems.items;
     const additionalAmount =
-      typeof body.additionalAmount !== "undefined"
-        ? normalizeAmount(body.additionalAmount)
-        : groupDive.settlement.additionalAmount;
+      typeof body.additionalItems !== "undefined"
+        ? additionalItems.reduce(
+            (total, item) => total + item.amount,
+            0,
+          )
+        : typeof body.additionalAmount !== "undefined"
+          ? normalizeAmount(body.additionalAmount)
+          : groupDive.settlement.additionalAmount;
 
     if (additionalAmount === null) {
       return NextResponse.json(
@@ -401,6 +500,7 @@ export async function PATCH(
     const now = new Date().toISOString();
 
     const settlement: GroupDiveSettlement = {
+      additionalItems,
       additionalAmount,
       discountAmount,
       paidAmount,

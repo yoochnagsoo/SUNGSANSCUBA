@@ -135,6 +135,7 @@ export type GroupDivePayment = {
 };
 
 export type GroupDiveSettlement = {
+  additionalItems: GroupDiveSettlementAdditionalItem[];
   additionalAmount: number;
   discountAmount: number;
   paidAmount: number;
@@ -146,6 +147,13 @@ export type GroupDiveSettlement = {
   memo: string;
 
   updatedAt: string;
+};
+
+export type GroupDiveSettlementAdditionalItem = {
+  id: string;
+  date: string;
+  title: string;
+  amount: number;
 };
 
 export type GroupDive = {
@@ -294,6 +302,7 @@ export type GroupDiveTripUpdateInput = {
 };
 
 export type GroupDiveSettlementUpdateInput = {
+  additionalItems?: GroupDiveSettlementAdditionalItem[];
   additionalAmount?: number;
   discountAmount?: number;
 
