@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   CalendarDays,
   Check,
-  ChevronRight,
   Loader2,
   Pencil,
   Phone,
@@ -1948,22 +1947,13 @@ export default function AdminGroupDiveDetailPage() {
         </div>
       ) : null}
 
-      <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">
           <p className="text-xs font-bold text-slate-700">
             예상 인원
           </p>
           <p className="mt-2 text-2xl font-black text-slate-950">
             {groupDive.expectedPeople}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">
-          <p className="text-xs font-bold text-slate-700">
-            등록 참가자
-          </p>
-          <p className="mt-2 text-2xl font-black text-slate-950">
-            {summary.activeParticipants}
           </p>
         </div>
 
@@ -1985,7 +1975,7 @@ export default function AdminGroupDiveDetailPage() {
           </p>
         </div>
 
-        <div className="col-span-2 rounded-2xl border border-slate-300 bg-white p-4 shadow-sm lg:col-span-1">
+        <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">
           <p className="text-xs font-bold text-slate-700">
             예상 정산액
           </p>
@@ -2289,8 +2279,8 @@ export default function AdminGroupDiveDetailPage() {
         )}
       </section>
 
-      <div className="mt-6 grid gap-6 2xl:grid-cols-[0.9fr_1.1fr]">
-        <section className="rounded-3xl border border-slate-300 bg-white shadow-sm">
+      <div className="mt-6">
+        <section className="hidden">
           <div className="flex items-center justify-between border-b border-slate-300 px-5 py-4 sm:px-6">
             <div>
               <h2 className="text-lg font-black text-slate-950">
@@ -2550,18 +2540,6 @@ export default function AdminGroupDiveDetailPage() {
                           type="button"
                           disabled={isGroupLocked}
                           onClick={() =>
-                            openBoardingForm(trip)
-                          }
-                          className="inline-flex h-10 items-center justify-center gap-1 rounded-xl bg-cyan-600 px-4 text-sm font-bold text-white hover:bg-cyan-700"
-                        >
-                          승선 관리
-                          <ChevronRight className="h-4 w-4" />
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={isGroupLocked}
-                          onClick={() =>
                             void handleDeleteTrip(trip)
                           }
                           aria-label="회차 삭제"
@@ -2572,16 +2550,7 @@ export default function AdminGroupDiveDetailPage() {
                       </div>
                     </div>
 
-                    <div className="mt-4 grid grid-cols-2 divide-x divide-slate-200 rounded-2xl border border-slate-300">
-                      <div className="px-3 py-3 text-center">
-                        <p className="text-xs font-semibold text-slate-600">
-                          명단
-                        </p>
-                        <p className="mt-1 font-black text-slate-900">
-                          {trip.participants.length}
-                        </p>
-                      </div>
-
+                    <div className="mt-4 rounded-2xl border border-slate-300">
                       <div className="px-3 py-3 text-center">
                         <p className="text-xs font-semibold text-slate-600">
                           승선 · 정산 대상
